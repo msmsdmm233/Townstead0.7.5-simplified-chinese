@@ -55,6 +55,13 @@ public final class BuildingSpiritIndex {
         return CONTRIBUTIONS.size();
     }
 
+    public static void prewarm(Iterable<String> buildingTypes) {
+        if (buildingTypes == null) return;
+        for (String buildingType : buildingTypes) {
+            contributionsFor(buildingType);
+        }
+    }
+
     private static Map<String, Integer> scanForContributions(String buildingType) {
         Map<String, Integer> scanned = scanClasspathCompanion(buildingType);
         if (scanned.isEmpty()) {

@@ -183,6 +183,10 @@ public abstract class BlueprintScreenMixin extends Screen {
     @Unique
     private CatalogDetailCache townstead$catalogDetailCache = null;
     @Unique
+    private final Map<String, String> townstead$translationTextCache = new HashMap<>();
+    @Unique
+    private final Map<String, Component> townstead$translationComponentCache = new HashMap<>();
+    @Unique
     private final Set<String> townstead$builtTypes = new HashSet<>();
     @Unique
     private double townstead$catalogPanX = 0.0;
@@ -1288,6 +1292,8 @@ public abstract class BlueprintScreenMixin extends Screen {
                         .overrideFor(bt.name()).hide())
                 .sorted(Comparator.comparing(this::townstead$catalogSortKey))
                 .collect(Collectors.toList());
+        com.aetherianartificer.townstead.spirit.BuildingSpiritIndex.prewarm(
+                all.stream().map(BuildingType::name).collect(Collectors.toList()));
         townstead$catalogEntries = all;
         townstead$catalogSelected = Math.max(0, Math.min(townstead$catalogSelected, Math.max(0, all.size() - 1)));
     }
@@ -2834,7 +2840,7 @@ public abstract class BlueprintScreenMixin extends Screen {
         int sharePct = total > 0 ? (int) Math.round(100.0 * pts / total) : 0;
         int tier = com.aetherianartificer.townstead.spirit.VillageSpiritAggregator.tierForSpirit(pts);
         int[] thresholds = com.aetherianartificer.townstead.spirit.VillageSpiritAggregator.tierThresholds();
-        String displayName = Component.translatable(opt.get().displayKey()).getString();
+        String displayName = townstead$translatedText(opt.get().displayKey());
         StringBuilder sb = new StringBuilder();
         sb.append(displayName).append(": ").append(pts);
         if (tier < thresholds.length) {
@@ -2845,7 +2851,7 @@ public abstract class BlueprintScreenMixin extends Screen {
         sb.append(", ").append(sharePct).append(" percent share");
         if (tier >= 1) {
             String tierKey = "townstead.spirit.tier." + hoveredSpiritId + "." + tier;
-            sb.append(", ").append(Component.translatable(tierKey).getString()).append(" tier");
+            sb.append(", ").append(townstead$translatedText(tierKey)).append(" tier");
         }
         int contribCount = contribs.getOrDefault(hoveredSpiritId, java.util.List.of()).size();
         if (contribCount > 0) {
@@ -2986,6 +2992,17 @@ public abstract class BlueprintScreenMixin extends Screen {
     private int townstead$spiritTogglePillY(int windowY) { return windowY + 4; }
 
     @Unique
+    private Component townstead$translatedComponent(String key) {
+        return townstead$translationComponentCache.computeIfAbsent(key, Component::translatable);
+    }
+
+    @Unique
+    private String townstead$translatedText(String key) {
+        return townstead$translationTextCache.computeIfAbsent(key,
+                k -> Component.translatable(k).getString());
+    }
+
+    @Unique
     private void townstead$drawListIcon(GuiGraphics context, int x, int y, int color) {
         // Three horizontal bars, 6×1 each, 2 px apart. Fits in 6×5.
         context.fill(x,     y,     x + 6, y + 1, color);
@@ -3046,11 +3063,11 @@ public abstract class BlueprintScreenMixin extends Screen {
         context.fill(windowX + 3, windowY + 3, windowX + windowW - 3, windowY + 16, 0xFF3A3F47);
 
         // Title, centered over the title strip.
-        Component title = Component.translatable("townstead.spirit.title");
+        Component title = townstead$translatedComponent("townstead.spirit.title");
         context.drawCenteredString(this.font, title, windowX + windowW / 2, windowY + 6, 0xFFFFFF);
 
         if (snapshotOpt.isEmpty()) {
-            Component pending = Component.translatable("townstead.spirit.subtitle.loading");
+            Component pending = townstead$translatedComponent("townstead.spirit.subtitle.loading");
             context.drawCenteredString(this.font, pending,
                     windowX + windowW / 2, windowY + windowH / 2 - 4, 0xA0A0A0);
             return;
@@ -3096,7 +3113,7 @@ public abstract class BlueprintScreenMixin extends Screen {
 
             // Title text on top of the tint.
             context.drawCenteredString(this.font,
-                    Component.translatable("townstead.spirit.title"),
+                    townstead$translatedComponent("townstead.spirit.title"),
                     windowX + windowW / 2, windowY + 6, 0xFFFFFF);
 
             // Soft edge tint — gradient bleeding inward top + bottom.
@@ -3333,8 +3350,8 @@ public abstract class BlueprintScreenMixin extends Screen {
             case 1 -> list.sort((a, b) -> Integer.compare(
                     contribs.getOrDefault(b.id(), java.util.List.of()).size(),
                     contribs.getOrDefault(a.id(), java.util.List.of()).size()));
-            case 2 -> list.sort((a, b) -> Component.translatable(a.displayKey()).getString()
-                    .compareToIgnoreCase(Component.translatable(b.displayKey()).getString()));
+            case 2 -> list.sort((a, b) -> townstead$translatedText(a.displayKey())
+                    .compareToIgnoreCase(townstead$translatedText(b.displayKey())));
             default -> list.sort((a, b) -> Integer.compare(
                     snapshot.perSpirit().getOrDefault(b.id(), 0),
                     snapshot.perSpirit().getOrDefault(a.id(), 0)));
@@ -3433,13 +3450,13 @@ public abstract class BlueprintScreenMixin extends Screen {
         context.pose().popPose();
 
         int textLeft = left + (int) Math.round(19 * rs);
-        Component label = Component.translatable(s.displayKey());
+        Component label = townstead$translatedComponent(s.displayKey());
         int labelColor = hc ? 0xFFFFFFFF : s.color();
         townstead$drawScaledString(context, label, textLeft, textY, labelColor, fs);
         int labelW = (int) Math.round(this.font.width(label) * fs);
         if (tier >= 1) {
             String tierKey = "townstead.spirit.tier." + s.id() + "." + tier;
-            String tierName = Component.translatable(tierKey).getString();
+            String tierName = townstead$translatedText(tierKey);
             int tierColor = hc ? 0xFFCCCCCC : 0xFF808890;
             townstead$drawScaledString(context, "\u00B7 " + tierName,
                     textLeft + labelW + 4, textY, tierColor, fs);
@@ -3451,8 +3468,8 @@ public abstract class BlueprintScreenMixin extends Screen {
         } else {
             int nextThreshold = thresholds[tier];
             int remain = nextThreshold - pts;
-            String nextTierName = Component.translatable(
-                    "townstead.spirit.tier." + s.id() + "." + (tier + 1)).getString();
+            String nextTierName = townstead$translatedText(
+                    "townstead.spirit.tier." + s.id() + "." + (tier + 1));
             num = pts + " pts \u00B7 " + sharePct + "% \u00B7 " + remain + " \u2192 " + nextTierName;
         }
         int numW = (int) Math.round(this.font.width(num) * fs);
@@ -3532,7 +3549,7 @@ public abstract class BlueprintScreenMixin extends Screen {
         int emptyColor = hc ? 0xFFCCCCCC : 0xFF707078;
         if (contributors.isEmpty()) {
             townstead$drawScaledString(context,
-                    Component.translatable("townstead.spirit.no_contributors"),
+                    townstead$translatedComponent("townstead.spirit.no_contributors"),
                     left, listY, emptyColor, fs);
         } else {
             for (ContributorEntry c : contributors) {
@@ -3544,7 +3561,7 @@ public abstract class BlueprintScreenMixin extends Screen {
                     context.renderItem(iconStack, 0, 0);
                     context.pose().popPose();
                 }
-                String displayName = Component.translatable("buildingType." + c.buildingType()).getString();
+                String displayName = townstead$translatedText("buildingType." + c.buildingType());
                 String line = c.count() + "x " + displayName + "  +" + c.points();
                 townstead$drawScaledString(context, line, contribTextX, listY, contribColor, fs);
                 listY += contribLineH;
@@ -3652,7 +3669,7 @@ public abstract class BlueprintScreenMixin extends Screen {
             context.pose().scale(0.625f, 0.625f, 1f);
             context.renderItem(new net.minecraft.world.item.ItemStack(s.icon()), 0, 0);
             context.pose().popPose();
-            String lbl = Component.translatable(s.displayKey()).getString() + " " + pts;
+            String lbl = townstead$translatedText(s.displayKey()) + " " + pts;
             context.pose().pushPose();
             context.pose().scale(0.75f, 0.75f, 1f);
             int lw = this.font.width(lbl);
