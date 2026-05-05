@@ -238,8 +238,6 @@ public abstract class BlueprintScreenMixin extends Screen {
     @Unique
     private static final Map<String, String> TOWNSTEAD$BUILDING_NAME_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
     @Unique
-    private static final Map<ResourceLocation, String> TOWNSTEAD$REQUIREMENT_NAME_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
-    @Unique
     private static final Map<String, String> TOWNSTEAD$SORT_KEY_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
     @Unique
     private static final Map<String, String> TOWNSTEAD$COMPAT_GROUP_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
@@ -1557,14 +1555,24 @@ public abstract class BlueprintScreenMixin extends Screen {
         double panX = townstead$catalogPanX;
         double panY = townstead$catalogPanY;
         double zoom = townstead$catalogZoom;
+        int viewLeft = insideX;
+        int viewRight = insideX + insideW;
+        int viewTop = insideY;
+        int viewBottom = insideY + insideH;
         for (int[] edge : townstead$catalogConnections) {
             int x1 = insideX + (int) Math.round((edge[0] + panX) * zoom);
             int y1 = insideY + (int) Math.round((edge[1] + panY) * zoom);
             int x2 = insideX + (int) Math.round((edge[2] + panX) * zoom);
             int y2 = insideY + (int) Math.round((edge[3] + panY) * zoom);
+            int minX = Math.min(x1, x2);
+            int maxX = Math.max(x1, x2) + 1;
             int minY = Math.min(y1, y2);
-            int maxY = Math.max(y1, y2);
-            context.fill(Math.min(x1, x2), minY, Math.max(x1, x2) + 1, maxY + 1, 0xFFA6B6CC);
+            int maxY = Math.max(y1, y2) + 1;
+            // Edge bbox vs viewport: skip if entirely outside.
+            if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) {
+                continue;
+            }
+            context.fill(minX, minY, maxX, maxY, 0xFFA6B6CC);
         }
     }
 
@@ -1572,11 +1580,21 @@ public abstract class BlueprintScreenMixin extends Screen {
     private void townstead$drawCatalogNodes(GuiGraphics context, int insideX, int insideY, int insideW, int insideH,
             int mouseX, int mouseY, float partialTicks,
             com.aetherianartificer.townstead.client.catalog.CatalogDataLoader.Theme theme) {
+        int viewLeft = insideX;
+        int viewRight = insideX + insideW;
+        int viewTop = insideY;
+        int viewBottom = insideY + insideH;
         for (NodeData node : townstead$catalogNodes) {
             int screenX = insideX + (int) Math.round((node.worldX() + townstead$catalogPanX) * townstead$catalogZoom);
             int screenY = insideY + (int) Math.round((node.worldY() + townstead$catalogPanY) * townstead$catalogZoom);
             int nodeW = Math.max(16, (int) Math.round(26 * townstead$catalogZoom));
             int nodeH = Math.max(16, (int) Math.round(26 * townstead$catalogZoom));
+            // Cull nodes whose 1-px-padded screen rect is entirely outside the
+            // visible inside rect. The +/- 1 pads for the border quad below.
+            if (screenX + nodeW + 1 < viewLeft || screenX - 1 > viewRight
+                    || screenY + nodeH + 1 < viewTop || screenY - 1 > viewBottom) {
+                continue;
+            }
 
             boolean hovered = mouseX >= screenX && mouseX <= screenX + nodeW
                     && mouseY >= screenY && mouseY <= screenY + nodeH;
@@ -1873,46 +1891,7 @@ public abstract class BlueprintScreenMixin extends Screen {
 
     @Unique
     private String townstead$displayRequirementName(ResourceLocation id) {
-        String cached = TOWNSTEAD$REQUIREMENT_NAME_CACHE.get(id);
-        if (cached != null) return cached;
-        String result = townstead$resolveRequirementName(id);
-        TOWNSTEAD$REQUIREMENT_NAME_CACHE.put(id, result);
-        return result;
-    }
-
-    @Unique
-    private String townstead$resolveRequirementName(ResourceLocation id) {
-        if (BuiltInRegistries.BLOCK.containsKey(id)) {
-            Block block = BuiltInRegistries.BLOCK.get(id);
-            return Component.translatable(block.getDescriptionId()).getString();
-        }
-        if (BuiltInRegistries.ITEM.containsKey(id)) {
-            Item item = BuiltInRegistries.ITEM.get(id);
-            return Component.translatable(item.getDescriptionId()).getString();
-        }
-        String tagPath = id.toString().replace(':', '.').replace('/', '.');
-        String slashKey = "tag.block." + tagPath;
-        String dottedKey = "tag.item." + tagPath;
-        String slash = Component.translatable(slashKey).getString();
-        if (!slash.equals(slashKey))
-            return slash;
-        String dotted = Component.translatable(dottedKey).getString();
-        if (!dotted.equals(dottedKey))
-            return dotted;
-        String fallback = id.getPath().replace('_', ' ');
-        if (fallback.endsWith("s") && fallback.length() > 3) {
-            fallback = fallback.substring(0, fallback.length() - 1);
-        }
-        String[] words = fallback.split(" ");
-        StringBuilder out = new StringBuilder();
-        for (String w : words) {
-            if (w.isEmpty())
-                continue;
-            if (!out.isEmpty())
-                out.append(' ');
-            out.append(w.substring(0, 1).toUpperCase(Locale.ROOT)).append(w.substring(1));
-        }
-        return out.toString();
+        return com.aetherianartificer.townstead.client.catalog.RequirementNameResolver.displayName(id);
     }
 
     @Unique

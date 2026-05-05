@@ -105,6 +105,7 @@ public final class TownsteadClient {
                     net.conczin.mca.resources.BuildingTypes.getInstance().getBuildingTypes().keySet();
             if (!types.isEmpty()) {
                 com.aetherianartificer.townstead.spirit.BuildingSpiritIndex.prewarmAsync(types);
+                com.aetherianartificer.townstead.client.catalog.RequirementNameResolver.prewarmAsync();
                 spiritIndexWarmTicksRemaining = -1;
                 return;
             }
