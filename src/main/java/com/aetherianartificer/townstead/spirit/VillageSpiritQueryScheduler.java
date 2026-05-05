@@ -1,6 +1,5 @@
 package com.aetherianartificer.townstead.spirit;
 
-import com.aetherianartificer.townstead.Townstead;
 import net.conczin.mca.server.world.data.Building;
 import net.conczin.mca.server.world.data.Village;
 import net.minecraft.server.MinecraftServer;
@@ -38,36 +37,22 @@ public final class VillageSpiritQueryScheduler {
     public static void enqueue(ServerLevel level, Village village, ServerPlayer player) {
         if (level == null || village == null || player == null) return;
 
-        long t0 = System.nanoTime();
         VillageSpiritCache.Entry cached = VillageSpiritCache.get(level, village.getId());
         if (cached != null) {
             send(player, VillageSpiritSyncPayload.fromCache(village.getId(), cached));
-            Townstead.LOGGER.info("[TS-Diag/SpiritQ] enqueue cacheHit village={} player={} elapsedUs={}",
-                    village.getId(), player.getName().getString(), (System.nanoTime() - t0) / 1_000L);
             return;
         }
 
         String key = keyOf(level, village.getId(), player.getUUID());
-        if (!PENDING_KEYS.add(key)) {
-            Townstead.LOGGER.info("[TS-Diag/SpiritQ] enqueue dedup village={} player={} queueDepth={}",
-                    village.getId(), player.getName().getString(), QUEUE.size());
-            return;
-        }
-        int buildings = village.getBuildings().size();
+        if (!PENDING_KEYS.add(key)) return;
         QUEUE.add(new Job(key, level, village.getId(), player.getUUID(),
-                new ArrayList<>(village.getBuildings().values()), System.nanoTime()));
-        Townstead.LOGGER.info("[TS-Diag/SpiritQ] enqueue queued village={} player={} buildings={} queueDepth={} setupUs={}",
-                village.getId(), player.getName().getString(), buildings, QUEUE.size(),
-                (System.nanoTime() - t0) / 1_000L);
+                new ArrayList<>(village.getBuildings().values())));
     }
 
     public static void tick(MinecraftServer server) {
         if (server == null || QUEUE.isEmpty()) return;
-        long tickStart = System.nanoTime();
-        long deadline = tickStart + MAX_NANOS_PER_TICK;
+        long deadline = System.nanoTime() + MAX_NANOS_PER_TICK;
         int processed = 0;
-        int jobsCompleted = 0;
-        int queueDepthBefore = QUEUE.size();
 
         while (!QUEUE.isEmpty() && processed < MAX_BUILDINGS_PER_TICK && System.nanoTime() < deadline) {
             Job job = QUEUE.peek();
@@ -77,13 +62,7 @@ public final class VillageSpiritQueryScheduler {
             QUEUE.poll();
             PENDING_KEYS.remove(job.key);
             complete(server, job);
-            jobsCompleted++;
         }
-        long elapsed = System.nanoTime() - tickStart;
-        // Only log when we actually did work — silent ticks would flood logs.
-        Townstead.LOGGER.info("[TS-Diag/SpiritQ] tick buildingsProcessed={} jobsCompleted={} queueBefore={} queueAfter={} elapsedUs={} budgetUs={}",
-                processed, jobsCompleted, queueDepthBefore, QUEUE.size(),
-                elapsed / 1_000L, MAX_NANOS_PER_TICK / 1_000L);
     }
 
     public static void clear() {
@@ -92,7 +71,6 @@ public final class VillageSpiritQueryScheduler {
     }
 
     private static void complete(MinecraftServer server, Job job) {
-        long t0 = System.nanoTime();
         SpiritTotals totals = new SpiritTotals(Map.copyOf(job.perSpirit), job.total, job.contributingBuildings);
         SpiritReadout readout = VillageSpiritAggregator.readoutFor(totals);
         java.util.Map<String, java.util.List<ContributorRow>> contributors = job.buildContributors();
@@ -100,16 +78,9 @@ public final class VillageSpiritQueryScheduler {
         VillageSpiritCache.put(job.level, job.villageId, entry);
 
         ServerPlayer player = server.getPlayerList().getPlayer(job.playerUuid);
-        boolean delivered = false;
         if (player != null) {
             send(player, VillageSpiritSyncPayload.fromCache(job.villageId, entry));
-            delivered = true;
         }
-        long latency = System.nanoTime() - job.enqueuedAtNanos;
-        long completeTime = System.nanoTime() - t0;
-        Townstead.LOGGER.info("[TS-Diag/SpiritQ] complete village={} buildings={} contributing={} totalPts={} spirits={} latencyMs={} completeUs={} delivered={}",
-                job.villageId, job.buildings.size(), job.contributingBuildings, job.total,
-                job.perSpirit.size(), latency / 1_000_000L, completeTime / 1_000L, delivered);
     }
 
     private static void send(ServerPlayer player, VillageSpiritSyncPayload payload) {
@@ -135,19 +106,16 @@ public final class VillageSpiritQueryScheduler {
         // we walk the building list so the Spirit page's contributor view can
         // be served from the cache without re-iterating.
         final Map<String, Map<String, int[]>> contributors = new HashMap<>();
-        final long enqueuedAtNanos;
         int cursor = 0;
         int total = 0;
         int contributingBuildings = 0;
 
-        Job(String key, ServerLevel level, int villageId, UUID playerUuid,
-                List<Building> buildings, long enqueuedAtNanos) {
+        Job(String key, ServerLevel level, int villageId, UUID playerUuid, List<Building> buildings) {
             this.key = key;
             this.level = level;
             this.villageId = villageId;
             this.playerUuid = playerUuid;
             this.buildings = buildings;
-            this.enqueuedAtNanos = enqueuedAtNanos;
         }
 
         int process(int limit) {

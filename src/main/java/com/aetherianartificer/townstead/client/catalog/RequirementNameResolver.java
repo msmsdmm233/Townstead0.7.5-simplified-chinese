@@ -26,6 +26,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class RequirementNameResolver {
     private static final ConcurrentHashMap<ResourceLocation, String> CACHE = new ConcurrentHashMap<>();
     private static final AtomicBoolean ASYNC_WARM_RUNNING = new AtomicBoolean(false);
+    /**
+     * Set true once a full BuildingTypes warm has finished. The catalog-open
+     * fallback in {@code BlueprintScreenMixin} calls
+     * {@link #prewarmAllFromBuildingTypes()} on every open; once warmed, that
+     * call short-circuits before iterating BuildingTypes (which is otherwise
+     * a few thousand HashSet adds at 400-mod scale).
+     */
+    private static final AtomicBoolean WARMED = new AtomicBoolean(false);
 
     private RequirementNameResolver() {}
 
@@ -37,14 +45,6 @@ public final class RequirementNameResolver {
         return result;
     }
 
-    public static int cacheSize() {
-        return CACHE.size();
-    }
-
-    public static void clear() {
-        CACHE.clear();
-    }
-
     /**
      * Pre-resolve every requirement of every building type on a worker
      * thread. The caller must snapshot the requirement-id set on the main
@@ -54,36 +54,18 @@ public final class RequirementNameResolver {
      * Language manager + registries are read-only post-init.
      */
     public static void prewarmAsync(java.util.Collection<ResourceLocation> requirementIds) {
-        if (requirementIds == null || requirementIds.isEmpty()) {
-            Townstead.LOGGER.info("[TS-Diag/ReqName] prewarmAsync skip reason=empty");
-            return;
-        }
-        if (!ASYNC_WARM_RUNNING.compareAndSet(false, true)) {
-            Townstead.LOGGER.info("[TS-Diag/ReqName] prewarmAsync skip reason=alreadyRunning ids={}",
-                    requirementIds.size());
-            return;
-        }
+        if (requirementIds == null || requirementIds.isEmpty()) return;
+        if (!ASYNC_WARM_RUNNING.compareAndSet(false, true)) return;
         // Snapshot defensively — the caller may pass a live Map.keySet().
         java.util.List<ResourceLocation> snapshot = new java.util.ArrayList<>(requirementIds);
-        Townstead.LOGGER.info("[TS-Diag/ReqName] prewarmAsync dispatch ids={} cacheSize={}",
-                snapshot.size(), CACHE.size());
         ForkJoinPool.commonPool().execute(() -> {
             try {
-                long t0 = System.nanoTime();
-                int hitsBefore = CACHE.size();
-                int resolved = 0;
                 for (ResourceLocation id : snapshot) {
-                    if (!CACHE.containsKey(id)) {
-                        CACHE.put(id, resolve(id));
-                        resolved++;
-                    }
+                    if (!CACHE.containsKey(id)) CACHE.put(id, resolve(id));
                 }
-                long elapsed = System.nanoTime() - t0;
-                Townstead.LOGGER.info("[TS-Diag/ReqName] prewarmAsync done seen={} resolved={} cacheSize={} elapsedUs={} thread={}",
-                        snapshot.size(), resolved, CACHE.size(),
-                        elapsed / 1_000L, Thread.currentThread().getName());
+                WARMED.set(true);
             } catch (Throwable t) {
-                Townstead.LOGGER.warn("[TS-Diag/ReqName] prewarmAsync failed", t);
+                Townstead.LOGGER.warn("RequirementNameResolver prewarm failed", t);
             } finally {
                 ASYNC_WARM_RUNNING.set(false);
             }
@@ -92,21 +74,26 @@ public final class RequirementNameResolver {
 
     /**
      * Convenience entry point: gathers every building type's requirement ids
-     * on the calling (main) thread and dispatches the async warm.
+     * on the calling (main) thread and dispatches the async warm. The gather
+     * step must run on the main thread because {@code BuildingTypes} is the
+     * data-pack registry and not safe to iterate off-thread.
+     *
+     * <p>Short-circuits once a full warm has completed, so the catalog-open
+     * fallback path doesn't pay to iterate {@code BuildingTypes} every time.
+     * Also short-circuits if a warm is currently in flight — the in-flight
+     * one already covers the same ids.
      */
     public static void prewarmAllFromBuildingTypes() {
-        Townstead.LOGGER.info("[TS-Diag/ReqName] prewarmAllFromBuildingTypes entered thread={}",
-                Thread.currentThread().getName());
+        if (WARMED.get() || ASYNC_WARM_RUNNING.get()) return;
         java.util.LinkedHashSet<ResourceLocation> ids = new java.util.LinkedHashSet<>();
         try {
             for (BuildingType bt : BuildingTypes.getInstance()) {
                 ids.addAll(bt.getGroups().keySet());
             }
         } catch (Throwable t) {
-            Townstead.LOGGER.warn("[TS-Diag/ReqName] failed to collect requirement ids on calling thread", t);
+            Townstead.LOGGER.warn("RequirementNameResolver: failed to collect requirement ids", t);
             return;
         }
-        Townstead.LOGGER.info("[TS-Diag/ReqName] prewarmAllFromBuildingTypes collected ids={}", ids.size());
         prewarmAsync(ids);
     }
 

@@ -33,41 +33,19 @@ public abstract class GetVillageRequestMixin {
     /*@Inject(method = "receive", at = @At("TAIL"), remap = false)
     *///?}
     private void townstead$sendSpiritSnapshot(ServerPlayer player, CallbackInfo ci) {
-        long t0 = System.nanoTime();
         try {
-            if (!(player.level() instanceof ServerLevel level)) {
-                Townstead.LOGGER.info("[TS-Diag/Spirit] piggyback skip reason=notServerLevel player={}",
-                        player.getName().getString());
-                return;
-            }
-            long t1 = System.nanoTime();
+            if (!(player.level() instanceof ServerLevel level)) return;
             Optional<Village> village = Village.findNearest(player);
-            long t2 = System.nanoTime();
-            if (village.isEmpty()) {
-                Townstead.LOGGER.info("[TS-Diag/Spirit] piggyback skip reason=noVillage player={} findNearestUs={}",
-                        player.getName().getString(), (t2 - t1) / 1_000L);
-                return;
-            }
+            if (village.isEmpty()) return;
             Village v = village.get();
             VillageSpiritCache.Entry entry = VillageSpiritCache.get(level, v.getId());
-            long t3 = System.nanoTime();
-            if (entry == null) {
-                Townstead.LOGGER.info("[TS-Diag/Spirit] piggyback skip reason=cacheMiss player={} village={} findNearestUs={} cacheUs={}",
-                        player.getName().getString(), v.getId(),
-                        (t2 - t1) / 1_000L, (t3 - t2) / 1_000L);
-                return;
-            }
+            if (entry == null) return;
             VillageSpiritSyncPayload payload = VillageSpiritSyncPayload.fromCache(v.getId(), entry);
             //? if neoforge {
             PacketDistributor.sendToPlayer(player, payload);
             //?} else if forge {
             /*com.aetherianartificer.townstead.TownsteadNetwork.sendToPlayer(player, payload);
             *///?}
-            long t4 = System.nanoTime();
-            Townstead.LOGGER.info("[TS-Diag/Spirit] piggyback sent player={} village={} findNearestUs={} cacheUs={} sendUs={} totalUs={}",
-                    player.getName().getString(), v.getId(),
-                    (t2 - t1) / 1_000L, (t3 - t2) / 1_000L, (t4 - t3) / 1_000L,
-                    (t4 - t0) / 1_000L);
         } catch (RuntimeException ex) {
             Townstead.LOGGER.warn("Unable to send village spirit snapshot for {}", player.getName().getString(), ex);
         }

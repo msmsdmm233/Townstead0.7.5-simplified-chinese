@@ -224,10 +224,6 @@ public abstract class BlueprintScreenMixin extends Screen {
     private String townstead$cachedUpgradeTargetType = null;
     @Unique
     private long townstead$nextUpgradeScanGameTime = Long.MIN_VALUE;
-    @Unique
-    private long townstead$lastRenderLogNanos = 0L;
-    @Unique
-    private final java.util.Map<String, long[]> townstead$renderFrameSamples = new HashMap<>();
     /**
      * Resolved building-display-name cache. Keys are buildingType ids. Values
      * survive across blueprint opens because the language manager is
@@ -349,7 +345,6 @@ public abstract class BlueprintScreenMixin extends Screen {
             return;
         if (!TownsteadConfig.USE_TOWNSTEAD_CATALOG.get())
             return;
-        long t0 = System.nanoTime();
         if (this.page != null && !this.page.isBlank() && !TOWNSTEAD_CATALOG_PAGE.equals(this.page)) {
             townstead$catalogReturnPage = this.page;
         } else {
@@ -358,14 +353,11 @@ public abstract class BlueprintScreenMixin extends Screen {
         townstead$redirectingCatalog = true;
         setPage(TOWNSTEAD_CATALOG_PAGE);
         townstead$redirectingCatalog = false;
-        Townstead.LOGGER.info("[TS-Diag/BP] redirectCatalog returnPage={} totalUs={}",
-                townstead$catalogReturnPage, (System.nanoTime() - t0) / 1_000L);
         ci.cancel();
     }
 
     @Inject(method = "setPage", remap = false, at = @At("TAIL"))
     private void townstead$injectFarmingPage(String pageName, CallbackInfo ci) {
-        long t0 = System.nanoTime();
         townstead$collectNavButtons();
         townstead$applyNavScroll();
 
@@ -435,8 +427,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 b.active = !TOWNSTEAD_CATALOG_PAGE.equals(this.page);
             }
         }
-        Townstead.LOGGER.info("[TS-Diag/BP] setPage TAIL page={} requested={} elapsedUs={}",
-                this.page, pageName, (System.nanoTime() - t0) / 1_000L);
     }
 
     //? if neoforge {
@@ -456,7 +446,6 @@ public abstract class BlueprintScreenMixin extends Screen {
         if (!"map".equals(this.page) || this.village == null) {
             return;
         }
-        long townstead$mapBordersStart = System.nanoTime();
 
         int mapSize = 75;
         int y = this.height / 2 + 8;
@@ -490,7 +479,6 @@ public abstract class BlueprintScreenMixin extends Screen {
         }
 
         context.pose().popPose();
-        townstead$logRenderFrame("mapBorders", townstead$mapBordersStart);
     }
 
     //? if neoforge {
@@ -502,7 +490,6 @@ public abstract class BlueprintScreenMixin extends Screen {
             CallbackInfo ci) {
         if (!TOWNSTEAD_CATALOG_PAGE.equals(this.page))
             return;
-        long townstead$catalogRenderStart = System.nanoTime();
         townstead$recomputeCatalogDims();
         int windowX = townstead$catalogWindowX();
         int windowY = townstead$catalogWindowY();
@@ -769,7 +756,6 @@ public abstract class BlueprintScreenMixin extends Screen {
         if (hovered != null) {
             context.renderTooltip(this.font, Component.literal(hovered), mouseX, mouseY);
         }
-        townstead$logRenderFrame("catalog", townstead$catalogRenderStart);
     }
 
     @Inject(method = "drawBuildingIcon", remap = false, at = @At("HEAD"), cancellable = true)
@@ -1143,15 +1129,8 @@ public abstract class BlueprintScreenMixin extends Screen {
 
     @Unique
     private void townstead$tryUpgradeCurrentBuilding() {
-        long t0 = System.nanoTime();
         String nextType = townstead$cachedUpgradeTargetTypeAtPlayer();
-        if (nextType == null) {
-            Townstead.LOGGER.info("[TS-Diag/BP] tryUpgrade abort reason=noTarget elapsedUs={}",
-                    (System.nanoTime() - t0) / 1_000L);
-            return;
-        }
-        Townstead.LOGGER.info("[TS-Diag/BP] tryUpgrade target={} elapsedUs={}",
-                nextType, (System.nanoTime() - t0) / 1_000L);
+        if (nextType == null) return;
         //? if neoforge {
         Network.sendToServer(new ReportBuildingMessage(ReportBuildingMessage.Action.FORCE_TYPE, nextType));
         Network.sendToServer(new GetVillageRequest());
@@ -1173,47 +1152,14 @@ public abstract class BlueprintScreenMixin extends Screen {
         if (pos.equals(townstead$cachedUpgradePlayerPos) && gameTime < townstead$nextUpgradeScanGameTime) {
             return townstead$cachedUpgradeTargetType;
         }
-        long t0 = System.nanoTime();
-        boolean reasonPos = !pos.equals(townstead$cachedUpgradePlayerPos);
         townstead$cachedUpgradePlayerPos = pos;
         townstead$cachedUpgradeTargetType = townstead$upgradeTargetTypeAtPlayer();
-        // 60-tick TTL (3s). Block-walking inside `upgradeTargetTypeAtPlayer`
-        // and `highestSatisfiable` is the costly part; refreshing every 5
-        // ticks meant the cache was effectively bypassed every render frame.
-        // The cache is also explicitly invalidated when the player upgrades a
-        // building or switches to/from the map page.
+        // 60-tick TTL (3s). The block-state walk inside `upgradeTargetTypeAtPlayer`
+        // and `highestSatisfiable` is the costly part; the cache is also
+        // explicitly invalidated when the player upgrades a building or
+        // switches to/from the map page.
         townstead$nextUpgradeScanGameTime = gameTime + 60L;
-        Townstead.LOGGER.info("[TS-Diag/BP] upgradeScan miss target={} reason={} pos={} elapsedUs={}",
-                townstead$cachedUpgradeTargetType, reasonPos ? "playerMoved" : "ttlExpired",
-                pos, (System.nanoTime() - t0) / 1_000L);
         return townstead$cachedUpgradeTargetType;
-    }
-
-    /**
-     * Record a per-frame elapsed sample for {@code label}. Logs a one-second
-     * rolling summary (count / mean µs / max µs) so we can see stutters in
-     * frame budget without flooding the log at 60 fps. Slot 0 = count, 1 =
-     * sumNs, 2 = maxNs.
-     */
-    @Unique
-    private void townstead$logRenderFrame(String label, long startNanos) {
-        long elapsed = System.nanoTime() - startNanos;
-        long[] slot = townstead$renderFrameSamples.computeIfAbsent(label, k -> new long[3]);
-        slot[0]++;
-        slot[1] += elapsed;
-        if (elapsed > slot[2]) slot[2] = elapsed;
-        long now = System.nanoTime();
-        if (now - townstead$lastRenderLogNanos < 1_000_000_000L) return;
-        townstead$lastRenderLogNanos = now;
-        for (java.util.Map.Entry<String, long[]> e : townstead$renderFrameSamples.entrySet()) {
-            long[] s = e.getValue();
-            if (s[0] == 0) continue;
-            Townstead.LOGGER.info("[TS-Diag/BP] renderFrame label={} samples={} meanUs={} maxUs={}",
-                    e.getKey(), s[0], s[1] / Math.max(1L, s[0]) / 1_000L, s[2] / 1_000L);
-            s[0] = 0;
-            s[1] = 0;
-            s[2] = 0;
-        }
     }
 
     @Unique
@@ -1230,23 +1176,12 @@ public abstract class BlueprintScreenMixin extends Screen {
         BlueprintScreenAccessor accessor = (BlueprintScreenAccessor) (Object) this;
         if (accessor.townstead$getVillage() == null)
             return null;
-        long t0 = System.nanoTime();
         BlockPos pos = this.minecraft.player.blockPosition();
-        int scanned = 0;
         for (Building building : accessor.townstead$getVillage().getBuildings().values()) {
-            scanned++;
             if (!building.containsPos(pos))
                 continue;
-            long t1 = System.nanoTime();
-            String result = townstead$highestSatisfiableUpgradeType(building);
-            long t2 = System.nanoTime();
-            Townstead.LOGGER.info("[TS-Diag/BP] upgradeTargetType matched scanned={} containsCheckUs={} highestUs={} totalUs={} target={}",
-                    scanned, (t1 - t0) / 1_000L, (t2 - t1) / 1_000L,
-                    (t2 - t0) / 1_000L, result);
-            return result;
+            return townstead$highestSatisfiableUpgradeType(building);
         }
-        Townstead.LOGGER.info("[TS-Diag/BP] upgradeTargetType none scanned={} elapsedUs={}",
-                scanned, (System.nanoTime() - t0) / 1_000L);
         return null;
     }
 
@@ -1271,11 +1206,8 @@ public abstract class BlueprintScreenMixin extends Screen {
         if (startTier <= 0)
             return null;
 
-        long t0 = System.nanoTime();
         String prefix = current.substring(0, idx + 2);
         String best = null;
-        int candidatesChecked = 0;
-        long blockScanNanos = 0;
         for (int tier = startTier + 1; tier < startTier + 20; tier++) {
             String candidateType = prefix + tier;
             if (!BuildingTypes.getInstance().getBuildingTypes().containsKey(candidateType))
@@ -1283,19 +1215,12 @@ public abstract class BlueprintScreenMixin extends Screen {
             BuildingType candidate = BuildingTypes.getInstance().getBuildingType(candidateType);
             if (candidate == null)
                 break;
-            long s0 = System.nanoTime();
-            boolean met = townstead$buildingMeetsRequirements(building, candidate);
-            blockScanNanos += System.nanoTime() - s0;
-            candidatesChecked++;
-            if (met) {
+            if (townstead$buildingMeetsRequirements(building, candidate)) {
                 best = candidateType;
             } else {
                 break;
             }
         }
-        Townstead.LOGGER.info("[TS-Diag/BP] highestSatisfiable current={} candidates={} blockScanUs={} totalUs={} best={}",
-                current, candidatesChecked, blockScanNanos / 1_000L,
-                (System.nanoTime() - t0) / 1_000L, best);
         return best;
     }
 
@@ -1376,9 +1301,7 @@ public abstract class BlueprintScreenMixin extends Screen {
 
     @Unique
     private void townstead$buildCatalogEntries() {
-        long t0 = System.nanoTime();
         List<BuildingType> all = new ArrayList<>(BuildingTypes.getInstance().getBuildingTypes().values());
-        int rawCount = all.size();
         townstead$catalogIconCache.clear();
         townstead$catalogDetailCache.clear();
         townstead$builtTypes.clear();
@@ -1388,7 +1311,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 townstead$builtTypes.add(building.getType());
             }
         }
-        long t1 = System.nanoTime();
         all = all.stream()
                 .filter(BuildingType::visible)
                 .filter(bt -> ModCompat.isCompatAvailable(bt.name()))
@@ -1396,7 +1318,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                         .overrideFor(bt.name()).hide())
                 .sorted(Comparator.comparing(this::townstead$catalogSortKey))
                 .collect(Collectors.toList());
-        long t2 = System.nanoTime();
         com.aetherianartificer.townstead.spirit.BuildingSpiritIndex.prewarmAsync(
                 all.stream().map(BuildingType::name).collect(Collectors.toList()));
         // Belt-and-suspenders: if the player loaded into the world after the
@@ -1404,25 +1325,15 @@ public abstract class BlueprintScreenMixin extends Screen {
         // requirement-name resolver warm. Idempotent (the resolver no-ops if
         // already running) so this is cheap to call on every catalog open.
         com.aetherianartificer.townstead.client.catalog.RequirementNameResolver.prewarmAllFromBuildingTypes();
-        long t3 = System.nanoTime();
         townstead$catalogEntries = all;
         townstead$catalogSelected = Math.max(0, Math.min(townstead$catalogSelected, Math.max(0, all.size() - 1)));
-        Townstead.LOGGER.info("[TS-Diag/BP] buildCatalogEntries raw={} kept={} initUs={} filterSortUs={} prewarmUs={} totalUs={}",
-                rawCount, all.size(),
-                (t1 - t0) / 1_000L, (t2 - t1) / 1_000L, (t3 - t2) / 1_000L,
-                (t3 - t0) / 1_000L);
     }
 
     @Unique
     private void townstead$buildCatalogNodes() {
-        long t0 = System.nanoTime();
         townstead$catalogNodes.clear();
         townstead$catalogConnections.clear();
-        if (townstead$catalogEntries.isEmpty()) {
-            Townstead.LOGGER.info("[TS-Diag/BP] buildCatalogNodes skip reason=noEntries elapsedUs={}",
-                    (System.nanoTime() - t0) / 1_000L);
-            return;
-        }
+        if (townstead$catalogEntries.isEmpty()) return;
 
         Map<String, List<Integer>> grouped = new LinkedHashMap<>();
         for (int i = 0; i < townstead$catalogEntries.size(); i++) {
@@ -1503,9 +1414,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                         to.worldX(),         to.worldY() + 13});
             }
         }
-        Townstead.LOGGER.info("[TS-Diag/BP] buildCatalogNodes nodes={} groups={} connections={} elapsedUs={}",
-                townstead$catalogNodes.size(), grouped.size(),
-                townstead$catalogConnections.size(), (System.nanoTime() - t0) / 1_000L);
     }
 
     @Unique
@@ -1715,7 +1623,6 @@ public abstract class BlueprintScreenMixin extends Screen {
             return cached;
         }
 
-        long t0 = System.nanoTime();
         Component nameComponent = Component.literal(townstead$displayBuildingName(buildingType));
         int nameHeight = Math.max(this.font.lineHeight + 2,
                 this.font.split(nameComponent, textWidth).size() * this.font.lineHeight + 2);
@@ -1728,7 +1635,6 @@ public abstract class BlueprintScreenMixin extends Screen {
 
         java.util.Map<String, Integer> spiritPts =
                 com.aetherianartificer.townstead.spirit.BuildingSpiritIndex.contributionsFor(buildingType);
-        long t1 = System.nanoTime();
         CatalogDetailCache built = new CatalogDetailCache(
                 buildingType,
                 textWidth,
@@ -1740,10 +1646,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 Component.literal(desc),
                 townstead$sortedRequirements(selected.getGroups()));
         townstead$catalogDetailCache.put(buildingType, built);
-        long t2 = System.nanoTime();
-        Townstead.LOGGER.info("[TS-Diag/BP] catalogDetailFor miss buildingType={} textWidth={} buildUs={} reqUs={} totalUs={}",
-                buildingType, textWidth, (t1 - t0) / 1_000L, (t2 - t1) / 1_000L,
-                (t2 - t0) / 1_000L);
         return built;
     }
 
@@ -2791,7 +2693,6 @@ public abstract class BlueprintScreenMixin extends Screen {
 
     @Unique
     private void townstead$initSpiritPage() {
-        long t0 = System.nanoTime();
         // Ask MCA for a fresh snapshot only when the client does not already
         // have spirit state for this village. Building changes still refresh
         // via MCA's normal village requests after report/upgrade actions.
@@ -2800,18 +2701,13 @@ public abstract class BlueprintScreenMixin extends Screen {
         boolean hasCache = currentVillage != null
                 && com.aetherianartificer.townstead.spirit.ClientVillageSpiritStore
                         .get(currentVillage.getId()).isPresent();
-        boolean sentQuery = false;
         if (currentVillage == null || !hasCache) {
             //? if neoforge {
             PacketDistributor.sendToServer(new com.aetherianartificer.townstead.spirit.VillageSpiritQueryPayload());
             //?} else {
             /*TownsteadNetwork.sendToServer(new com.aetherianartificer.townstead.spirit.VillageSpiritQueryPayload());
             *///?}
-            sentQuery = true;
         }
-        Townstead.LOGGER.info("[TS-Diag/BP] initSpiritPage village={} hadClientCache={} sentQuery={} elapsedUs={}",
-                currentVillage != null ? currentVillage.getId() : -1, hasCache, sentQuery,
-                (System.nanoTime() - t0) / 1_000L);
         // Restore per-village scroll position so re-opening the page lands
         // where the player left off.
         int saved = townstead$spiritScrollByVillage.getOrDefault(
@@ -2936,12 +2832,9 @@ public abstract class BlueprintScreenMixin extends Screen {
                 && !cached.serverSourced()) {
             return cached.data();
         }
-        long t0 = System.nanoTime();
         java.util.Map<String, java.util.List<ContributorEntry>> fresh =
                 townstead$aggregateContributors(village);
         townstead$spiritContribCache.put(vid, new ContribCacheEntry(bct, total, fresh, false));
-        Townstead.LOGGER.info("[TS-Diag/BP] contribsFor miss village={} buildings={} totalPts={} spiritGroups={} elapsedUs={}",
-                vid, bct, total, fresh.size(), (System.nanoTime() - t0) / 1_000L);
         return fresh;
     }
 
@@ -3233,13 +3126,9 @@ public abstract class BlueprintScreenMixin extends Screen {
     private void townstead$renderSpiritPage(GuiGraphics context, int mouseX, int mouseY, float partialTicks,
                                             CallbackInfo ci) {
         if (!TOWNSTEAD_SPIRIT_PAGE.equals(this.page)) return;
-        long townstead$spiritRenderStart = System.nanoTime();
         BlueprintScreenAccessor accessor = (BlueprintScreenAccessor) (Object) this;
         net.conczin.mca.server.world.data.Village village = accessor.townstead$getVillage();
-        if (village == null) {
-            townstead$logRenderFrame("spirit", townstead$spiritRenderStart);
-            return;
-        }
+        if (village == null) return;
 
         java.util.Optional<com.aetherianartificer.townstead.spirit.VillageSpiritSyncPayload> snapshotOpt =
                 com.aetherianartificer.townstead.spirit.ClientVillageSpiritStore.get(village.getId());
@@ -3481,7 +3370,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                     * Math.round(townstead$spiritScrollCurrent) / Math.max(1, maxScroll);
             context.fill(trackLeft, thumbY, trackLeft + 2, thumbY + thumbH, 0xFF8A8A8A);
         }
-        townstead$logRenderFrame("spirit", townstead$spiritRenderStart);
     }
 
     @Unique
