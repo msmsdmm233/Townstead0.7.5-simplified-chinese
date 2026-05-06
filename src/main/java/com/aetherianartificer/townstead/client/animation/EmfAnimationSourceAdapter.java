@@ -28,10 +28,17 @@ import java.util.Optional;
  */
 public final class EmfAnimationSourceAdapter implements AnimationSourceAdapter {
     private static final String ID = "emf";
+    //? if neoforge {
     private static final List<ResourceLocation> PLAYER_CEM_CANDIDATES = List.of(
             ResourceLocation.fromNamespaceAndPath("minecraft", "emf/cem/player.jem"),
             ResourceLocation.fromNamespaceAndPath("minecraft", "optifine/cem/player.jem")
     );
+    //?} else {
+    /*private static final List<ResourceLocation> PLAYER_CEM_CANDIDATES = List.of(
+            new ResourceLocation("minecraft", "emf/cem/player.jem"),
+            new ResourceLocation("minecraft", "optifine/cem/player.jem")
+    );
+    *///?}
 
     private boolean resolved;
     private ResourceLocation cachedLocation;

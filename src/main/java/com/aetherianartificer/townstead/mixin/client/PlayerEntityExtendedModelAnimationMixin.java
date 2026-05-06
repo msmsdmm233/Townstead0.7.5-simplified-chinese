@@ -10,7 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PlayerEntityExtendedModel.class)
 public abstract class PlayerEntityExtendedModelAnimationMixin<T extends LivingEntity> {
+    //? if neoforge {
     @Inject(method = "setupAnim", remap = false, at = @At("TAIL"))
+    //?} else {
+    /*@Inject(method = "m_6973_", remap = false, at = @At("TAIL"))
+    *///?}
     private void townstead$applyAnimationBridge(
             T player,
             float limbAngle,

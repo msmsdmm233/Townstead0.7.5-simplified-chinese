@@ -137,7 +137,11 @@ public final class CemAnimationProgram {
         String path = base.getPath();
         int slash = path.lastIndexOf('/');
         String prefix = slash >= 0 ? path.substring(0, slash + 1) : "";
+        //? if neoforge {
         return ResourceLocation.fromNamespaceAndPath(base.getNamespace(), prefix + child);
+        //?} else {
+        /*return new ResourceLocation(base.getNamespace(), prefix + child);
+        *///?}
     }
 
     private static void readAnimations(JsonObject object, List<CemAssignment> assignments) {

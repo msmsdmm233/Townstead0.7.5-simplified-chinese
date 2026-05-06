@@ -30,7 +30,11 @@ public record McaAnimationParameters(
             if (entity.isBaby()) {
                 limbAngle /= 3.0F;
             }
+            //? if neoforge {
             limbAngle /= 0.2F + villager.getRawVerticalScaleFactor();
+            //?} else {
+            /*limbAngle /= 1.2F;
+            *///?}
         } else if (model instanceof PlayerEntityExtendedModel<?>) {
             VillagerLike<?> villager = CommonVillagerModel.getVillager(entity);
             if (villager.getAgeState() == AgeState.BABY && !entity.isPassenger()) {

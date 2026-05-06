@@ -19,8 +19,13 @@ public record McaRigScale(
 
         VillagerLike<?> villager = CommonVillagerModel.getVillager(entity);
         VillagerDimensions dimensions = commonModel.getDimensions();
+        //? if neoforge {
         float width = villager == null ? dimensions.getWidth() : villager.getRawHorizontalScaleFactor();
         float height = villager == null ? dimensions.getHeight() : villager.getRawVerticalScaleFactor();
+        //?} else {
+        /*float width = dimensions.getWidth();
+        float height = dimensions.getHeight();
+        *///?}
         return new McaRigScale(
                 clampScale(width),
                 clampScale(height),
