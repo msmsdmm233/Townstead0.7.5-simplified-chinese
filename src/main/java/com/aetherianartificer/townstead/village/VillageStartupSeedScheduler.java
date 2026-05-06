@@ -1,6 +1,5 @@
 package com.aetherianartificer.townstead.village;
 
-import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.dock.DockDuplicatePurger;
 import com.aetherianartificer.townstead.dock.DockLocationIndex;
 import com.aetherianartificer.townstead.recognition.BuildingRecognitionTracker;
@@ -27,16 +26,11 @@ public final class VillageStartupSeedScheduler {
     public static void enqueue(MinecraftServer server) {
         QUEUE.clear();
         if (server == null) return;
-        int count = 0;
         for (ServerLevel level : server.getAllLevels()) {
             VillageManager manager = VillageManager.get(level);
             for (Village village : manager) {
                 QUEUE.add(new Job(level, village));
-                count++;
             }
-        }
-        if (count > 0) {
-            Townstead.LOGGER.debug("[StartupSeed] queued {} villages for deferred seeding", count);
         }
     }
 

@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.spirit;
 
+import com.aetherianartificer.townstead.Townstead;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -8,10 +9,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Enumeration;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Static map: building-type id → spirit-id → point contribution.
@@ -55,11 +60,44 @@ public final class BuildingSpiritIndex {
         return CONTRIBUTIONS.size();
     }
 
+    private static final AtomicBoolean ASYNC_PREWARM_RUNNING = new AtomicBoolean(false);
+
+    /**
+     * Synchronous prewarm. Use only when the caller can tolerate a multi-ms
+     * stall — most callers should use {@link #prewarmAsync} instead.
+     */
     public static void prewarm(Iterable<String> buildingTypes) {
         if (buildingTypes == null) return;
         for (String buildingType : buildingTypes) {
             contributionsFor(buildingType);
         }
+    }
+
+    /**
+     * Dispatch the spirit-companion JSON scan onto a worker thread. Returns
+     * immediately. Subsequent {@link #contributionsFor} calls hit the cache
+     * once the worker completes; callers that race ahead just take the
+     * synchronous miss path. Concurrent calls coalesce.
+     */
+    public static void prewarmAsync(Iterable<String> buildingTypes) {
+        if (buildingTypes == null) return;
+        List<String> snapshot = new ArrayList<>();
+        for (String t : buildingTypes) {
+            if (t != null && !CONTRIBUTIONS.containsKey(t)) snapshot.add(t);
+        }
+        if (snapshot.isEmpty()) return;
+        if (!ASYNC_PREWARM_RUNNING.compareAndSet(false, true)) return;
+        ForkJoinPool.commonPool().execute(() -> {
+            try {
+                for (String buildingType : snapshot) {
+                    contributionsFor(buildingType);
+                }
+            } catch (Throwable t) {
+                Townstead.LOGGER.warn("BuildingSpiritIndex prewarm failed", t);
+            } finally {
+                ASYNC_PREWARM_RUNNING.set(false);
+            }
+        });
     }
 
     private static Map<String, Integer> scanForContributions(String buildingType) {

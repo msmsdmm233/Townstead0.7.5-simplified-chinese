@@ -42,9 +42,10 @@ public final class SpiritReconciler {
      */
     public static void seed(ServerLevel level, Village village) {
         if (level == null || village == null) return;
-        SpiritTotals totals = VillageSpiritAggregator.totalsFor(village);
-        SpiritReadout readout = VillageSpiritAggregator.readoutFor(totals);
-        VillageSpiritCache.put(level, village.getId(), new VillageSpiritCache.Entry(totals, readout));
+        VillageSpiritAggregator.Snapshot snap = VillageSpiritAggregator.snapshotFor(village);
+        SpiritReadout readout = VillageSpiritAggregator.readoutFor(snap.totals());
+        VillageSpiritCache.put(level, village.getId(),
+                new VillageSpiritCache.Entry(snap.totals(), readout, snap.contributors()));
     }
 
     /**
@@ -56,10 +57,11 @@ public final class SpiritReconciler {
      */
     public static void reconcileVillage(ServerLevel level, Village village) {
         if (level == null || village == null) return;
-        SpiritTotals totals = VillageSpiritAggregator.totalsFor(village);
-        SpiritReadout newReadout = VillageSpiritAggregator.readoutFor(totals);
+        VillageSpiritAggregator.Snapshot snap = VillageSpiritAggregator.snapshotFor(village);
+        SpiritReadout newReadout = VillageSpiritAggregator.readoutFor(snap.totals());
         VillageSpiritCache.Entry prev = VillageSpiritCache.get(level, village.getId());
-        VillageSpiritCache.put(level, village.getId(), new VillageSpiritCache.Entry(totals, newReadout));
+        VillageSpiritCache.put(level, village.getId(),
+                new VillageSpiritCache.Entry(snap.totals(), newReadout, snap.contributors()));
         if (prev == null) {
             return; // first observation, no event
         }

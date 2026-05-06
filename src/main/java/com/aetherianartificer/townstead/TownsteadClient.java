@@ -33,6 +33,14 @@ import java.lang.reflect.Method;
 
 public final class TownsteadClient {
     private static boolean hooksRegistered;
+    /**
+     * Set true on connect; cleared once the warm fires successfully. We poll
+     * every client tick until BuildingTypes is non-empty rather than capping
+     * at a fixed deadline — a player can sit on the title or shader-warmup
+     * screen for many minutes before actually entering a world, and the warm
+     * needs to fire whenever that happens.
+     */
+    private static boolean spiritIndexWarmPending = false;
 
     private TownsteadClient() {}
 
@@ -81,6 +89,28 @@ public final class TownsteadClient {
         // model variant while their hook is in the water. Safe to call
         // every reconnect — the wrapper is idempotent.
         FishingRodCastPredicates.registerOnce();
+        spiritIndexWarmPending = true;
+    }
+
+    /**
+     * Wait for MCA's data-pack-synced BuildingTypes to be non-empty, then
+     * dispatch an async prewarm of the spirit-companion JSON index. Drops the
+     * 12 ms classpath-scan stall the player would otherwise eat on first
+     * blueprint open.
+     */
+    private static void tryWarmSpiritIndex() {
+        if (!spiritIndexWarmPending) return;
+        try {
+            java.util.Set<String> types =
+                    net.conczin.mca.resources.BuildingTypes.getInstance().getBuildingTypes().keySet();
+            if (types.isEmpty()) return;
+            com.aetherianartificer.townstead.spirit.BuildingSpiritIndex.prewarmAsync(types);
+            com.aetherianartificer.townstead.client.catalog.RequirementNameResolver.prewarmAllFromBuildingTypes();
+            com.aetherianartificer.townstead.client.catalog.ModDisplayNameResolver.prewarmAllFromBuildingTypes();
+            spiritIndexWarmPending = false;
+        } catch (Throwable ignored) {
+            // Registry not ready yet — keep polling on subsequent ticks.
+        }
     }
 
     //? if neoforge {
@@ -112,12 +142,14 @@ public final class TownsteadClient {
     private static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
         TownsteadKeybinds.onClientTick();
         FishermanLineRenderer.onClientTick();
+        tryWarmSpiritIndex();
     }
     //?} else if forge {
     /*private static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
         TownsteadKeybinds.onClientTick();
         FishermanLineRenderer.onClientTick();
+        tryWarmSpiritIndex();
     }
     *///?}
 

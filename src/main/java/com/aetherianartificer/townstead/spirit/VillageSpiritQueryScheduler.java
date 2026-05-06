@@ -1,6 +1,5 @@
 package com.aetherianartificer.townstead.spirit;
 
-import com.aetherianartificer.townstead.Townstead;
 import net.conczin.mca.server.world.data.Building;
 import net.conczin.mca.server.world.data.Village;
 import net.minecraft.server.MinecraftServer;
@@ -74,15 +73,14 @@ public final class VillageSpiritQueryScheduler {
     private static void complete(MinecraftServer server, Job job) {
         SpiritTotals totals = new SpiritTotals(Map.copyOf(job.perSpirit), job.total, job.contributingBuildings);
         SpiritReadout readout = VillageSpiritAggregator.readoutFor(totals);
-        VillageSpiritCache.Entry entry = new VillageSpiritCache.Entry(totals, readout);
+        java.util.Map<String, java.util.List<ContributorRow>> contributors = job.buildContributors();
+        VillageSpiritCache.Entry entry = new VillageSpiritCache.Entry(totals, readout, contributors);
         VillageSpiritCache.put(job.level, job.villageId, entry);
 
         ServerPlayer player = server.getPlayerList().getPlayer(job.playerUuid);
         if (player != null) {
             send(player, VillageSpiritSyncPayload.fromCache(job.villageId, entry));
         }
-        Townstead.LOGGER.debug("[Spirit] completed queued spirit snapshot village={} buildings={}",
-                job.villageId, job.buildings.size());
     }
 
     private static void send(ServerPlayer player, VillageSpiritSyncPayload payload) {
@@ -104,6 +102,10 @@ public final class VillageSpiritQueryScheduler {
         final UUID playerUuid;
         final List<Building> buildings;
         final Map<String, Integer> perSpirit = new HashMap<>();
+        // spirit id -> (buildingType -> [count, totalPoints]). Aggregated as
+        // we walk the building list so the Spirit page's contributor view can
+        // be served from the cache without re-iterating.
+        final Map<String, Map<String, int[]>> contributors = new HashMap<>();
         int cursor = 0;
         int total = 0;
         int contributingBuildings = 0;
@@ -131,7 +133,8 @@ public final class VillageSpiritQueryScheduler {
 
         private void process(Building building) {
             if (building == null || !building.isComplete()) return;
-            Map<String, Integer> contributions = BuildingSpiritIndex.contributionsFor(building.getType());
+            String type = building.getType();
+            Map<String, Integer> contributions = BuildingSpiritIndex.contributionsFor(type);
             if (contributions.isEmpty()) return;
             boolean anyAdded = false;
             for (Map.Entry<String, Integer> e : contributions.entrySet()) {
@@ -142,8 +145,28 @@ public final class VillageSpiritQueryScheduler {
                 perSpirit.merge(spirit, pts, Integer::sum);
                 total += pts;
                 anyAdded = true;
+                int[] agg = contributors
+                        .computeIfAbsent(spirit, k -> new HashMap<>())
+                        .computeIfAbsent(type, k -> new int[]{0, 0});
+                agg[0]++;
+                agg[1] += pts;
             }
             if (anyAdded) contributingBuildings++;
+        }
+
+        Map<String, java.util.List<ContributorRow>> buildContributors() {
+            if (contributors.isEmpty()) return Map.of();
+            Map<String, java.util.List<ContributorRow>> out = new HashMap<>();
+            for (Map.Entry<String, Map<String, int[]>> spiritEntry : contributors.entrySet()) {
+                java.util.List<ContributorRow> rows = new java.util.ArrayList<>(spiritEntry.getValue().size());
+                for (Map.Entry<String, int[]> typeEntry : spiritEntry.getValue().entrySet()) {
+                    rows.add(new ContributorRow(typeEntry.getKey(),
+                            typeEntry.getValue()[0], typeEntry.getValue()[1]));
+                }
+                rows.sort(java.util.Comparator.comparingInt(ContributorRow::points).reversed());
+                out.put(spiritEntry.getKey(), java.util.List.copyOf(rows));
+            }
+            return Map.copyOf(out);
         }
     }
 }
