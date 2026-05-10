@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 //? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
 //?}
@@ -52,6 +53,8 @@ public class PosePickerScreen extends Screen {
     private final VillagerLike<?> villager;
     private final LivingEntity villagerEntity;
     private List<EmotecraftEmoteList.Entry> entries = List.of();
+    private final Map<UUID, EmotecraftEmoteList.Entry> entriesByUuid = new HashMap<>();
+    private UUID[][] slotConfig;
     private final Map<ResourceLocation, ResourceLocation> iconTextures = new HashMap<>();
     private final Map<ResourceLocation, DynamicTexture> ownedTextures = new HashMap<>();
     private int page;
@@ -71,8 +74,12 @@ public class PosePickerScreen extends Screen {
         super.init();
         if (entries.isEmpty()) {
             entries = EmotecraftEmoteList.snapshotAndRegister();
+            for (EmotecraftEmoteList.Entry e : entries) {
+                if (e.uuid() != null) entriesByUuid.put(e.uuid(), e);
+            }
             registerIconTextures();
         }
+        slotConfig = EmotecraftEmoteList.fastMenuSlots();
         // Match Emotecraft's FastMenuScreen.repositionElements: 80% of the
         // smaller screen dimension, kept square.
         widgetSize = (int) Math.min(width * 0.8, height * 0.8);
@@ -127,7 +134,29 @@ public class PosePickerScreen extends Screen {
     }
 
     private int totalPages() {
+        // Match the player's Emotecraft fast-menu page count exactly when the
+        // config is reachable; otherwise fall back to ceiling of entries/8.
+        if (slotConfig != null) return Math.max(1, slotConfig.length);
         return Math.max(1, (entries.size() + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE);
+    }
+
+    /**
+     * Resolves the entry assigned to {@code slot} on the current page. When
+     * the player's Emotecraft fast-menu config is reachable, slots reflect the
+     * exact UUID assignment the player set in Emotecraft. Otherwise we fall
+     * back to alphabetical fill starting at the top slot, going clockwise.
+     */
+    private EmotecraftEmoteList.Entry entryAtSlot(int slot) {
+        if (slot < 0 || slot >= SLOTS_PER_PAGE) return null;
+        if (slotConfig != null) {
+            if (page < 0 || page >= slotConfig.length) return null;
+            UUID[] pageSlots = slotConfig[page];
+            if (pageSlots == null || slot >= pageSlots.length) return null;
+            UUID uuid = pageSlots[slot];
+            return uuid == null ? null : entriesByUuid.get(uuid);
+        }
+        int idx = page * SLOTS_PER_PAGE + (4 - slot + SLOTS_PER_PAGE) % SLOTS_PER_PAGE;
+        return idx < entries.size() ? entries.get(idx) : null;
     }
 
     /**
@@ -154,29 +183,14 @@ public class PosePickerScreen extends Screen {
         return slot;
     }
 
-    /** First entry shown at the TOP slot (Emotecraft slot 4), then clockwise. */
-    private static int slotForEntry(int entryIdx) {
-        return (4 - entryIdx + SLOTS_PER_PAGE) % SLOTS_PER_PAGE;
-    }
-
-    private static int entryForSlot(int slot) {
-        return (4 - slot + SLOTS_PER_PAGE) % SLOTS_PER_PAGE;
-    }
-
-    private int globalEntryIndexForSlot(int slot) {
-        if (slot < 0) return -1;
-        int idx = page * SLOTS_PER_PAGE + entryForSlot(slot);
-        return idx < entries.size() ? idx : -1;
-    }
-
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
         if (button != 0 || entries.isEmpty()) return false;
         int slot = slotAt(mouseX, mouseY);
-        int idx = globalEntryIndexForSlot(slot);
-        if (idx >= 0) {
-            onPicked(entries.get(idx));
+        EmotecraftEmoteList.Entry slotEntry = entryAtSlot(slot);
+        if (slotEntry != null) {
+            onPicked(slotEntry);
             return true;
         }
         // Inner-hole click: the texture draws clickable `<` / `>` arrows in
@@ -272,7 +286,7 @@ public class PosePickerScreen extends Screen {
         graphics.flush();
 
         hoveredSlot = slotAt(mouseX, mouseY);
-        boolean hoveredHasEmote = globalEntryIndexForSlot(hoveredSlot) >= 0;
+        boolean hoveredHasEmote = entryAtSlot(hoveredSlot) != null;
 
         graphics.pose().pushPose();
         graphics.pose().translate(0F, 0F, 400F);
@@ -303,12 +317,9 @@ public class PosePickerScreen extends Screen {
         }
         graphics.flush();
 
-        int from = page * SLOTS_PER_PAGE;
-        int available = Math.min(SLOTS_PER_PAGE, entries.size() - from);
-        for (int entryIdx = 0; entryIdx < available; entryIdx++) {
-            int slot = slotForEntry(entryIdx);
-            EmotecraftEmoteList.Entry entry = entries.get(from + entryIdx);
-            drawIcon(graphics, slot, entry);
+        for (int slot = 0; slot < SLOTS_PER_PAGE; slot++) {
+            EmotecraftEmoteList.Entry entry = entryAtSlot(slot);
+            if (entry != null) drawIcon(graphics, slot, entry);
         }
     }
 

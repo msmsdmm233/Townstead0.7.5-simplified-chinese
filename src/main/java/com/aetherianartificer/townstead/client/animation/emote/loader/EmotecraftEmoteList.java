@@ -28,7 +28,30 @@ import java.util.UUID;
 public final class EmotecraftEmoteList {
     private EmotecraftEmoteList() {}
 
-    public record Entry(ResourceLocation id, String displayName, byte[] iconBytes) {}
+    public record Entry(ResourceLocation id, UUID uuid, String displayName, byte[] iconBytes) {}
+
+    /**
+     * The player's configured Emotecraft fast-menu slot assignments: a
+     * {@code UUID[pages][8]} where each entry is the UUID of the emote bound
+     * to that page/slot, or {@code null} if the slot is empty. Returns
+     * {@code null} if Emotecraft isn't installed or its config isn't
+     * reachable — callers should fall back to a simple alphabetical layout.
+     */
+    public static UUID[][] fastMenuSlots() {
+        if (!EmoteReflection.isAvailable()
+                || EmoteReflection.emoteInstanceConfig == null
+                || EmoteReflection.clientConfigFastMenuEmotes == null) {
+            return null;
+        }
+        try {
+            Object config = EmoteReflection.emoteInstanceConfig.get(null);
+            if (config == null) return null;
+            Object slots = EmoteReflection.clientConfigFastMenuEmotes.get(config);
+            return slots instanceof UUID[][] grid ? grid : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
 
     public static List<Entry> snapshotAndRegister() {
         if (!EmoteReflection.isAvailable()) return Collections.emptyList();
@@ -70,7 +93,7 @@ public final class EmotecraftEmoteList {
                     : EmotecraftEmoteLoader.parseAnimation(id, keyframeAnimation);
             if (parsed == null) return null;
             if (existing == null) EmoteRegistry.putTransient(parsed);
-            return new Entry(id, parsed.displayName(), extractIconBytes(keyframeAnimation));
+            return new Entry(id, animUuid, parsed.displayName(), extractIconBytes(keyframeAnimation));
         } catch (Throwable t) {
             return null;
         }

@@ -58,6 +58,10 @@ public final class EmoteReflection {
     static Class<?> clientEmoteApiClass;
     static Method clientEmoteApiList;
 
+    static Field emoteInstanceConfig;              // io.github.kosmx.emotes.executor.EmoteInstance.config (static, SerializableConfig)
+    static Class<?> clientConfigClass;             // io.github.kosmx.emotes.main.config.ClientConfig
+    static Field clientConfigFastMenuEmotes;       // -> UUID[][] (pages × 8 slots)
+
     private EmoteReflection() {}
 
     public static synchronized boolean isAvailable() {
@@ -132,6 +136,20 @@ public final class EmoteReflection {
             clientEmoteApiClass = Class.forName(
                     "io.github.kosmx.emotes.api.events.client.ClientEmoteAPI");
             clientEmoteApiList = clientEmoteApiClass.getMethod("clientEmoteList");
+
+            // Player-slot config is OPTIONAL — failure here must not disable
+            // the whole loader, just leave the fast-menu lookup unavailable.
+            try {
+                Class<?> emoteInstanceClass = Class.forName(
+                        "io.github.kosmx.emotes.executor.EmoteInstance");
+                emoteInstanceConfig = emoteInstanceClass.getField("config");
+                clientConfigClass = Class.forName(
+                        "io.github.kosmx.emotes.main.config.ClientConfig");
+                clientConfigFastMenuEmotes = clientConfigClass.getField("fastMenuEmotes");
+            } catch (Throwable ignored) {
+                emoteInstanceConfig = null;
+                clientConfigFastMenuEmotes = null;
+            }
 
             ok = true;
         } catch (Throwable ignored) {
