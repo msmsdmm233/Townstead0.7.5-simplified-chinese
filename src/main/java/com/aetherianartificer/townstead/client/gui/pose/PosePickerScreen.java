@@ -259,8 +259,6 @@ public class PosePickerScreen extends Screen {
         /*renderBackground(graphics);
         *///?}
 
-        graphics.drawCenteredString(font, getTitle(), width / 2, 24, 0xFFFFFF);
-
         if (entries.isEmpty()) {
             graphics.drawCenteredString(font,
                     Component.translatable("townstead.pose.picker.empty")
@@ -281,14 +279,10 @@ public class PosePickerScreen extends Screen {
 
         renderWheel(graphics, hoveredHasEmote);
 
-        // Page indicator + hovered emote name above the wheel.
+        // Page indicator in the inner-octagon hole (matches Emotecraft —
+        // hovered emote name intentionally omitted for visual parity).
         int totalPages = totalPages();
-        int idx = globalEntryIndexForSlot(hoveredSlot);
-        if (idx >= 0) {
-            EmotecraftEmoteList.Entry hovered = entries.get(idx);
-            graphics.drawCenteredString(font, Component.literal(hovered.displayName()),
-                    width / 2, widgetY - 14, 0xFFFFFFFF);
-        } else if (totalPages > 1) {
+        if (totalPages > 1) {
             graphics.drawCenteredString(font,
                     Component.literal((page + 1) + " / " + totalPages)
                             .withStyle(ChatFormatting.GRAY),
