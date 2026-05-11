@@ -23,7 +23,7 @@ public final class EmoteReflection {
 
     static Class<?> animationClass;     // dev.kosmx.playerAnim.core.data.KeyframeAnimation
     static Method animGetBodyParts;     // -> Map<String, StateCollection>
-    static Method animGetName;          // -> String
+    static Method animGetName;          // -> String; absent on player-animation-lib 1.0.x (1.20.1) — optional
     static Method animGetUuid;          // -> UUID
     static Field animBeginTick;
     static Field animEndTick;
@@ -155,7 +155,11 @@ public final class EmoteReflection {
 
             animationClass = Class.forName("dev.kosmx.playerAnim.core.data.KeyframeAnimation");
             animGetBodyParts = animationClass.getMethod("getBodyParts");
-            animGetName = animationClass.getMethod("getName");
+            // getName() only exists on player-animation-lib 1.1+ (1.21.x);
+            // 1.20.1's 1.0.x doesn't have it. We don't actually read this
+            // method anywhere — keep the lookup tolerant so its absence
+            // doesn't disable the whole loader on 1.20.1.
+            animGetName = anyMethodOrNull(animationClass, "getName");
             animGetUuid = anyMethodOrNull(animationClass, "getUuid", "getUUID");
             animBeginTick = animationClass.getField("beginTick");
             animEndTick = animationClass.getField("endTick");
