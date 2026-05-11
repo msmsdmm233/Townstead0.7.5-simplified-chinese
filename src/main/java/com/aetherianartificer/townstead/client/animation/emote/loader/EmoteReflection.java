@@ -70,11 +70,28 @@ public final class EmoteReflection {
     static Method bendHelperInit;                  // void initBend(ModelPart, Direction)
     static Object directionUp;                     // Direction.UP for re-init
 
+    /**
+     * True when {@code io.github.kosmx.bendylib.ModelPartAccessor} is reachable on the classpath.
+     * On 1.21.1's player-animation-lib 1.1+, bendylib is bundled and bend is implemented via real
+     * mesh deformation. On 1.20.1's player-animation-lib 1.0.x, bendylib is NOT on the classpath
+     * (despite {@code BendHelper.bend} still referencing it via stale bytecode) — calling
+     * {@code IBendHelper.INSTANCE.bend} would NoClassDefFoundError. We probe at resolve time and
+     * silently no-op bend when bendylib isn't available; users on 1.20.1 install bendy-lib
+     * separately for proper bend.
+     */
+    static boolean bendylibAvailable;
+
     private EmoteReflection() {}
 
     public static synchronized boolean isAvailable() {
         if (!attempted) tryResolve();
         return ok;
+    }
+
+    /** True when real mesh-deformation bend is available (1.21.1). False on 1.20.1 — see field doc. */
+    public static synchronized boolean isBendylibAvailable() {
+        if (!attempted) tryResolve();
+        return bendylibAvailable;
     }
 
     public static synchronized void invalidate() {
@@ -114,6 +131,7 @@ public final class EmoteReflection {
      * goes unused at render time.
      */
     public static void attachBendMutator(Object modelPart) {
+        if (!bendylibAvailable) return;
         if (bendHelperInstance == null || bendHelperInit == null || directionUp == null) return;
         try {
             Object instance = bendHelperInstance.get(null);
@@ -124,6 +142,7 @@ public final class EmoteReflection {
     }
 
     public static void applyBend(Object modelPart, float bendAxis, float bendAngle) {
+        if (!bendylibAvailable) return;
         if (bendHelperInstance == null || bendHelperBend == null) return;
         try {
             Object instance = bendHelperInstance.get(null);
@@ -244,6 +263,17 @@ public final class EmoteReflection {
                 bendHelperBend = null;
                 bendHelperInit = null;
                 directionUp = null;
+            }
+
+            // Probe for bendylib's ModelPartAccessor. Present on 1.21.1's
+            // player-animation-lib 1.1+ (bundled), absent on 1.20.1's 1.0.x.
+            // When absent, IBendHelper.bend / initBend would NoClassDefFoundError
+            // on first call, so we use a rotation-based fallback instead.
+            try {
+                Class.forName("io.github.kosmx.bendylib.ModelPartAccessor");
+                bendylibAvailable = true;
+            } catch (Throwable ignored) {
+                bendylibAvailable = false;
             }
 
             ok = true;

@@ -53,6 +53,11 @@ public abstract class VillagerLayerBendMixin<T extends LivingEntity, M extends H
             CallbackInfo ci
     ) {
         if (!(model instanceof VillagerEntityModelMCA<?> mcaModel)) return;
+        // On 1.20.1's player-animation-lib 1.0.x (no bendylib), bend is applied
+        // as additive rotation on the part itself, which DOES survive
+        // copyPropertiesTo/copyFrom — the layer's parts already have the bent
+        // xRot/zRot. Re-applying here would double the rotation.
+        if (!EmoteReflection.isBendylibAvailable()) return;
         applyStoredBend(entity, "left_arm", mcaModel.leftArmwear);
         applyStoredBend(entity, "right_arm", mcaModel.rightArmwear);
         applyStoredBend(entity, "left_leg", mcaModel.leftLegwear);
