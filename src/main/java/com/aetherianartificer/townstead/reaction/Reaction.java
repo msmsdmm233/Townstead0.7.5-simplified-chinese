@@ -28,6 +28,7 @@ public record Reaction(
         ReactionConditions conditions,
         int mirrorRadius,
         float mirrorChance,
+        int hearts,
         List<JsonObject> rawTriggers,
         List<ReactionBinding> bindings,
         boolean replace) {
@@ -69,6 +70,7 @@ public record Reaction(
                 mergedConditions,
                 higherPriority.mirrorRadius(),
                 higherPriority.mirrorChance(),
+                higherPriority.hearts() != 0 ? higherPriority.hearts() : prior.hearts(),
                 List.copyOf(mergedTriggers),
                 List.copyOf(mergedBindings),
                 false);
@@ -86,6 +88,7 @@ public record Reaction(
                 : ReactionConditions.EMPTY;
         int mirrorRadius = Math.max(0, GsonHelper.getAsInt(json, "mirror_radius", 0));
         float mirrorChance = clamp01(GsonHelper.getAsFloat(json, "mirror_chance", 0.0F));
+        int hearts = GsonHelper.getAsInt(json, "hearts", 0);
         boolean replace = GsonHelper.getAsBoolean(json, "replace", false);
 
         List<JsonObject> rawTriggers = new ArrayList<>();
@@ -106,7 +109,7 @@ public record Reaction(
         // legitimately ship triggers-only or bindings-only fragments
         // that compose with other packs.
         return new Reaction(id, displayName, tags, cooldownTicks, chance, lockTicks,
-                conditions, mirrorRadius, mirrorChance,
+                conditions, mirrorRadius, mirrorChance, hearts,
                 Collections.unmodifiableList(rawTriggers),
                 Collections.unmodifiableList(bindings),
                 replace);

@@ -119,9 +119,34 @@ public final class ReactionDispatcher {
                 ReactionLockTracker.lock(villager, gameTime, effectiveLock, reaction.id());
             }
         }
+        applyHeartsAdjustment(villager, reaction, context, gameTime);
         MirrorPropagator.propagate(level, villager, reaction, playedRef.get(), context);
         return true;
     }
+
+    /**
+     * Adjust MCA hearts between the villager and the player who caused
+     * this reaction, capped to once per MC day per (villager, player,
+     * reaction). No-op when the reaction has {@code hearts: 0} or the
+     * trigger source carries no player (context-driven reactions, etc.).
+     */
+    private static void applyHeartsAdjustment(LivingEntity villager, Reaction reaction, ReactionContext context,
+            long gameTime) {
+        if (reaction.hearts() == 0) return;
+        if (!(context.playerCause() instanceof net.minecraft.server.level.ServerPlayer sp)) return;
+        if (!(villager instanceof VillagerEntityMCA mca)) return;
+        String key = "hearts:" + sp.getUUID() + ":" + reaction.id();
+        if (!ReactionCooldownTracker.canClaim(villager, key, HEARTS_DAILY_CAP_TICKS, gameTime)) return;
+        ReactionCooldownTracker.claim(villager, key, gameTime);
+        try {
+            mca.getVillagerBrain().rewardHearts(sp, reaction.hearts());
+        } catch (Throwable t) {
+            Townstead.LOGGER.debug("Hearts adjustment for reaction '{}' failed: {}", reaction.id(), t.getMessage());
+        }
+    }
+
+    /** One full Minecraft day in ticks — the heart-change cap window. */
+    private static final int HEARTS_DAILY_CAP_TICKS = 24000;
 
     /**
      * Composite key for per-binding cooldown bookkeeping. Stable across

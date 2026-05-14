@@ -4,6 +4,7 @@
     "cooldown_ticks": 200,
     "mirror_radius": 6,
     "mirror_chance": 0.25,
+    "hearts": 1,
     "triggers": [
         { "type": "gesture", "emote": "emotecraft:waving", "max_distance": 6 }
     ],
