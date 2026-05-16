@@ -34,6 +34,8 @@ public class ShiftManagerScreen extends Screen {
     private static final int NAME_W = 80;
     private static final int CELL_H = 16;
     private static final int CELL_GAP = 2;
+    private static final long HOURS_PER_DAY_TICKS = (long) ShiftData.HOURS_PER_DAY * ShiftData.TICKS_PER_HOUR;
+    private static final int NOW_LINE_COLOR = 0xFFFFD040;
 
     private final Screen returnScreen;
 
@@ -166,6 +168,16 @@ public class ShiftManagerScreen extends Screen {
                     g.fill(cellX, cellY, cellX + cellW - 1, cellY + CELL_H - 1, 0x40FFFFFF);
                 }
             }
+        }
+
+        if (minecraft.level != null) {
+            long dayTime = minecraft.level.getDayTime() % (HOURS_PER_DAY_TICKS);
+            int nowX = gridLeft + (int) ((dayTime * (long) cellW) / ShiftData.TICKS_PER_HOUR);
+            int lineTop = gridTop - 6;
+            int lineBottom = gridTop + rowsPerPage * (CELL_H + CELL_GAP) - CELL_GAP + 2;
+            g.fill(nowX, lineTop, nowX + 1, lineBottom, NOW_LINE_COLOR);
+            g.fill(nowX - 2, lineTop, nowX + 3, lineTop + 2, NOW_LINE_COLOR);
+            g.fill(nowX - 1, lineTop + 2, nowX + 2, lineTop + 3, NOW_LINE_COLOR);
         }
 
         for (int i = 0; i < ShiftData.ORDINAL_COLORS.length; i++) {
