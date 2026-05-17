@@ -4,19 +4,25 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.calendar.CalendarDate;
 import com.aetherianartificer.townstead.calendar.CalendarProfile;
 import com.aetherianartificer.townstead.calendar.CalendarType;
+import com.aetherianartificer.townstead.calendar.Season;
+import com.aetherianartificer.townstead.calendar.WorldCalendarSavedData;
+import com.aetherianartificer.townstead.compat.calendar.bridge.SereneBridge;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+
+import java.util.Optional;
 
 /**
- * Phase 1 stub. Currently delegates to {@link VanillaMath} so the bundled
- * Serene Seasons profile (96 days, 16 weeks of 6) renders correctly by
- * structure even before Phase 3 wires the real
- * {@code sereneseasons.api.season.SeasonHelper} bindings.
+ * Vanilla structural math (Townstead's 96-day / 12-subseason / 6-day-week
+ * profile) overlaid with Serene Seasons' authoritative season state. Per
+ * [[feedback_seasons_only_from_mods]] the season MUST come from the mod at
+ * query time, never invented by Townstead.
  *
- * When Phase 3 lands, this compute() will query the seasonal mod for
- * authoritative season state and stamp {@link CalendarDate#season}. Per
- * [[feedback_seasons_only_from_mods]], the season MUST come from the mod
- * at query time, never from Townstead's own data.
+ * Season is queried only when computing TODAY's date (i.e., when the
+ * requested {@code worldDay} equals the world calendar's current day). For
+ * historical lookups (DOB display, establishment dates) the season is left
+ * null because the mod's past state isn't recoverable.
  */
 public class SereneMath implements CalendarType {
     //? if >=1.21 {
@@ -32,6 +38,15 @@ public class SereneMath implements CalendarType {
 
     @Override
     public CalendarDate compute(MinecraftServer server, CalendarProfile profile, long worldDay, int epochYearOffset) {
-        return delegate.compute(server, profile, worldDay, epochYearOffset);
+        CalendarDate base = delegate.compute(server, profile, worldDay, epochYearOffset);
+        if (server == null) return base;
+        long today = WorldCalendarSavedData.get(server).worldDayCounter();
+        if (worldDay != today) return base;
+        ServerLevel overworld = server.overworld();
+        if (overworld == null) return base;
+        Optional<Season> live = SereneBridge.currentSeason(overworld);
+        if (live.isEmpty()) return base;
+        return new CalendarDate(base.year(), base.monthIndex(), base.dayOfMonth(),
+                base.dayOfWeek(), base.dayOfYear(), live.get());
     }
 }

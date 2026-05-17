@@ -4,13 +4,22 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.calendar.CalendarDate;
 import com.aetherianartificer.townstead.calendar.CalendarProfile;
 import com.aetherianartificer.townstead.calendar.CalendarType;
+import com.aetherianartificer.townstead.calendar.Season;
+import com.aetherianartificer.townstead.calendar.WorldCalendarSavedData;
+import com.aetherianartificer.townstead.compat.calendar.bridge.EclipticBridge;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+
+import java.util.Optional;
 
 /**
- * Phase 1 stub. Delegates to {@link VanillaMath}. The bundled Ecliptic profile
- * defines 24 solar terms over a 365-day year so the structure is correct;
- * Phase 3 will plug in real Ecliptic Seasons API queries for term lookups.
+ * Vanilla structural math (Townstead's 365-day / 24-solar-term profile)
+ * overlaid with Ecliptic Seasons' authoritative season state.
+ *
+ * Like {@link SereneMath}, the live season is queried only for today's date.
+ * Historical dates carry a null season because Ecliptic's past state isn't
+ * recoverable through its API.
  */
 public class EclipticMath implements CalendarType {
     //? if >=1.21 {
@@ -26,6 +35,15 @@ public class EclipticMath implements CalendarType {
 
     @Override
     public CalendarDate compute(MinecraftServer server, CalendarProfile profile, long worldDay, int epochYearOffset) {
-        return delegate.compute(server, profile, worldDay, epochYearOffset);
+        CalendarDate base = delegate.compute(server, profile, worldDay, epochYearOffset);
+        if (server == null) return base;
+        long today = WorldCalendarSavedData.get(server).worldDayCounter();
+        if (worldDay != today) return base;
+        ServerLevel overworld = server.overworld();
+        if (overworld == null) return base;
+        Optional<Season> live = EclipticBridge.currentSeason(overworld);
+        if (live.isEmpty()) return base;
+        return new CalendarDate(base.year(), base.monthIndex(), base.dayOfMonth(),
+                base.dayOfWeek(), base.dayOfYear(), live.get());
     }
 }

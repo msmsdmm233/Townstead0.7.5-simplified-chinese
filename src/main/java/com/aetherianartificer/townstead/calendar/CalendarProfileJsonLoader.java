@@ -34,11 +34,18 @@ import java.util.Map;
  * }
  * }</pre>
  *
- * {@code display_name} and {@code common_name} accept either a literal string
- * ({@code "Foo"}) or an object with a {@code translate} or {@code text} key,
- * mirroring MC's text component convention. Full {@code Component.Serializer}
- * isn't used because its signature drifts across 1.20.1 Forge and 1.21.1
- * NeoForge; the small parser here handles the cases data packs realistically need.
+ * {@code display_name} and {@code common_name} accept any of:
+ * <ul>
+ *   <li>literal string: {@code "Frostturn"}</li>
+ *   <li>{@code { "text": "Frostturn" }}</li>
+ *   <li>{@code { "translate": "calendar.foo.month.frostturn" }}</li>
+ *   <li>{@code { "translate": "calendar.foo.month.frostturn", "fallback": "Frostturn" }}</li>
+ * </ul>
+ * The {@code fallback} form is recommended for data-pack-distributed profiles:
+ * they read as English on any client that doesn't have a matching resource
+ * pack, while still localizable when one is present. Full
+ * {@code Component.Serializer} isn't used because its signature drifts across
+ * 1.20.1 Forge and 1.21.1 NeoForge.
  */
 public final class CalendarProfileJsonLoader extends SimpleJsonResourceReloadListener {
 
@@ -98,7 +105,14 @@ public final class CalendarProfileJsonLoader extends SimpleJsonResourceReloadLis
         if (el.isJsonPrimitive()) return Component.literal(el.getAsString());
         if (el.isJsonObject()) {
             JsonObject obj = el.getAsJsonObject();
-            if (obj.has("translate")) return Component.translatable(obj.get("translate").getAsString());
+            if (obj.has("translate")) {
+                String key = obj.get("translate").getAsString();
+                if (obj.has("fallback")) {
+                    String fallback = obj.get("fallback").getAsString();
+                    return Component.translatableWithFallback(key, fallback);
+                }
+                return Component.translatable(key);
+            }
             if (obj.has("text")) return Component.literal(obj.get("text").getAsString());
         }
         return Component.literal(context);

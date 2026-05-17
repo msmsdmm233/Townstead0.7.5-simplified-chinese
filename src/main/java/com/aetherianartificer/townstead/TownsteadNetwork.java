@@ -176,6 +176,22 @@ public final class TownsteadNetwork {
                 com.aetherianartificer.townstead.reaction.net.DialogueStateC2SPayload::write,
                 com.aetherianartificer.townstead.reaction.net.DialogueStateC2SPayload::read,
                 TownsteadNetwork::handleDialogueStateC2S);
+        registerS2C(com.aetherianartificer.townstead.calendar.CalendarSyncPayload.class,
+                com.aetherianartificer.townstead.calendar.CalendarSyncPayload::write,
+                com.aetherianartificer.townstead.calendar.CalendarSyncPayload::read,
+                TownsteadNetwork::handleCalendarSync);
+        registerS2C(com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload.class,
+                com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload::write,
+                com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload::read,
+                TownsteadNetwork::handleVillagerLifeSync);
+    }
+
+    private static void handleCalendarSync(com.aetherianartificer.townstead.calendar.CalendarSyncPayload payload) {
+        com.aetherianartificer.townstead.calendar.CalendarClientStore.setFrom(payload);
+    }
+
+    private static void handleVillagerLifeSync(com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload payload) {
+        com.aetherianartificer.townstead.calendar.LifeClientStore.setFrom(payload);
     }
 
     private static void handleDialogueStateC2S(
@@ -239,6 +255,10 @@ public final class TownsteadNetwork {
 
     public static <T> void sendToServer(T payload) {
         CHANNEL.sendToServer(payload);
+    }
+
+    public static <T> void sendToAll(T payload) {
+        CHANNEL.send(PacketDistributor.ALL.noArg(), payload);
     }
 
     // ── Registration helpers ──

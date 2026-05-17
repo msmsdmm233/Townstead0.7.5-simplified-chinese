@@ -177,6 +177,12 @@ public class Townstead {
                     .serialize(net.minecraft.nbt.CompoundTag.CODEC)
                     .build()
     );
+    public static final Supplier<AttachmentType<CompoundTag>> LIFE_DATA = ATTACHMENTS.register(
+            "life_data",
+            () -> AttachmentType.builder(() -> new CompoundTag())
+                    .serialize(net.minecraft.nbt.CompoundTag.CODEC)
+                    .build()
+    );
     //?}
 
     public static final Supplier<VillagerProfession> COOK_PROFESSION = PROFESSIONS.register(
@@ -308,6 +314,7 @@ public class Townstead {
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
                 townstead$sendShiftTemplateSync(sp);
+                PacketDistributor.sendToPlayer(sp, townstead$calendarSync(sp.serverLevel().getServer()));
             }
         });
         ShiftTemplateRegistry.setChangeListener(Townstead::townstead$broadcastShiftTemplateSync);
@@ -384,6 +391,7 @@ public class Townstead {
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
                 TownsteadNetwork.sendShiftTemplateSync(sp);
+                TownsteadNetwork.sendToPlayer(sp, townstead$calendarSync(sp.serverLevel().getServer()));
             }
         });
         ShiftTemplateRegistry.setChangeListener(TownsteadNetwork::broadcastShiftTemplateSync);
@@ -917,6 +925,30 @@ public class Townstead {
                 com.aetherianartificer.townstead.reaction.net.DialogueStateC2SPayload.STREAM_CODEC,
                 this::handleDialogueStateC2S
         );
+        registrar.playToClient(
+                com.aetherianartificer.townstead.calendar.CalendarSyncPayload.TYPE,
+                com.aetherianartificer.townstead.calendar.CalendarSyncPayload.STREAM_CODEC,
+                this::handleCalendarSync
+        );
+        registrar.playToClient(
+                com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload.TYPE,
+                com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload.STREAM_CODEC,
+                this::handleVillagerLifeSync
+        );
+    }
+
+    private void handleCalendarSync(
+            com.aetherianartificer.townstead.calendar.CalendarSyncPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> com.aetherianartificer.townstead.calendar.CalendarClientStore.setFrom(payload));
+    }
+
+    private void handleVillagerLifeSync(
+            com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> com.aetherianartificer.townstead.calendar.LifeClientStore.setFrom(payload));
     }
 
     private void handleDialogueStateC2S(
@@ -1599,6 +1631,8 @@ public class Townstead {
             PacketDistributor.sendToPlayer(sp, new ShiftSyncPayload(
                     villager.getUUID(), ShiftData.getShifts(shift)));
         }
+        com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
+        if (lifeSync != null) PacketDistributor.sendToPlayer(sp, lifeSync);
         //?} else if forge {
         /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
         TownsteadNetwork.sendToPlayer(sp, townstead$hungerSync(villager, hunger));
@@ -1621,6 +1655,8 @@ public class Townstead {
             TownsteadNetwork.sendToPlayer(sp, new ShiftSyncPayload(
                     villager.getUUID(), ShiftData.getShifts(shift)));
         }
+        com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
+        if (lifeSync != null) TownsteadNetwork.sendToPlayer(sp, lifeSync);
         *///?}
     }
 
@@ -1651,6 +1687,68 @@ public class Townstead {
                 FatigueData.getFatigue(fatigue),
                 FatigueData.isCollapsed(fatigue)
         );
+    }
+
+    public static com.aetherianartificer.townstead.calendar.CalendarSyncPayload townstead$calendarSync(MinecraftServer server) {
+        com.aetherianartificer.townstead.calendar.WorldCalendarSavedData data =
+                com.aetherianartificer.townstead.calendar.WorldCalendarSavedData.get(server);
+        com.aetherianartificer.townstead.calendar.CalendarProfile profile =
+                com.aetherianartificer.townstead.calendar.TownsteadCalendar.activeProfile(server);
+        com.aetherianartificer.townstead.calendar.CalendarDate today =
+                com.aetherianartificer.townstead.calendar.TownsteadCalendar.today(server);
+        String[] month = (profile != null
+                && today.monthIndex() >= 1
+                && today.monthIndex() <= profile.months().size())
+                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(
+                        profile.months().get(today.monthIndex() - 1).commonName())
+                : new String[] { "", "" };
+        String[] prof = profile != null
+                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(profile.displayName())
+                : new String[] { "", "" };
+        String seasonKey = today.season() != null ? today.season().translationKey() : "";
+        return new com.aetherianartificer.townstead.calendar.CalendarSyncPayload(
+                data.worldDayCounter(),
+                today.year(), today.monthIndex(), today.dayOfMonth(),
+                today.dayOfYear(), today.dayOfWeek(),
+                month[0], month[1], prof[0], prof[1], seasonKey
+        );
+    }
+
+    public static com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload townstead$lifeSync(VillagerEntityMCA villager) {
+        MinecraftServer server = villager.getServer();
+        if (server == null) return null;
+        CompoundTag life = com.aetherianartificer.townstead.calendar.VillagerLifeStamper.peek(villager);
+        if (life == null) return null;
+        long birthDay = com.aetherianartificer.townstead.calendar.LifeData.getBirthWorldDay(life);
+        boolean stamped = com.aetherianartificer.townstead.calendar.LifeData.isStamped(life);
+        com.aetherianartificer.townstead.calendar.CalendarDate birth =
+                com.aetherianartificer.townstead.calendar.TownsteadCalendar.dateOf(server, birthDay);
+        int ageYears = com.aetherianartificer.townstead.calendar.TownsteadCalendar.ageYears(server, villager);
+        com.aetherianartificer.townstead.calendar.CalendarProfile profile =
+                com.aetherianartificer.townstead.calendar.TownsteadCalendar.activeProfile(server);
+        String[] month = (profile != null
+                && birth.monthIndex() >= 1
+                && birth.monthIndex() <= profile.months().size())
+                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(
+                        profile.months().get(birth.monthIndex() - 1).commonName())
+                : new String[] { "", "" };
+        return new com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload(
+                villager.getId(),
+                birth.year(), birth.monthIndex(), birth.dayOfMonth(),
+                month[0], month[1], ageYears, stamped
+        );
+    }
+
+    public static void townstead$broadcastCalendarSync(MinecraftServer server) {
+        if (server == null) return;
+        com.aetherianartificer.townstead.calendar.CalendarSyncPayload payload = townstead$calendarSync(server);
+        //? if neoforge {
+        for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
+            PacketDistributor.sendToPlayer(sp, payload);
+        }
+        //?} else if forge {
+        /*TownsteadNetwork.sendToAll(payload);
+        *///?}
     }
 
 }

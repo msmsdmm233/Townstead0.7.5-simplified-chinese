@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.calendar;
 
+import com.aetherianartificer.townstead.Townstead;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
@@ -56,5 +57,8 @@ public final class WorldCalendarTicker {
         // the supplied delta, so we pass the raw delta along with the days
         // we computed against the previous residue.
         data.advance(current, delta, daysAdvanced);
+        if (daysAdvanced > 0) {
+            Townstead.townstead$broadcastCalendarSync(server);
+        }
     }
 }

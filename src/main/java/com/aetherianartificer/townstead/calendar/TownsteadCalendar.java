@@ -2,6 +2,8 @@ package com.aetherianartificer.townstead.calendar;
 
 import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.compat.calendar.CalendarCompat;
+import net.conczin.mca.entity.VillagerEntityMCA;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import org.jetbrains.annotations.Nullable;
@@ -87,6 +89,43 @@ public final class TownsteadCalendar {
         if (resolved != null) return resolved;
         return CalendarProfileRegistry.byId(CalendarCompat.vanillaId());
     }
+
+    // ---- Lifespan API ----
+
+    /**
+     * Returns the villager's date of birth in display-calendar terms, or
+     * {@code null} if no birth has been stamped yet (pre-first-tick window
+     * during initial spawn).
+     */
+    @Nullable
+    public static CalendarDate birthdayOf(MinecraftServer server, VillagerEntityMCA villager) {
+        CompoundTag life = VillagerLifeStamper.peek(villager);
+        if (life == null) return null;
+        return dateOf(server, LifeData.getBirthWorldDay(life));
+    }
+
+    /**
+     * Age in display years (today's year minus birth year). May be 0 for
+     * villagers born this year; negative is clamped to 0 defensively (would
+     * only happen if the admin rewound the world day counter).
+     */
+    public static int ageYears(MinecraftServer server, VillagerEntityMCA villager) {
+        CompoundTag life = VillagerLifeStamper.peek(villager);
+        if (life == null) return 0;
+        CalendarDate today = today(server);
+        CalendarDate birth = dateOf(server, LifeData.getBirthWorldDay(life));
+        return Math.max(0, today.year() - birth.year());
+    }
+
+    @Nullable
+    public static CalendarDate establishmentOf(MinecraftServer server, ResourceLocation dimension, int villageId) {
+        WorldCalendarSavedData.VillageKey key = new WorldCalendarSavedData.VillageKey(dimension, villageId);
+        WorldCalendarSavedData.VillageBirth birth = WorldCalendarSavedData.get(server).getVillageBirth(key);
+        if (birth == null) return null;
+        return dateOf(server, birth.worldDay());
+    }
+
+    // ---- Internal ----
 
     @Nullable
     private static ResourceLocation tryParse(String s) {

@@ -2,11 +2,16 @@ package com.aetherianartificer.townstead.calendar;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Overworld-level persistence of the Townstead world calendar.
@@ -35,6 +40,11 @@ public class WorldCalendarSavedData extends SavedData {
     private static final String KEY_EPOCH = "epochYearOffset";
     private static final String KEY_PROFILE_OVERRIDE = "profileOverride";
     private static final String KEY_HAS_SAMPLE = "hasSample";
+    private static final String KEY_VILLAGE_BIRTHS = "villageBirths";
+    private static final String KEY_VB_DIM = "dim";
+    private static final String KEY_VB_ID = "id";
+    private static final String KEY_VB_DAY = "day";
+    private static final String KEY_VB_PLAYER = "playerFounded";
 
     private long worldDayCounter = 0L;
     private long subDayResidueTicks = 0L;
@@ -43,6 +53,20 @@ public class WorldCalendarSavedData extends SavedData {
     private int epochYearOffset = 1000;
     @Nullable
     private ResourceLocation activeProfileOverride = null;
+    private final Map<VillageKey, VillageBirth> villageBirths = new HashMap<>();
+
+    /**
+     * Per-dimension village id. Village ids are unique within a dimension
+     * (MCA's VillageManager), not across the server.
+     */
+    public record VillageKey(ResourceLocation dimension, int villageId) {}
+
+    /**
+     * Establishment record. {@code worldDay} is signed; negative means the
+     * village predates the save's start (pregenerated). {@code playerFounded}
+     * distinguishes "today, by the player" from "ancient, fabricated."
+     */
+    public record VillageBirth(long worldDay, boolean playerFounded) {}
 
     public WorldCalendarSavedData() {}
 
@@ -75,15 +99,35 @@ public class WorldCalendarSavedData extends SavedData {
             String s = tag.getString(KEY_PROFILE_OVERRIDE);
             if (!s.isBlank()) {
                 try {
-                    //? if >=1.21 {
-                    data.activeProfileOverride = ResourceLocation.parse(s);
-                    //?} else {
-                    /*data.activeProfileOverride = new ResourceLocation(s);
-                    *///?}
+                    data.activeProfileOverride = parseRl(s);
                 } catch (Exception ignored) {}
             }
         }
+        if (tag.contains(KEY_VILLAGE_BIRTHS, Tag.TAG_LIST)) {
+            ListTag list = tag.getList(KEY_VILLAGE_BIRTHS, Tag.TAG_COMPOUND);
+            for (int i = 0; i < list.size(); i++) {
+                CompoundTag entry = list.getCompound(i);
+                ResourceLocation dim;
+                try {
+                    dim = parseRl(entry.getString(KEY_VB_DIM));
+                } catch (Exception ex) {
+                    continue;
+                }
+                int id = entry.getInt(KEY_VB_ID);
+                long day = entry.getLong(KEY_VB_DAY);
+                boolean playerFounded = entry.getBoolean(KEY_VB_PLAYER);
+                data.villageBirths.put(new VillageKey(dim, id), new VillageBirth(day, playerFounded));
+            }
+        }
         return data;
+    }
+
+    private static ResourceLocation parseRl(String s) {
+        //? if >=1.21 {
+        return ResourceLocation.parse(s);
+        //?} else {
+        /*return new ResourceLocation(s);
+        *///?}
     }
 
     //? if >=1.21 {
@@ -101,7 +145,31 @@ public class WorldCalendarSavedData extends SavedData {
         if (activeProfileOverride != null) {
             tag.putString(KEY_PROFILE_OVERRIDE, activeProfileOverride.toString());
         }
+        if (!villageBirths.isEmpty()) {
+            ListTag list = new ListTag();
+            for (Map.Entry<VillageKey, VillageBirth> entry : villageBirths.entrySet()) {
+                CompoundTag ct = new CompoundTag();
+                ct.putString(KEY_VB_DIM, entry.getKey().dimension().toString());
+                ct.putInt(KEY_VB_ID, entry.getKey().villageId());
+                ct.putLong(KEY_VB_DAY, entry.getValue().worldDay());
+                ct.putBoolean(KEY_VB_PLAYER, entry.getValue().playerFounded());
+                list.add(ct);
+            }
+            tag.put(KEY_VILLAGE_BIRTHS, list);
+        }
         return tag;
+    }
+
+    @Nullable
+    public VillageBirth getVillageBirth(VillageKey key) {
+        return villageBirths.get(key);
+    }
+
+    public void putVillageBirth(VillageKey key, VillageBirth birth) {
+        VillageBirth prev = villageBirths.put(key, birth);
+        if (prev == null || !prev.equals(birth)) {
+            setDirty();
+        }
     }
 
     public long worldDayCounter() { return worldDayCounter; }
