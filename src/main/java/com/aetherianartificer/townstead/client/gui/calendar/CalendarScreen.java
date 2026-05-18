@@ -9,54 +9,66 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Stardew-style month-grid calendar. Reads the active profile shape from
- * {@link CalendarClientStore} (months list, days_per_week, year suffix,
- * epoch) so it can render any month/year locally without server round-trips
- * per navigation.
+ * {@link CalendarClientStore} (months list, days_per_week, weekdays, year
+ * suffix / eras, epoch) so it renders any month/year locally without
+ * server round-trips per navigation.
  *
- * Grid layout:
- * <ul>
- *   <li>Columns = {@code days_per_week} from the profile. Cells are a fixed
- *       size, so very long weeks (e.g., Mayan 13-day week) overflow the
- *       panel and the user can scroll horizontally.</li>
- *   <li>Rows = enough to fit the displayed month given the start-of-month
- *       day-of-week offset.</li>
- *   <li>"Today" cell is highlighted when the viewed month is the current
- *       one.</li>
- * </ul>
+ * <h2>Layout</h2>
  *
- * Phase 1 ships pure structure; phase 2 will overlay village events
- * (birthdays, festivals) when that data exists server-side.
+ * Panel dimensions are computed at {@link #init()} time from the current
+ * month's grid shape (columns = {@code days_per_week}, rows derived from
+ * the start-of-month day-of-week offset plus the month's day count), with
+ * screen-edge caps for very long weeks / months. Horizontal scrolling
+ * engages when the week exceeds the cap (e.g., Mayan 13-day week).
+ *
+ * <h2>Visual style</h2>
+ *
+ * Wooden bevel frame around a parchment field — all drawn with layered
+ * {@code g.fill} primitives so no textures need to ship. Cells render as
+ * pale parchment squares with sepia text; today is a warm gold marker.
  */
 public class CalendarScreen extends Screen {
 
-    private static final int PANEL_W = 280;
-    private static final int PANEL_H = 200;
+    // ── Layout constants ───────────────────────────────────────────────────
+    private static final int FRAME_THICKNESS = 6;
+    private static final int INNER_PADDING = 8;
+    private static final int HEADER_H = 22;
+    private static final int WEEKDAY_H = 16;
     private static final int CELL_SIZE = 22;
     private static final int CELL_GAP = 2;
-    private static final int HEADER_H = 32;
-    private static final int WEEK_LABEL_H = 14;
-    private static final int GRID_PADDING = 8;
+    private static final int MAX_PANEL_W_MARGIN = 40; // px to leave around panel
+    private static final int MAX_PANEL_H_MARGIN = 60;
 
-    /** Year being viewed (display year, includes epoch offset). */
+    // ── Color palette ──────────────────────────────────────────────────────
+    // Wood frame: outer dark walnut, inner lighter highlight, inset shadow
+    private static final int FRAME_OUTER     = 0xFF3E2510;
+    private static final int FRAME_MID       = 0xFF6B4422;
+    private static final int FRAME_HIGHLIGHT = 0xFF9B7140;
+    private static final int FRAME_INSET     = 0xFF2A1808;
+    // Parchment field
+    private static final int PARCHMENT       = 0xFFE8D5A8;
+    private static final int PARCHMENT_EDGE  = 0xFFC9B07C;
+    // Cells
+    private static final int CELL_FILL       = 0xFFF0DDA8;
+    private static final int CELL_BORDER     = 0xFFB8985C;
+    private static final int CELL_HOVER      = 0xFFFFF0C0;
+    private static final int TODAY_FILL      = 0xFFFFB347;
+    private static final int TODAY_BORDER    = 0xFF8C4A0E;
+    // Text
+    private static final int TEXT_HEADER     = 0xFF1F1305;
+    private static final int TEXT_WEEKDAY    = 0xFF5C3A1E;
+    private static final int TEXT_DAY        = 0xFF3A2410;
+    private static final int TEXT_TODAY      = 0xFF1F1305;
+
+    // ── State ──────────────────────────────────────────────────────────────
     private int viewYear;
-    /** Month index being viewed (1-based to match CalendarDate convention). */
     private int viewMonth;
-
-    /** Horizontal scroll for very long weeks, in pixels. 0 = left-aligned. */
     private double scrollX;
     private double maxScrollX;
+    private int panelX, panelY, panelW, panelH;
+    private int contentX, contentY, contentW, contentH;
 
-    private int panelX;
-    private int panelY;
-
-    @Nullable
-    private Button prevMonthBtn;
-    @Nullable
-    private Button nextMonthBtn;
-    @Nullable
-    private Button prevYearBtn;
-    @Nullable
-    private Button nextYearBtn;
+    @Nullable private Button prevMonthBtn, nextMonthBtn, prevYearBtn, nextYearBtn;
 
     public CalendarScreen() {
         super(Component.translatable("gui.townstead_calendar.title"));
@@ -72,29 +84,72 @@ public class CalendarScreen extends Screen {
             viewYear = snap.year();
             viewMonth = Math.max(1, snap.monthIndex());
         }
+        relayout();
+        addNavButtons();
+    }
 
-        panelX = (width - PANEL_W) / 2;
-        panelY = (height - PANEL_H) / 2;
+    /** Compute panel + content dimensions for the current viewed month. */
+    private void relayout() {
+        CalendarClientStore.Snapshot snap = CalendarClientStore.get();
+        int dpw = (snap != null) ? Math.max(1, snap.daysPerWeek()) : 7;
+        int rows = computeRowCount(snap);
 
-        int btnY = panelY + 8;
+        int gridW = dpw * CELL_SIZE + (dpw - 1) * CELL_GAP;
+        int gridH = rows * CELL_SIZE + (rows - 1) * CELL_GAP;
+
+        contentW = gridW;
+        contentH = HEADER_H + WEEKDAY_H + gridH;
+
+        // Cap to screen
+        int maxContentW = Math.max(120, width - MAX_PANEL_W_MARGIN - 2 * (FRAME_THICKNESS + INNER_PADDING));
+        int maxContentH = Math.max(120, height - MAX_PANEL_H_MARGIN - 2 * (FRAME_THICKNESS + INNER_PADDING));
+        contentW = Math.min(contentW, maxContentW);
+        contentH = Math.min(contentH, maxContentH);
+
+        panelW = contentW + 2 * (FRAME_THICKNESS + INNER_PADDING);
+        panelH = contentH + 2 * (FRAME_THICKNESS + INNER_PADDING);
+
+        panelX = (width - panelW) / 2;
+        panelY = (height - panelH) / 2;
+        contentX = panelX + FRAME_THICKNESS + INNER_PADDING;
+        contentY = panelY + FRAME_THICKNESS + INNER_PADDING;
+
+        maxScrollX = Math.max(0, gridW - contentW);
+        if (scrollX > maxScrollX) scrollX = maxScrollX;
+        if (scrollX < 0) scrollX = 0;
+    }
+
+    private int computeRowCount(@Nullable CalendarClientStore.Snapshot snap) {
+        if (snap == null || snap.months().isEmpty()) return 1;
+        int monthIdx = Math.max(0, Math.min(viewMonth - 1, snap.months().size() - 1));
+        int monthDays = snap.months().get(monthIdx).days();
+        int dpw = Math.max(1, snap.daysPerWeek());
+        int startDow = startDayOfWeek(snap, viewYear, monthIdx);
+        int totalCells = startDow + monthDays;
+        return Math.max(1, (totalCells + dpw - 1) / dpw);
+    }
+
+    private void addNavButtons() {
+        clearWidgets();
+        int btnY = panelY + FRAME_THICKNESS + INNER_PADDING - 1;
+        int btnW = 14;
+        int btnH = 16;
         prevYearBtn = addRenderableWidget(Button.builder(
                 Component.literal("«"),
-                b -> { viewYear = Math.max(1, viewYear - 1); recomputeScrollBounds(); })
-                .bounds(panelX + 6, btnY, 16, 16).build());
+                b -> { viewYear = Math.max(1, viewYear - 1); relayout(); addNavButtons(); })
+                .bounds(contentX, btnY, btnW, btnH).build());
         prevMonthBtn = addRenderableWidget(Button.builder(
                 Component.literal("‹"),
-                b -> navigateMonth(-1))
-                .bounds(panelX + 24, btnY, 16, 16).build());
+                b -> { navigateMonth(-1); addNavButtons(); })
+                .bounds(contentX + btnW + 2, btnY, btnW, btnH).build());
         nextMonthBtn = addRenderableWidget(Button.builder(
                 Component.literal("›"),
-                b -> navigateMonth(1))
-                .bounds(panelX + PANEL_W - 40, btnY, 16, 16).build());
+                b -> { navigateMonth(1); addNavButtons(); })
+                .bounds(contentX + contentW - 2 * btnW - 2, btnY, btnW, btnH).build());
         nextYearBtn = addRenderableWidget(Button.builder(
                 Component.literal("»"),
-                b -> { viewYear = viewYear + 1; recomputeScrollBounds(); })
-                .bounds(panelX + PANEL_W - 22, btnY, 16, 16).build());
-
-        recomputeScrollBounds();
+                b -> { viewYear = viewYear + 1; relayout(); addNavButtons(); })
+                .bounds(contentX + contentW - btnW, btnY, btnW, btnH).build());
     }
 
     private void navigateMonth(int delta) {
@@ -105,27 +160,14 @@ public class CalendarScreen extends Screen {
         while (next < 1) { next += monthCount; viewYear = Math.max(1, viewYear - 1); }
         while (next > monthCount) { next -= monthCount; viewYear = viewYear + 1; }
         viewMonth = next;
-        recomputeScrollBounds();
-    }
-
-    private void recomputeScrollBounds() {
-        CalendarClientStore.Snapshot snap = CalendarClientStore.get();
-        if (snap == null) { maxScrollX = 0; return; }
-        int dpw = Math.max(1, snap.daysPerWeek());
-        int gridInnerW = PANEL_W - 2 * GRID_PADDING;
-        int neededW = dpw * (CELL_SIZE + CELL_GAP) - CELL_GAP;
-        maxScrollX = Math.max(0, neededW - gridInnerW);
-        if (scrollX > maxScrollX) scrollX = maxScrollX;
-        if (scrollX < 0) scrollX = 0;
+        relayout();
     }
 
     //? if >=1.21 {
     @Override
     public boolean mouseScrolled(double mx, double my, double dx, double dy) {
         if (maxScrollX > 0 && isMouseOverGrid(mx, my)) {
-            scrollX -= dy * 16.0;
-            if (scrollX < 0) scrollX = 0;
-            if (scrollX > maxScrollX) scrollX = maxScrollX;
+            scrollX = clampScroll(scrollX - dy * 16.0);
             return true;
         }
         return super.mouseScrolled(mx, my, dx, dy);
@@ -134,68 +176,107 @@ public class CalendarScreen extends Screen {
     /*@Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (maxScrollX > 0 && isMouseOverGrid(mx, my)) {
-            scrollX -= delta * 16.0;
-            if (scrollX < 0) scrollX = 0;
-            if (scrollX > maxScrollX) scrollX = maxScrollX;
+            scrollX = clampScroll(scrollX - delta * 16.0);
             return true;
         }
         return super.mouseScrolled(mx, my, delta);
     }
     *///?}
 
+    private double clampScroll(double v) {
+        if (v < 0) return 0;
+        if (v > maxScrollX) return maxScrollX;
+        return v;
+    }
+
     private boolean isMouseOverGrid(double mx, double my) {
-        int gridY = panelY + HEADER_H + WEEK_LABEL_H;
-        return mx >= panelX + GRID_PADDING && mx < panelX + PANEL_W - GRID_PADDING
-                && my >= gridY && my < panelY + PANEL_H - GRID_PADDING;
+        int gridY = contentY + HEADER_H + WEEKDAY_H;
+        return mx >= contentX && mx < contentX + contentW
+                && my >= gridY && my < contentY + contentH;
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
-
-        // Background panel
-        g.fill(panelX, panelY, panelX + PANEL_W, panelY + PANEL_H, 0xF0202020);
-        g.renderOutline(panelX, panelY, PANEL_W, PANEL_H, 0xFF8B6F47);
-
+        renderFrame(g);
         CalendarClientStore.Snapshot snap = CalendarClientStore.get();
         if (snap == null) {
             g.drawCenteredString(font, Component.translatable("gui.townstead_calendar.no_data"),
-                    panelX + PANEL_W / 2, panelY + PANEL_H / 2 - 4, 0xFFCCCCCC);
+                    panelX + panelW / 2, panelY + panelH / 2 - 4, TEXT_DAY);
             return;
         }
-
         renderHeader(g, snap);
         renderWeekdayLabels(g, snap);
         renderGrid(g, snap, mouseX, mouseY);
     }
 
+    /**
+     * Wooden bevel frame around a parchment field. Order of layers (outer →
+     * inner): dark walnut outline, mid-tone wood, light highlight inner edge,
+     * inset shadow, parchment fill, parchment edge shadow.
+     */
+    private void renderFrame(GuiGraphics g) {
+        int x0 = panelX, y0 = panelY, x1 = panelX + panelW, y1 = panelY + panelH;
+        // Outer dark line
+        g.fill(x0, y0, x1, y0 + 1, FRAME_OUTER);
+        g.fill(x0, y1 - 1, x1, y1, FRAME_OUTER);
+        g.fill(x0, y0, x0 + 1, y1, FRAME_OUTER);
+        g.fill(x1 - 1, y0, x1, y1, FRAME_OUTER);
+        // Mid wood body
+        g.fill(x0 + 1, y0 + 1, x1 - 1, y1 - 1, FRAME_MID);
+        // Highlight inner edge (one row of lighter wood)
+        int hx0 = x0 + FRAME_THICKNESS - 2;
+        int hy0 = y0 + FRAME_THICKNESS - 2;
+        int hx1 = x1 - FRAME_THICKNESS + 2;
+        int hy1 = y1 - FRAME_THICKNESS + 2;
+        g.fill(hx0, hy0, hx1, hy0 + 1, FRAME_HIGHLIGHT);
+        g.fill(hx0, hy0, hx0 + 1, hy1, FRAME_HIGHLIGHT);
+        g.fill(hx0, hy1 - 1, hx1, hy1, FRAME_INSET);
+        g.fill(hx1 - 1, hy0, hx1, hy1, FRAME_INSET);
+        // Inset shadow inside parchment area
+        int px0 = x0 + FRAME_THICKNESS;
+        int py0 = y0 + FRAME_THICKNESS;
+        int px1 = x1 - FRAME_THICKNESS;
+        int py1 = y1 - FRAME_THICKNESS;
+        g.fill(px0, py0, px1, py1, FRAME_INSET);
+        // Parchment field
+        g.fill(px0 + 1, py0 + 1, px1 - 1, py1 - 1, PARCHMENT);
+        // Subtle edge shadow (a single line of darker parchment around the inside)
+        g.fill(px0 + 1, py0 + 1, px1 - 1, py0 + 2, PARCHMENT_EDGE);
+        g.fill(px0 + 1, py0 + 1, px0 + 2, py1 - 1, PARCHMENT_EDGE);
+    }
+
     private void renderHeader(GuiGraphics g, CalendarClientStore.Snapshot snap) {
-        // "MonthName Year [Suffix]"
         Component monthName = monthNameFor(snap, viewMonth - 1);
-        Component yearText = snap.hasYearSuffix()
-                ? Component.translatable("gui.townstead_calendar.header.year_with_suffix",
-                    viewYear, snap.yearSuffixComponent())
-                : Component.literal(Integer.toString(viewYear));
-        String headerStr = monthName.getString() + "  " + yearText.getString();
+        // Resolve display year through era when defined; otherwise use absolute year + suffix
+        int displayYear = viewYear;
+        Component yearLabel = Component.empty();
+        CalendarClientStore.EraResolved era = snap.resolveEra(viewYear);
+        if (era != null) {
+            displayYear = era.displayedYear();
+            yearLabel = era.nameComponent();
+        } else if (snap.hasYearSuffix()) {
+            yearLabel = snap.yearSuffixComponent();
+        }
+        String suffixStr = yearLabel.getString();
+        String headerStr = monthName.getString() + "  " + displayYear
+                + (suffixStr.isEmpty() ? "" : " " + suffixStr);
         g.drawCenteredString(font, Component.literal(headerStr),
-                panelX + PANEL_W / 2, panelY + 12, 0xFFFFFFFF);
+                contentX + contentW / 2, contentY + (HEADER_H - font.lineHeight) / 2 + 1, TEXT_HEADER);
     }
 
     private void renderWeekdayLabels(GuiGraphics g, CalendarClientStore.Snapshot snap) {
         int dpw = Math.max(1, snap.daysPerWeek());
-        int labelY = panelY + HEADER_H;
-        int gridLeft = panelX + GRID_PADDING;
-        int gridInnerW = PANEL_W - 2 * GRID_PADDING;
-        // Clip to grid area for horizontal scroll
-        g.enableScissor(gridLeft, labelY, gridLeft + gridInnerW, labelY + WEEK_LABEL_H);
+        int labelY = contentY + HEADER_H;
+        g.enableScissor(contentX, labelY, contentX + contentW, labelY + WEEKDAY_H);
         boolean named = snap.hasWeekdays() && snap.weekdays().size() == dpw;
         for (int col = 0; col < dpw; col++) {
-            int cellX = gridLeft + col * (CELL_SIZE + CELL_GAP) - (int) scrollX;
+            int cellX = contentX + col * (CELL_SIZE + CELL_GAP) - (int) scrollX;
             String label = named
                     ? snap.weekdays().get(col).shortComponent().getString()
                     : Integer.toString(col + 1);
             g.drawCenteredString(font, label,
-                    cellX + CELL_SIZE / 2, labelY + 2, 0xFFCCCCCC);
+                    cellX + CELL_SIZE / 2, labelY + (WEEKDAY_H - font.lineHeight) / 2, TEXT_WEEKDAY);
         }
         g.disableScissor();
     }
@@ -205,15 +286,11 @@ public class CalendarScreen extends Screen {
         if (snap.months().isEmpty()) return;
         int safeMonthIdx = Math.max(0, Math.min(viewMonth - 1, snap.months().size() - 1));
         int monthDays = snap.months().get(safeMonthIdx).days();
-
         int startDow = startDayOfWeek(snap, viewYear, safeMonthIdx);
 
-        int gridLeft = panelX + GRID_PADDING;
-        int gridTop = panelY + HEADER_H + WEEK_LABEL_H;
-        int gridInnerW = PANEL_W - 2 * GRID_PADDING;
-        int gridInnerH = PANEL_H - HEADER_H - WEEK_LABEL_H - GRID_PADDING;
-
-        g.enableScissor(gridLeft, gridTop, gridLeft + gridInnerW, gridTop + gridInnerH);
+        int gridTop = contentY + HEADER_H + WEEKDAY_H;
+        int gridBottom = contentY + contentH;
+        g.enableScissor(contentX, gridTop, contentX + contentW, gridBottom);
 
         boolean isCurrentMonth = (viewYear == snap.year() && viewMonth == snap.monthIndex());
         int todayDom = snap.dayOfMonth();
@@ -222,24 +299,35 @@ public class CalendarScreen extends Screen {
             int cellIndex = startDow + d - 1;
             int col = cellIndex % dpw;
             int row = cellIndex / dpw;
-            int cellX = gridLeft + col * (CELL_SIZE + CELL_GAP) - (int) scrollX;
+            int cellX = contentX + col * (CELL_SIZE + CELL_GAP) - (int) scrollX;
             int cellY = gridTop + row * (CELL_SIZE + CELL_GAP);
-            int bg = (isCurrentMonth && d == todayDom) ? 0xFFFFCC66 : 0xFF3A3A3A;
-            int fg = (isCurrentMonth && d == todayDom) ? 0xFF202020 : 0xFFFFFFFF;
-            g.fill(cellX, cellY, cellX + CELL_SIZE, cellY + CELL_SIZE, bg);
-            g.renderOutline(cellX, cellY, CELL_SIZE, CELL_SIZE, 0xFF1A1A1A);
-            g.drawCenteredString(font, Integer.toString(d),
-                    cellX + CELL_SIZE / 2, cellY + (CELL_SIZE - font.lineHeight) / 2, fg);
+
+            boolean today = isCurrentMonth && d == todayDom;
+            boolean hover = !today && mouseX >= cellX && mouseX < cellX + CELL_SIZE
+                    && mouseY >= cellY && mouseY < cellY + CELL_SIZE
+                    && mouseY >= gridTop && mouseY < gridBottom;
+
+            int fillColor   = today ? TODAY_FILL   : (hover ? CELL_HOVER : CELL_FILL);
+            int borderColor = today ? TODAY_BORDER : CELL_BORDER;
+            int textColor   = today ? TEXT_TODAY   : TEXT_DAY;
+
+            g.fill(cellX, cellY, cellX + CELL_SIZE, cellY + CELL_SIZE, fillColor);
+            // 1px border
+            g.fill(cellX, cellY, cellX + CELL_SIZE, cellY + 1, borderColor);
+            g.fill(cellX, cellY + CELL_SIZE - 1, cellX + CELL_SIZE, cellY + CELL_SIZE, borderColor);
+            g.fill(cellX, cellY, cellX + 1, cellY + CELL_SIZE, borderColor);
+            g.fill(cellX + CELL_SIZE - 1, cellY, cellX + CELL_SIZE, cellY + CELL_SIZE, borderColor);
+
+            String num = Integer.toString(d);
+            int textW = font.width(num);
+            g.drawString(font, num,
+                    cellX + (CELL_SIZE - textW) / 2,
+                    cellY + (CELL_SIZE - font.lineHeight) / 2 + 1,
+                    textColor, false);
         }
         g.disableScissor();
     }
 
-    /**
-     * Day-of-week index (0-based, mod {@code daysPerWeek}) of the first day
-     * of {@code monthIdx} in {@code displayYear}. Walks the profile months
-     * to compute the cumulative worldDay at the start of the requested
-     * month, then takes mod days_per_week.
-     */
     private int startDayOfWeek(CalendarClientStore.Snapshot snap, int displayYear, int monthIdx) {
         int dpw = Math.max(1, snap.daysPerWeek());
         int dpy = Math.max(1, snap.daysPerYear());
@@ -250,8 +338,7 @@ public class CalendarScreen extends Screen {
             daysBefore += snap.months().get(i).days();
         }
         long startWorldDay = startOfYear + daysBefore;
-        long mod = Math.floorMod(startWorldDay, (long) dpw);
-        return (int) mod;
+        return (int) Math.floorMod(startWorldDay, (long) dpw);
     }
 
     private Component monthNameFor(CalendarClientStore.Snapshot snap, int monthIdxZeroBased) {
