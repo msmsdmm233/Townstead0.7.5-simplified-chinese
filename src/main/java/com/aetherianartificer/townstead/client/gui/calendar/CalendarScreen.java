@@ -62,6 +62,12 @@ public class CalendarScreen extends Screen {
     private static final int NAV_BTN_W = 18;
     private static final int NAV_BTN_H = 18;
     private static final int MAX_PANEL_W_MARGIN = 40;
+    // Vertical breathing room left between the panel and the window edges so
+    // the calendar never butts right up against the top/bottom of the screen.
+    private static final int MAX_PANEL_H_MARGIN = 20;
+    // Lower bound on the uniform UI scale. Going below this makes the text
+    // unreadable; better to clip off-screen than to render a blurry mess.
+    private static final float MIN_UI_SCALE = 0.4f;
 
     // ── Palette ────────────────────────────────────────────────────────────
     private static final int CELL_FILL       = 0xFFF0DDA8;
@@ -87,6 +93,12 @@ public class CalendarScreen extends Screen {
     private double maxScrollX;
     private int panelX, panelY, panelW, panelH;
     private int contentX, contentY, contentW, contentH;
+    // Uniform scale applied to the entire UI as a single pose transform.
+    // <1.0 when the window is too small to fit the design-size panel.
+    // All layout coordinates (panelX/Y, contentX/Y, hit rects) are stored in
+    // VIRTUAL pre-scale space; mouse positions get divided by uiScale before
+    // hit-testing.
+    private float uiScale = 1f;
 
     private record HitRect(int x, int y, int w, int h, Runnable action) {
         boolean contains(double mx, double my) {
@@ -120,19 +132,11 @@ public class CalendarScreen extends Screen {
         int dpw = (snap != null) ? Math.max(1, snap.daysPerWeek()) : 7;
         int rows = computeRowCount(snap);
 
-        int gridW = dpw * CELL_SIZE + (dpw - 1) * CELL_GAP;
+        int gridW = dpw  * CELL_SIZE + (dpw  - 1) * CELL_GAP;
         int gridH = rows * CELL_SIZE + (rows - 1) * CELL_GAP;
 
         contentW = gridW;
         contentH = HEADER_H + WEEKDAY_H + gridH + FOOTER_H;
-
-        // Width is capped (long weeks scroll horizontally). Height is NOT
-        // capped — clipping rows is a real bug; better to let the panel be
-        // tall and trust the player's window to accommodate. Tiny windows
-        // would need vertical scroll which is future work.
-        int chromeW = 2 * (FRAME_THICKNESS + INNER_PADDING + WOOD_FRAME_THICKNESS);
-        int maxContentW = Math.max(160, width - MAX_PANEL_W_MARGIN - chromeW);
-        contentW = Math.min(contentW, maxContentW);
 
         // Enforce a minimum width so the 2× month name + nav button cluster fit
         int minHeaderW = 4 * NAV_BTN_W + 8 + font.width("MMMMMMMMMMMM") * MONTH_SCALE + 16;
@@ -142,8 +146,26 @@ public class CalendarScreen extends Screen {
         panelH = contentH + 2 * (FRAME_THICKNESS + INNER_PADDING);
         int totalW = panelW + 2 * WOOD_FRAME_THICKNESS;
         int totalH = panelH + 2 * WOOD_FRAME_THICKNESS;
-        panelX = (width - totalW) / 2 + WOOD_FRAME_THICKNESS;
-        panelY = (height - totalH) / 2 + WOOD_FRAME_THICKNESS;
+
+        // Compute the single uniform UI scale so the design-size panel fits
+        // the current window with margin on each side. Capped at 1.0 (we don't
+        // up-scale beyond the design size on large monitors — that would
+        // produce blurry text — but we do shrink to fit on small ones).
+        float scaleW = (width  - MAX_PANEL_W_MARGIN) / (float) totalW;
+        float scaleH = (height - MAX_PANEL_H_MARGIN) / (float) totalH;
+        uiScale = Math.min(1f, Math.min(scaleW, scaleH));
+        uiScale = Math.max(MIN_UI_SCALE, uiScale);
+
+        // Panel position is stored in VIRTUAL (pre-scale) coordinates. After
+        // pose.scale(uiScale) maps those coords to screen pixels, the panel
+        // should appear centred. Solving (panelX_v * uiScale) = screenX yields
+        // panelX_v = screenX / uiScale.
+        int scaledTotalW = Math.round(totalW * uiScale);
+        int scaledTotalH = Math.round(totalH * uiScale);
+        int virtualPanelLeft = Math.round((width  - scaledTotalW) * 0.5f / uiScale);
+        int virtualPanelTop  = Math.round((height - scaledTotalH) * 0.5f / uiScale);
+        panelX = virtualPanelLeft + WOOD_FRAME_THICKNESS;
+        panelY = virtualPanelTop  + WOOD_FRAME_THICKNESS;
         contentX = panelX + FRAME_THICKNESS + INNER_PADDING;
         contentY = panelY + FRAME_THICKNESS + INNER_PADDING;
 
@@ -197,7 +219,7 @@ public class CalendarScreen extends Screen {
     //? if >=1.21 {
     @Override
     public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-        if (maxScrollX > 0 && isMouseOverGrid(mx, my)) {
+        if (maxScrollX > 0 && isMouseOverGrid(mx / uiScale, my / uiScale)) {
             scrollX = clampScroll(scrollX - dy * 16.0);
             return true;
         }
@@ -206,7 +228,7 @@ public class CalendarScreen extends Screen {
     //?} else {
     /*@Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (maxScrollX > 0 && isMouseOverGrid(mx, my)) {
+        if (maxScrollX > 0 && isMouseOverGrid(mx / uiScale, my / uiScale)) {
             scrollX = clampScroll(scrollX - delta * 16.0);
             return true;
         }
@@ -217,8 +239,10 @@ public class CalendarScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0) {
+            double vmx = mx / uiScale;
+            double vmy = my / uiScale;
             for (HitRect h : hits) {
-                if (h.contains(mx, my)) {
+                if (h.contains(vmx, vmy)) {
                     h.action.run();
                     return true;
                 }
@@ -247,6 +271,15 @@ public class CalendarScreen extends Screen {
         hoverDay = -1;
         hoverDow = -1;
 
+        // Every interactive coord (hit rects, hover detection) lives in
+        // virtual (pre-scale) space; remap the real mouse position so hover
+        // highlights line up with what the player actually sees on screen.
+        int vmx = Math.round(mouseX / uiScale);
+        int vmy = Math.round(mouseY / uiScale);
+
+        g.pose().pushPose();
+        g.pose().scale(uiScale, uiScale, 1f);
+
         renderPlankFrame(g);
         renderMapBackground(g);
 
@@ -254,12 +287,19 @@ public class CalendarScreen extends Screen {
         if (snap == null) {
             drawCenteredNoShadow(g, Component.translatable("gui.townstead_calendar.no_data"),
                     panelX + panelW / 2, panelY + panelH / 2 - 4, TEXT_DAY);
+            g.pose().popPose();
             return;
         }
-        renderHeader(g, snap, mouseX, mouseY);
-        renderTodayButton(g, snap, mouseX, mouseY);
+        renderHeader(g, snap, vmx, vmy);
+        renderTodayButton(g, snap, vmx, vmy);
         renderWeekdayLabels(g, snap);
-        renderGrid(g, snap, mouseX, mouseY);
+        renderGrid(g, snap, vmx, vmy);
+
+        g.pose().popPose();
+
+        // Tooltip renders OUTSIDE the scale block so the tooltip text stays
+        // at native font size regardless of UI scale, and follows the real
+        // mouse cursor position.
         renderHoverTooltip(g, snap, mouseX, mouseY);
     }
 
@@ -277,7 +317,7 @@ public class CalendarScreen extends Screen {
         int outW = panelW + 2 * WOOD_FRAME_THICKNESS;
         int outH = panelH + 2 * WOOD_FRAME_THICKNESS;
 
-        FrameRenderer.tileTexture(g, FrameRenderer.PLANK_DARK, outX, outY, outW, outH);
+        tilePlankScaled(g, FrameRenderer.PLANK_DARK, outX, outY, outW, outH);
 
         // Outer shadow line — separates the frame from the screen dim.
         g.fill(outX - 1, outY - 1, outX + outW + 1, outY,          FrameRenderer.FRAME_SHADOW);
@@ -412,7 +452,7 @@ public class CalendarScreen extends Screen {
     private void renderWeekdayLabels(GuiGraphics g, CalendarClientStore.Snapshot snap) {
         int dpw = Math.max(1, snap.daysPerWeek());
         int labelY = contentY + HEADER_H;
-        g.enableScissor(contentX, labelY, contentX + contentW, labelY + WEEKDAY_H);
+        enableVirtualScissor(g, contentX, labelY, contentX + contentW, labelY + WEEKDAY_H);
         boolean named = snap.hasWeekdays() && snap.weekdays().size() == dpw;
         for (int col = 0; col < dpw; col++) {
             int cellX = contentX + col * (CELL_SIZE + CELL_GAP) - (int) scrollX;
@@ -434,7 +474,7 @@ public class CalendarScreen extends Screen {
 
         int gridTop = contentY + HEADER_H + WEEKDAY_H;
         int gridBottom = contentY + contentH - FOOTER_H;
-        g.enableScissor(contentX, gridTop, contentX + contentW, gridBottom);
+        enableVirtualScissor(g, contentX, gridTop, contentX + contentW, gridBottom);
 
         boolean isCurrentMonth = (viewYear == snap.year() && viewMonth == snap.monthIndex());
         int todayDom = snap.dayOfMonth();
@@ -523,6 +563,47 @@ public class CalendarScreen extends Screen {
     private void drawCenteredNoShadow(GuiGraphics g, Component text, int centerX, int y, int color) {
         String s = text.getString();
         g.drawString(font, s, centerX - font.width(s) / 2, y, color, false);
+    }
+
+    /**
+     * Set a scissor rectangle in VIRTUAL coords (the same coord space the rest
+     * of the screen draws in). {@link GuiGraphics#enableScissor} ignores the
+     * current pose matrix and treats its rect as raw screen pixels, so when
+     * the whole screen is wrapped in {@code pose.scale(uiScale, uiScale, 1)}
+     * we'd otherwise get a mismatch between where the scissor sits and where
+     * the geometry actually lands — clipping out things that should be on
+     * screen. Floor/ceil to avoid 1-pixel seams along the scaled edge.
+     */
+    /**
+     * Mirror of {@link FrameRenderer#tileTexture} but routed through
+     * {@link #enableVirtualScissor} so the scissor lines up with the scaled
+     * geometry inside our pose.scale block. Without this, the scissor sits at
+     * the unscaled virtual coords (raw screen pixels), which doesn't match
+     * where the tiled planks actually land on screen — producing a partially
+     * cropped frame that doesn't wrap the parchment evenly.
+     */
+    private void tilePlankScaled(GuiGraphics g, String texture, int x, int y, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+        final int tileSize = 16;
+        enableVirtualScissor(g, x, y, x + w, y + h);
+        for (int ty = 0; ty < h; ty += tileSize) {
+            for (int tx = 0; tx < w; tx += tileSize) {
+                com.aetherianartificer.townstead.client.gui.fieldpost.CellTextures
+                        .blit(g, texture, x + tx, y + ty, tileSize);
+            }
+        }
+        //? if <1.21 {
+        /*g.flush();
+        *///?}
+        g.disableScissor();
+    }
+
+    private void enableVirtualScissor(GuiGraphics g, int vx1, int vy1, int vx2, int vy2) {
+        g.enableScissor(
+                (int) Math.floor(vx1 * uiScale),
+                (int) Math.floor(vy1 * uiScale),
+                (int) Math.ceil(vx2 * uiScale),
+                (int) Math.ceil(vy2 * uiScale));
     }
 
     private void drawRectBorder(GuiGraphics g, int x, int y, int w, int h, int color) {
