@@ -308,10 +308,10 @@ public class ShiftManagerScreen extends Screen {
         refreshShiftVillagers();
         pruneStateAgainstResidents();
         updateHeaderButtons();
-        // Grid starts below the tab strip, plus a label band. Weekly needs room
-        // for the weekday headers; daily needs a roomier hour row. (The weekly
-        // usage hint now lives in the footer next to Back.)
-        gridTop = tabsY + TAB_H + (viewTab == TAB_WEEKLY ? 12 : 14);
+        // Grid starts below the tab strip, plus a label band. Daily (hour row)
+        // and weekly (weekday headers) use the SAME offset so the villager rows
+        // sit at identical Y in both tabs and line up when toggling.
+        gridTop = tabsY + TAB_H + 12;
         clampRowScroll();
 
         // Title
@@ -678,6 +678,9 @@ public class ShiftManagerScreen extends Screen {
         int dy = innerY - modalListScroll;
         boolean sawBuiltIn = false;
         boolean dividerDrawn = false;
+        // Clip to the box so entries scrolled past the edges don't draw their
+        // labels outside the panel.
+        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
         for (ShiftTemplate t : templates) {
             if (sawBuiltIn && !t.builtIn() && !dividerDrawn) {
                 int divY = dy + LIST_DIVIDER_GAP / 2;
@@ -717,6 +720,7 @@ public class ShiftManagerScreen extends Screen {
             dy += LIST_ENTRY_H;
             if (t.builtIn()) sawBuiltIn = true;
         }
+        g.disableScissor();
     }
 
     /** Total height the list's content occupies, including the built-in/user divider gap. */
@@ -1987,6 +1991,30 @@ public class ShiftManagerScreen extends Screen {
         }
     }
 
+    /**
+     * Like {@link #drawMiniStrip} but draws the 24 hours as discrete cells with a
+     * 1px separator between them (the dark background shows through), matching the
+     * daily grid's per-hour look. {@code cellW} is a FIXED per-hour width so every
+     * cell is identical (no rounding drift); the strip spans {@code cellW * 24}.
+     * Falls back to touching cells when there isn't room for separators.
+     */
+    private void drawMiniStripGridded(GuiGraphics g, int x, int y, int cellW, int h, int[] shifts, boolean enabled) {
+        int n = ShiftData.HOURS_PER_DAY;
+        if (shifts == null || shifts.length != n || cellW <= 0) {
+            g.fill(x, y, x + Math.max(1, cellW) * n, y + h, 0x30FFFFFF);
+            return;
+        }
+        int drawW = cellW > 1 ? cellW - 1 : cellW; // 1px separator when there's room
+        for (int hh = 0; hh < n; hh++) {
+            int cx0 = x + hh * cellW;
+            int ord = shifts[hh];
+            if (ord < 0 || ord >= ShiftData.ORDINAL_COLORS.length) ord = ShiftData.ORD_IDLE;
+            int color = ShiftData.ORDINAL_COLORS[ord];
+            if (!enabled) color = (color & 0x00FFFFFF) | 0x60000000;
+            g.fill(cx0, y, cx0 + drawW, y + h, color);
+        }
+    }
+
     private static final int SEG_ACTIVE_BG = 0xFF3A6EA5;
     private static final int SEG_INACTIVE_BG = 0xFF24282F;
     private static final int SEG_HOVER_BG = 0xFF323844;
@@ -2330,6 +2358,8 @@ public class ShiftManagerScreen extends Screen {
         }
         int dy = innerY - weekPlanListScroll;
         boolean sawBuiltIn = false;
+        // Clip to the box so off-screen entries don't draw outside the panel.
+        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
         for (WeekPlan p : plans) {
             // Divider line at the built-in -> custom boundary (no vertical gap,
             // so click hit-testing stays a simple fixed-height scan).
@@ -2355,6 +2385,7 @@ public class ShiftManagerScreen extends Screen {
             dy += LIST_ENTRY_H;
             if (p.builtIn()) sawBuiltIn = true;
         }
+        g.disableScissor();
     }
 
     private void renderWeekPlanPreview(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY, float pt) {
@@ -2390,19 +2421,22 @@ public class ShiftManagerScreen extends Screen {
         List<String> days = p.dayTemplates();
         int rows = days.size();
         int sx0 = x + pad + 40;
-        int stripW = w - pad * 2 - 70;
+        // Fixed per-hour cell width so every hour cell is identical (no rounding
+        // drift); the strip and its border both span pcw * 24.
+        int availW = w - pad * 2 - 70;
+        int pcw = Math.max(1, availW / ShiftData.HOURS_PER_DAY);
+        int stripW = pcw * ShiftData.HOURS_PER_DAY;
         int labelsY = titleY + this.font.lineHeight * 2 + 8;
         // The modal strip is much narrower than the main weekly grid, so all 24
         // hour ticks would collide (the "9101234" mush). Thin them to a stride
         // that keeps ~9px between labels (half-scale 2-digit width plus a gap),
         // rounded up to a clean divisor of the day so the scale reads evenly.
-        int slotPx = Math.max(1, stripW / ShiftData.HOURS_PER_DAY);
-        int stride = Math.max(1, (int) Math.ceil(9.0 / slotPx));
+        int stride = Math.max(1, (int) Math.ceil(9.0 / pcw));
         for (int candidate : new int[] { 1, 2, 3, 4, 6, 8, 12 }) {
             if (candidate >= stride) { stride = candidate; break; }
         }
         for (int hh = 0; hh < ShiftData.HOURS_PER_DAY; hh += stride) {
-            int cx = sx0 + (int) ((hh + 0.5) * stripW / ShiftData.HOURS_PER_DAY);
+            int cx = sx0 + hh * pcw + pcw / 2;
             String hl = String.valueOf(ShiftData.toDisplayHour(hh));
             g.pose().pushPose();
             g.pose().translate(cx, labelsY, 0);
@@ -2431,7 +2465,7 @@ public class ShiftManagerScreen extends Screen {
             String id = days.get(d);
             ShiftTemplate t = (id == null || id.isEmpty()) ? null : ShiftTemplateClientStore.find(id);
             if (t != null) {
-                drawMiniStrip(g, sx0, ry, stripW, rowH, t.copyShifts(), true);
+                drawMiniStripGridded(g, sx0, ry, pcw, rowH, t.copyShifts(), true);
             } else {
                 g.fill(sx0, ry, sx0 + stripW, ry + rowH, WEEK_FALLBACK_FILL);
             }
