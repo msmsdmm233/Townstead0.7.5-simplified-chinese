@@ -181,6 +181,13 @@ public class ShiftManagerScreen extends Screen {
     private Button modalCloseButton;
     private Button modalSaveAsConfirmButton;
     private Button modalSaveAsCancelButton;
+    // Shared delete-confirmation overlay (used by both the template and week
+    // plan modals' Delete buttons, so deletes can't fire on a single misclick).
+    private boolean confirmDeleteActive = false;
+    private String confirmDeleteName = "";
+    private Runnable confirmDeleteAction = null;
+    private Button confirmDeleteYes;
+    private Button confirmDeleteNo;
 
     public ShiftManagerScreen(Screen returnScreen) {
         super(Component.translatable("townstead.shift.title"));
@@ -668,6 +675,9 @@ public class ShiftManagerScreen extends Screen {
         if (modalSaveAsActive) {
             renderSaveAsOverlay(g, mouseX, mouseY, partialTicks);
         }
+        if (confirmDeleteActive) {
+            renderDeleteConfirm(g, mouseX, mouseY, partialTicks);
+        }
     }
 
     private static final int LIST_ENTRY_H = 18;
@@ -879,11 +889,11 @@ public class ShiftManagerScreen extends Screen {
                 : Component.translatable("townstead.shift.template.used_by", used).getString();
         g.drawString(this.font, usedText, gridX, usedY, 0xFFA0A0A0, false);
 
-        // Editable hint
+        // Editable hint on its own line below, so it can't collide with the
+        // assigned-count text on a narrow pane.
         if (editable) {
             String hint = Component.translatable("townstead.shift.template.edit_hint").getString();
-            int hintW = this.font.width(hint);
-            g.drawString(this.font, hint, gridX + gridActualW - hintW, usedY, 0xFF707070, false);
+            g.drawString(this.font, hint, gridX, usedY + this.font.lineHeight + 2, 0xFF707070, false);
         }
     }
 
@@ -923,6 +933,58 @@ public class ShiftManagerScreen extends Screen {
         g.fill(x, y + h - 1, x + w, y + h, color);
         g.fill(x, y, x + 1, y + h, color);
         g.fill(x + w - 1, y, x + w, y + h, color);
+    }
+
+    // -------------------------------------------------- Delete confirmation
+    // A small overlay rendered on top of whichever modal is open (the same
+    // sub-panel pattern as the Save As overlay), not a separate Screen.
+
+    private static final int CONFIRM_W = 300;
+    private static final int CONFIRM_H = 96;
+
+    private void openDeleteConfirm(String name, Runnable onConfirm) {
+        confirmDeleteActive = true;
+        confirmDeleteName = name != null ? name : "";
+        confirmDeleteAction = onConfirm;
+        int mx = (width - CONFIRM_W) / 2;
+        int my = (height - CONFIRM_H) / 2;
+        int bw = 96;
+        int by = my + CONFIRM_H - 28;
+        confirmDeleteYes = Button.builder(Component.translatable("townstead.shift.confirm.delete_yes"), b -> {
+            Runnable r = confirmDeleteAction;
+            closeDeleteConfirm();
+            if (r != null) r.run();
+        }).bounds(mx + CONFIRM_W - bw - 12, by, bw, 20).build();
+        confirmDeleteNo = Button.builder(Component.translatable("townstead.shift.confirm.cancel"),
+                b -> closeDeleteConfirm())
+                .bounds(mx + CONFIRM_W - 2 * bw - 18, by, bw, 20).build();
+    }
+
+    private void closeDeleteConfirm() {
+        confirmDeleteActive = false;
+        confirmDeleteAction = null;
+        confirmDeleteName = "";
+        confirmDeleteYes = null;
+        confirmDeleteNo = null;
+    }
+
+    private void renderDeleteConfirm(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        g.fill(0, 0, width, height, OVERLAY_DIM);
+        int mx = (width - CONFIRM_W) / 2;
+        int my = (height - CONFIRM_H) / 2;
+        g.fill(mx, my, mx + CONFIRM_W, my + CONFIRM_H, MODAL_BG);
+        drawBorder(g, mx, my, CONFIRM_W, CONFIRM_H, MODAL_BORDER);
+
+        g.drawString(this.font, Component.translatable("townstead.shift.confirm.delete_title"),
+                mx + 12, my + 12, 0xFFFFFFFF, false);
+        Component msg = Component.translatable("townstead.shift.confirm.delete_msg", confirmDeleteName);
+        int ty = my + 28;
+        for (net.minecraft.util.FormattedCharSequence line : this.font.split(msg, CONFIRM_W - 24)) {
+            g.drawString(this.font, line, mx + 12, ty, 0xFFC0C0C0, false);
+            ty += this.font.lineHeight + 1;
+        }
+        if (confirmDeleteNo != null) confirmDeleteNo.render(g, mouseX, mouseY, partialTicks);
+        if (confirmDeleteYes != null) confirmDeleteYes.render(g, mouseX, mouseY, partialTicks);
     }
 
     // --------------------------------------------------------- Modal control
@@ -985,7 +1047,7 @@ public class ShiftManagerScreen extends Screen {
                     .bounds(barX + bw + gap, btnRowY, bw, btnRowH).build();
             modalDeleteButton = Button.builder(
                     Component.translatable("townstead.shift.template.delete"),
-                    b -> deleteSelectedTemplate())
+                    b -> requestDeleteTemplate())
                     .bounds(barX + 2 * (bw + gap), btnRowY, barW - 2 * (bw + gap), btnRowH).build();
             modalDuplicateButton = null;
             modalSaveAsButton = null;
@@ -998,7 +1060,7 @@ public class ShiftManagerScreen extends Screen {
                     .bounds(barX, btnRowY, bw, btnRowH).build();
             modalDeleteButton = Button.builder(
                     Component.translatable("townstead.shift.template.delete"),
-                    b -> deleteSelectedTemplate())
+                    b -> requestDeleteTemplate())
                     .bounds(barX + bw + gap, btnRowY, barW - bw - gap, btnRowH).build();
             modalDuplicateButton = null;
             modalSaveAsButton = null;
@@ -1020,7 +1082,7 @@ public class ShiftManagerScreen extends Screen {
                     .bounds(barX + 2 * (bw + gap), btnRowY, bw, btnRowH).build();
             modalDeleteButton = Button.builder(
                     Component.translatable("townstead.shift.template.delete"),
-                    b -> deleteSelectedTemplate())
+                    b -> requestDeleteTemplate())
                     .bounds(barX + 3 * (bw + gap), btnRowY, barW - 3 * (bw + gap), btnRowH).build();
             modalAllDaysButton = null;
         }
@@ -1071,6 +1133,7 @@ public class ShiftManagerScreen extends Screen {
         modalDayTarget = null;
         modalDayIndex = -1;
         modalTemplateEdits.clear();
+        closeDeleteConfirm();
         clearModalWidgets();
         setFocused(null);
     }
@@ -1250,6 +1313,13 @@ public class ShiftManagerScreen extends Screen {
         *///?}
     }
 
+    /** Ask for confirmation before deleting the selected (user) template. */
+    private void requestDeleteTemplate() {
+        ShiftTemplate t = ShiftTemplateClientStore.find(modalSelectedId);
+        if (t == null || t.builtIn()) return;
+        openDeleteConfirm(t.displayName(), this::deleteSelectedTemplate);
+    }
+
     private void deleteSelectedTemplate() {
         ShiftTemplate t = ShiftTemplateClientStore.find(modalSelectedId);
         if (t == null || t.builtIn()) return;
@@ -1360,6 +1430,11 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private boolean modalMouseClicked(double mouseX, double mouseY, int button) {
+        if (confirmDeleteActive) {
+            if (confirmDeleteYes != null && confirmDeleteYes.mouseClicked(mouseX, mouseY, button)) return true;
+            if (confirmDeleteNo != null && confirmDeleteNo.mouseClicked(mouseX, mouseY, button)) return true;
+            return true; // consume; confirmation must be answered first
+        }
         if (modalSaveAsActive) {
             if (modalSaveAsConfirmButton != null && modalSaveAsConfirmButton.mouseClicked(mouseX, mouseY, button)) return true;
             if (modalSaveAsCancelButton != null && modalSaveAsCancelButton.mouseClicked(mouseX, mouseY, button)) return true;
@@ -1509,6 +1584,16 @@ public class ShiftManagerScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (confirmDeleteActive) {
+            if (keyCode == 256) { closeDeleteConfirm(); return true; }
+            if (keyCode == 257 || keyCode == 335) {
+                Runnable r = confirmDeleteAction;
+                closeDeleteConfirm();
+                if (r != null) r.run();
+                return true;
+            }
+            return true;
+        }
         if (modalActive) {
             if (modalSaveAsActive) {
                 if (keyCode == 256) { modalSaveAsActive = false; modalSaveAsInput = null; setFocused(null); return true; }
@@ -2270,7 +2355,7 @@ public class ShiftManagerScreen extends Screen {
         weekPlanSaveButton = Button.builder(Component.translatable("townstead.weekplan.save_short"),
                 b -> openWeekPlanSaveOverlay()).bounds(barX + bw + gap, btnRowY, bw, btnRowH).build();
         weekPlanDeleteButton = Button.builder(Component.translatable("townstead.shift.template.delete"),
-                b -> deleteSelectedWeekPlan())
+                b -> requestDeleteWeekPlan())
                 .bounds(barX + 2 * (bw + gap), btnRowY, barW - 2 * (bw + gap), btnRowH).build();
         weekPlanCloseButton = Button.builder(Component.translatable("townstead.shift.template.close"),
                 b -> closeWeekPlanModal()).bounds(mx + mw - 60, my + 6, 50, 18).build();
@@ -2304,6 +2389,7 @@ public class ShiftManagerScreen extends Screen {
         weekPlanSelectedId = null;
         weekPlanRenaming = false;
         weekPlanRenameInput = null;
+        closeDeleteConfirm();
         clearWeekPlanWidgets();
         setFocused(null);
     }
@@ -2349,6 +2435,7 @@ public class ShiftManagerScreen extends Screen {
         if (weekPlanCloseButton != null) weekPlanCloseButton.render(g, mouseX, mouseY, partialTicks);
 
         if (weekPlanSaveActive) renderWeekPlanSaveOverlay(g, mouseX, mouseY, partialTicks);
+        if (confirmDeleteActive) renderDeleteConfirm(g, mouseX, mouseY, partialTicks);
     }
 
     private void renderWeekPlanList(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY) {
@@ -2600,6 +2687,13 @@ public class ShiftManagerScreen extends Screen {
         closeWeekPlanModal();
     }
 
+    /** Ask for confirmation before deleting the selected (user) week plan. */
+    private void requestDeleteWeekPlan() {
+        WeekPlan p = WeekPlanClientStore.find(weekPlanSelectedId);
+        if (p == null || p.builtIn()) return;
+        openDeleteConfirm(p.displayName(), this::deleteSelectedWeekPlan);
+    }
+
     private void deleteSelectedWeekPlan() {
         WeekPlan p = WeekPlanClientStore.find(weekPlanSelectedId);
         if (p == null || p.builtIn()) return;
@@ -2614,6 +2708,11 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private boolean weekPlanModalMouseClicked(double mouseX, double mouseY, int button) {
+        if (confirmDeleteActive) {
+            if (confirmDeleteYes != null && confirmDeleteYes.mouseClicked(mouseX, mouseY, button)) return true;
+            if (confirmDeleteNo != null && confirmDeleteNo.mouseClicked(mouseX, mouseY, button)) return true;
+            return true; // consume; confirmation must be answered first
+        }
         if (weekPlanSaveActive) {
             if (weekPlanSaveConfirm != null && weekPlanSaveConfirm.mouseClicked(mouseX, mouseY, button)) return true;
             if (weekPlanSaveCancel != null && weekPlanSaveCancel.mouseClicked(mouseX, mouseY, button)) return true;
