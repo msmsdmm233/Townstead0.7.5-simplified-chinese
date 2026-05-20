@@ -303,6 +303,12 @@ public class ShiftManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        // 1.20.2+ (our 1.21 build) auto-dims the world behind a Screen inside
+        // Screen.render; 1.20.1 does not, so the main screen would render over
+        // the live world and be hard to read. Draw the dim ourselves on Forge.
+        //? if forge {
+        /*renderBackground(g);
+        *///?}
         super.render(g, mouseX, mouseY, partialTicks);
 
         refreshShiftVillagers();
