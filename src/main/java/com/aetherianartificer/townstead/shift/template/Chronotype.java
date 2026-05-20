@@ -12,10 +12,12 @@ import java.util.Map;
  * personality lookup is done by name string so it survives the personality
  * enum drift between 1.20.1 and 1.21.1.
  *
- * Sleep window (tick-hours; tick-hour 0 == 6 AM display):
- *   EARLY_BIRD 12..19 (~6 PM .. 2 AM display)
- *   STANDARD   14..21 (~8 PM .. 4 AM display)
- *   NIGHT_OWL  17..24%24 (~11 PM .. 7 AM display)
+ * Sleep window (8 tick-hours; tick-hour 0 == 6 AM display):
+ *   EARLY_BIRD 15..22       (9 PM .. 5 AM display, wakes 5 AM)
+ *   STANDARD   17..24%24    (11 PM .. 7 AM display, wakes 7 AM)
+ *   NIGHT_OWL  19..26%24    (1 AM .. 9 AM display, wakes 9 AM)
+ * Townstead drives sleep via its own Sleep activity / bed-seeking, not vanilla
+ * night-only beds, so windows that run into daytime (Night Owl) work fine.
  */
 public enum Chronotype {
     EARLY_BIRD,
@@ -94,9 +96,9 @@ public enum Chronotype {
     /** Inclusive start tick-hour of the preferred sleep window (tick-hour 0 = 6 AM). */
     public int preferredSleepStart() {
         return switch (this) {
-            case EARLY_BIRD -> 12;     // ~6 PM
-            case STANDARD -> 14; // ~8 PM
-            case NIGHT_OWL -> 17;      // ~11 PM
+            case EARLY_BIRD -> 15;     // 9 PM (wakes 5 AM)
+            case STANDARD -> 17;       // 11 PM (wakes 7 AM)
+            case NIGHT_OWL -> 19;      // 1 AM (wakes 9 AM)
         };
     }
 
