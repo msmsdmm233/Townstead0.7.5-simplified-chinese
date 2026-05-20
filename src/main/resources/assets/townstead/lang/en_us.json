@@ -417,7 +417,7 @@
   "townstead.shift.reset": "Reset All",
   "townstead.shift.page": "Page %d/%d",
   "townstead.shift.templates.header": "Templates",
-  "townstead.shift.template.save": "Save As Template…",
+  "townstead.shift.template.save": "Save As…",
   "townstead.shift.template.save_prompt": "Template name",
   "townstead.shift.template.load": "Load",
   "townstead.shift.template.duplicate": "Duplicate",

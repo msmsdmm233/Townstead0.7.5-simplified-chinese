@@ -110,6 +110,7 @@ public class ShiftManagerScreen extends Screen {
     private List<UUID> weekPlanBulkTargets = List.of();
     private ResourceLocation weekPlanSelectedId = null;
     private int weekPlanListScroll = 0;
+    private int weekPlanPreviewScroll = 0;   // scrolls the day-strip rows in the detail pane
     private boolean weekPlanSaveActive = false;
     private EditBox weekPlanSaveInput;
     private Button weekPlanApplyButton, weekPlanDeleteButton, weekPlanSaveButton, weekPlanCloseButton;
@@ -123,6 +124,12 @@ public class ShiftManagerScreen extends Screen {
     private int gridRight;
     private int templateBtnLeft;
     private int cellW;
+    // NAME_W / TEMPLATE_BTN_W are the wide-screen maximums; these hold the
+    // actual widths after init() shrinks the name column and the right-side
+    // control (template dropdown / mode toggle) to give the hour grid room on
+    // narrow / high-GUI-scale windows.
+    private int nameW = NAME_W;
+    private int templateBtnW = TEMPLATE_BTN_W;
     private int gridTop;
     private int gridBottom;
     private int legendY;
@@ -185,10 +192,17 @@ public class ShiftManagerScreen extends Screen {
         super.init();
 
         nameLeft = EDGE + CHECKBOX_SIZE + 6;
-        gridLeft = nameLeft + NAME_W + 6;
-        templateBtnLeft = width - EDGE - TEMPLATE_BTN_W;
+        // Shrink the name column and the right-side control toward their minimums
+        // as the window narrows, so the hour grid keeps enough width for legible
+        // cells instead of the grid overflowing under the dropdown (the old
+        // Math.max(8, ...) floor pushed 24 cells past gridRight on small screens).
+        int span = width - 2 * EDGE;
+        nameW = Math.max(56, Math.min(NAME_W, span * 18 / 100));
+        templateBtnW = Math.max(88, Math.min(TEMPLATE_BTN_W, span * 26 / 100));
+        gridLeft = nameLeft + nameW + 6;
+        templateBtnLeft = width - EDGE - templateBtnW;
         gridRight = templateBtnLeft - 8;
-        cellW = Math.max(8, (gridRight - gridLeft) / ShiftData.HOURS_PER_DAY);
+        cellW = Math.max(4, (gridRight - gridLeft) / ShiftData.HOURS_PER_DAY);
         tabsY = EDGE + HEADER_H;
         gridTop = tabsY + TAB_H;
 
@@ -387,8 +401,13 @@ public class ShiftManagerScreen extends Screen {
         }
 
         // Hour labels in their own row, with breathing room above the cells.
+        // Thin the ticks when cells are too narrow to fit a 2-digit number at
+        // half scale, so they don't smear into each other; the hovered hour is
+        // always labelled so you can still read the exact column.
         int hourLabelY = gridTop - 9;
+        int hourStride = Math.max(1, (int) Math.ceil(7.0 / cellW));
         for (int h = 0; h < ShiftData.HOURS_PER_DAY; h++) {
+            if (h % hourStride != 0 && h != hoverHour) continue;
             int displayHour = ShiftData.toDisplayHour(h);
             String label = String.valueOf(displayHour);
             int lx = gridLeft + h * cellW;
@@ -448,7 +467,7 @@ public class ShiftManagerScreen extends Screen {
     private void renderName(GuiGraphics g, UUID uuid, int rowY) {
         String name = shiftVillagerNames.getOrDefault(uuid, "???");
         String truncated = name;
-        while (this.font.width(truncated) > NAME_W - 2 && truncated.length() > 1) {
+        while (this.font.width(truncated) > nameW - 2 && truncated.length() > 1) {
             truncated = truncated.substring(0, truncated.length() - 1);
         }
         if (!truncated.equals(name)) truncated += "..";
@@ -486,19 +505,19 @@ public class ShiftManagerScreen extends Screen {
         int btnX = templateBtnLeft;
         int btnY = rowY + (CELL_H - 14) / 2;
         int btnH = 14;
-        boolean hovered = mouseX >= btnX && mouseX <= btnX + TEMPLATE_BTN_W
+        boolean hovered = mouseX >= btnX && mouseX <= btnX + templateBtnW
                 && mouseY >= btnY && mouseY <= btnY + btnH;
 
         // Frame
-        g.fill(btnX, btnY, btnX + TEMPLATE_BTN_W, btnY + btnH, TEMPLATE_BTN_BG);
+        g.fill(btnX, btnY, btnX + templateBtnW, btnY + btnH, TEMPLATE_BTN_BG);
         int border = hovered ? TEMPLATE_BTN_BORDER_HI : TEMPLATE_BTN_BORDER;
-        g.fill(btnX, btnY, btnX + TEMPLATE_BTN_W, btnY + 1, border);
-        g.fill(btnX, btnY + btnH - 1, btnX + TEMPLATE_BTN_W, btnY + btnH, border);
+        g.fill(btnX, btnY, btnX + templateBtnW, btnY + 1, border);
+        g.fill(btnX, btnY + btnH - 1, btnX + templateBtnW, btnY + btnH, border);
         g.fill(btnX, btnY, btnX + 1, btnY + btnH, border);
-        g.fill(btnX + TEMPLATE_BTN_W - 1, btnY, btnX + TEMPLATE_BTN_W, btnY + btnH, border);
+        g.fill(btnX + templateBtnW - 1, btnY, btnX + templateBtnW, btnY + btnH, border);
 
         String label = templateLabelFor(uuid);
-        int maxLabelW = TEMPLATE_BTN_W - 16;
+        int maxLabelW = templateBtnW - 16;
         String trunc = label;
         while (this.font.width(trunc) > maxLabelW && trunc.length() > 1) {
             trunc = trunc.substring(0, trunc.length() - 1);
@@ -512,7 +531,7 @@ public class ShiftManagerScreen extends Screen {
                 btnY + (btnH - this.font.lineHeight) / 2 + 1, color, false);
 
         // Chevron on the right
-        int cvX = btnX + TEMPLATE_BTN_W - 8;
+        int cvX = btnX + templateBtnW - 8;
         int cvY = btnY + btnH / 2 - 1;
         g.fill(cvX, cvY, cvX + 3, cvY + 1, 0xFFBBBBBB);
         g.fill(cvX + 1, cvY + 1, cvX + 2, cvY + 2, 0xFFBBBBBB);
@@ -615,20 +634,22 @@ public class ShiftManagerScreen extends Screen {
         }
         g.drawString(this.font, Component.literal(headerText), mx + 12, my + 10, 0xFFFFFFFF, false);
 
-        // Layout
+        // Layout — both panes share one height, ending just above the single
+        // bottom button row, so the list and the preview line up 1:1.
         int listX = mx + 10;
         int listY = my + 30;
         int listW = (mw - 30) / 2;
-        int listH = mh - 60;
         int rightX = listX + listW + 10;
         int rightW = mw - (rightX - mx) - 10;
         int rightY = listY;
+        int btnRowY = my + mh - 10 - 20;
+        int paneH = (btnRowY - 8) - listY;
 
-        drawBorder(g, listX, listY, listW, listH, MODAL_BORDER);
-        drawBorder(g, rightX, rightY, rightW, listH - 32, MODAL_BORDER);
+        drawBorder(g, listX, listY, listW, paneH, MODAL_BORDER);
+        drawBorder(g, rightX, rightY, rightW, paneH, MODAL_BORDER);
 
-        renderModalList(g, listX, listY, listW, listH, mouseX, mouseY);
-        renderModalPreview(g, rightX, rightY, rightW, listH - 32, mouseX, mouseY, partialTicks);
+        renderModalList(g, listX, listY, listW, paneH, mouseX, mouseY);
+        renderModalPreview(g, rightX, rightY, rightW, paneH, mouseX, mouseY, partialTicks);
 
         // Close button (X)
         if (modalCloseButton != null) modalCloseButton.render(g, mouseX, mouseY, partialTicks);
@@ -778,8 +799,9 @@ public class ShiftManagerScreen extends Screen {
         previewGridCellW = pcell;
         previewGridH = CELL_H;
 
-        // Hour labels above
-        for (int h2 = 0; h2 < ShiftData.HOURS_PER_DAY; h2++) {
+        // Hour labels above (thinned so they don't smear when cells are narrow)
+        int pStride = Math.max(1, (int) Math.ceil(7.0 / pcell));
+        for (int h2 = 0; h2 < ShiftData.HOURS_PER_DAY; h2 += pStride) {
             int displayHour = ShiftData.toDisplayHour(h2);
             String label = String.valueOf(displayHour);
             int lx = gridX + h2 * pcell;
@@ -931,47 +953,65 @@ public class ShiftManagerScreen extends Screen {
         int mx = (width - mw) / 2;
         int my = (height - mh) / 2;
 
-        int listW = (mw - 30) / 2;
-        int rightX = mx + 10 + listW + 10;
-        int rightW = mw - (rightX - mx) - 10;
-        int btnRowY = my + mh - 30;
-        // Two-column rows span exactly the same left/right edges as the
-        // full-width button above them (gap of 4 between the two columns).
-        int btnW = (rightW - 12) / 2;
+        // Single button row across the full content width at the bottom. The
+        // set of buttons depends on the mode; they're spread evenly so the panes
+        // above can be full height and the actions all line up on one line.
+        int barX = mx + 10;
+        int barW = mw - 20;
+        int gap = 6;
+        int btnRowH = 20;
+        int btnRowY = my + mh - 10 - btnRowH;
 
-        modalLoadButton = Button.builder(
-                Component.translatable("townstead.shift.template.load"),
-                b -> applySelectedTemplate())
-                .bounds(rightX + 4, btnRowY, btnW, 20)
-                .build();
-        modalDeleteButton = Button.builder(
-                Component.translatable("townstead.shift.template.delete"),
-                b -> deleteSelectedTemplate())
-                .bounds(rightX + 8 + btnW, btnRowY, btnW, 20)
-                .build();
         if (modalDayAssign) {
-            modalDuplicateButton = null;
-            modalSaveAsButton = null;
+            // Fill all days | Load (assign to this day) | Delete
+            int bw = (barW - 2 * gap) / 3;
             modalAllDaysButton = Button.builder(
                     Component.translatable("townstead.shift.weekly.fill_all"),
                     b -> applyDayTemplateAllDays())
-                    .bounds(rightX + 4, btnRowY - 22, rightW - 8, 20)
-                    .build();
-        } else if (!modalBulkMode) {
+                    .bounds(barX, btnRowY, bw, btnRowH).build();
+            modalLoadButton = Button.builder(
+                    Component.translatable("townstead.shift.template.load"),
+                    b -> applySelectedTemplate())
+                    .bounds(barX + bw + gap, btnRowY, bw, btnRowH).build();
+            modalDeleteButton = Button.builder(
+                    Component.translatable("townstead.shift.template.delete"),
+                    b -> deleteSelectedTemplate())
+                    .bounds(barX + 2 * (bw + gap), btnRowY, barW - 2 * (bw + gap), btnRowH).build();
+            modalDuplicateButton = null;
+            modalSaveAsButton = null;
+        } else if (modalBulkMode) {
+            // Load | Delete
+            int bw = (barW - gap) / 2;
+            modalLoadButton = Button.builder(
+                    Component.translatable("townstead.shift.template.load"),
+                    b -> applySelectedTemplate())
+                    .bounds(barX, btnRowY, bw, btnRowH).build();
+            modalDeleteButton = Button.builder(
+                    Component.translatable("townstead.shift.template.delete"),
+                    b -> deleteSelectedTemplate())
+                    .bounds(barX + bw + gap, btnRowY, barW - bw - gap, btnRowH).build();
+            modalDuplicateButton = null;
+            modalSaveAsButton = null;
             modalAllDaysButton = null;
+        } else {
+            // Duplicate | Save As | Load | Delete
+            int bw = (barW - 3 * gap) / 4;
             modalDuplicateButton = Button.builder(
                     Component.translatable("townstead.shift.template.duplicate"),
                     b -> duplicateSelectedTemplate())
-                    .bounds(rightX + 4, btnRowY - 22, btnW, 20)
-                    .build();
+                    .bounds(barX, btnRowY, bw, btnRowH).build();
             modalSaveAsButton = Button.builder(
                     Component.translatable("townstead.shift.template.save"),
                     b -> openSaveAsOverlay())
-                    .bounds(rightX + 8 + btnW, btnRowY - 22, btnW, 20)
-                    .build();
-        } else {
-            modalDuplicateButton = null;
-            modalSaveAsButton = null;
+                    .bounds(barX + (bw + gap), btnRowY, bw, btnRowH).build();
+            modalLoadButton = Button.builder(
+                    Component.translatable("townstead.shift.template.load"),
+                    b -> applySelectedTemplate())
+                    .bounds(barX + 2 * (bw + gap), btnRowY, bw, btnRowH).build();
+            modalDeleteButton = Button.builder(
+                    Component.translatable("townstead.shift.template.delete"),
+                    b -> deleteSelectedTemplate())
+                    .bounds(barX + 3 * (bw + gap), btnRowY, barW - 3 * (bw + gap), btnRowH).build();
             modalAllDaysButton = null;
         }
         modalCloseButton = Button.builder(
@@ -1272,7 +1312,7 @@ public class ShiftManagerScreen extends Screen {
                 if (rowY + CELL_H < gridTop) continue;
                 if (rowY > gridBottom) break;
                 int btnY = rowY + (CELL_H - 14) / 2;
-                if (mouseX >= templateBtnLeft && mouseX <= templateBtnLeft + TEMPLATE_BTN_W
+                if (mouseX >= templateBtnLeft && mouseX <= templateBtnLeft + templateBtnW
                         && mouseY >= btnY && mouseY <= btnY + 14) {
                     UUID uuid = filteredUuids.get(idx);
                     focusedVillager = uuid;
@@ -1361,8 +1401,8 @@ public class ShiftManagerScreen extends Screen {
         int listX = mx + 10;
         int listY = my + 30;
         int listW = (mw - 30) / 2;
-        int listH = mh - 60;
-        if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + listH) {
+        int paneH = (my + mh - 10 - 20 - 8) - listY;
+        if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
             int innerY = listY + 4;
             ShiftTemplate hit = hitTestListEntry(mouseY, innerY);
             if (hit != null) {
@@ -1410,10 +1450,10 @@ public class ShiftManagerScreen extends Screen {
             int listX = mx + 10;
             int listY = my + 30;
             int listW = (mw - 30) / 2;
-            int listH = mh - 60;
-            if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + listH) {
+            int paneH = (my + mh - 10 - 20 - 8) - listY;
+            if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
                 int listSize = modalListContentHeight();
-                int visible = listH - 8;
+                int visible = paneH - 8;
                 int maxScroll = Math.max(0, listSize - visible);
                 modalListScroll = (int) Math.max(0, Math.min(maxScroll, modalListScroll - scrollY * 12));
             }
@@ -1428,12 +1468,17 @@ public class ShiftManagerScreen extends Screen {
             int listX = mx + 10;
             int listY = my + 30;
             int listW = (mw - 30) / 2;
-            int listH = mh - 60;
-            if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + listH) {
+            int rightX = listX + listW + 10;
+            int rightW = mw - (rightX - mx) - 10;
+            int paneH = (my + mh - 10 - 20 - 8) - listY;
+            if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
                 int listSize = WeekPlanClientStore.all().size() * LIST_ENTRY_H;
-                int visible = listH - 8;
+                int visible = paneH - 8;
                 int maxScroll = Math.max(0, listSize - visible);
                 weekPlanListScroll = (int) Math.max(0, Math.min(maxScroll, weekPlanListScroll - scrollY * 12));
+            } else if (mouseX >= rightX && mouseX <= rightX + rightW && mouseY >= listY && mouseY <= listY + paneH) {
+                // Detail pane: scroll the day strips (render clamps the range).
+                weekPlanPreviewScroll = (int) Math.max(0, weekPlanPreviewScroll - scrollY * 12);
             }
             return true;
         }
@@ -1952,20 +1997,20 @@ public class ShiftManagerScreen extends Screen {
         int btnX = templateBtnLeft;
         int btnY = rowY + (CELL_H - 14) / 2;
         int btnH = 14;
-        int halfW = TEMPLATE_BTN_W / 2;
+        int halfW = templateBtnW / 2;
         int midX = btnX + halfW;
 
         drawSegHalf(g, btnX, btnY, halfW, btnH, Component.translatable("townstead.shift.weekly.mode_daily"),
                 !weekly, mouseX, mouseY);
-        drawSegHalf(g, midX, btnY, TEMPLATE_BTN_W - halfW, btnH, Component.translatable("townstead.shift.weekly.mode_weekly"),
+        drawSegHalf(g, midX, btnY, templateBtnW - halfW, btnH, Component.translatable("townstead.shift.weekly.mode_weekly"),
                 weekly, mouseX, mouseY);
 
         // outer border + divider
         int border = TEMPLATE_BTN_BORDER;
-        g.fill(btnX, btnY, btnX + TEMPLATE_BTN_W, btnY + 1, border);
-        g.fill(btnX, btnY + btnH - 1, btnX + TEMPLATE_BTN_W, btnY + btnH, border);
+        g.fill(btnX, btnY, btnX + templateBtnW, btnY + 1, border);
+        g.fill(btnX, btnY + btnH - 1, btnX + templateBtnW, btnY + btnH, border);
         g.fill(btnX, btnY, btnX + 1, btnY + btnH, border);
-        g.fill(btnX + TEMPLATE_BTN_W - 1, btnY, btnX + TEMPLATE_BTN_W, btnY + btnH, border);
+        g.fill(btnX + templateBtnW - 1, btnY, btnX + templateBtnW, btnY + btnH, border);
         g.fill(midX, btnY, midX + 1, btnY + btnH, border);
     }
 
@@ -2040,10 +2085,10 @@ public class ShiftManagerScreen extends Screen {
 
             // Mode toggle: left half = Daily, right half = Weekly
             int btnY = rowY + (CELL_H - 14) / 2;
-            if (button == 0 && mouseX >= templateBtnLeft && mouseX <= templateBtnLeft + TEMPLATE_BTN_W
+            if (button == 0 && mouseX >= templateBtnLeft && mouseX <= templateBtnLeft + templateBtnW
                     && mouseY >= btnY && mouseY <= btnY + 14) {
                 focusedVillager = uuid;
-                boolean wantWeekly = mouseX >= templateBtnLeft + TEMPLATE_BTN_W / 2;
+                boolean wantWeekly = mouseX >= templateBtnLeft + templateBtnW / 2;
                 setRowMode(uuid, wantWeekly);
                 return true;
             }
@@ -2152,6 +2197,7 @@ public class ShiftManagerScreen extends Screen {
         weekPlanModalActive = true;
         weekPlanSaveActive = false;
         weekPlanListScroll = 0;
+        weekPlanPreviewScroll = 0;
         weekPlanSelectedId = null;
         rebuildWeekPlanWidgets();
     }
@@ -2163,6 +2209,7 @@ public class ShiftManagerScreen extends Screen {
         weekPlanTarget = focusedVillager;
         weekPlanBulkTargets = List.of();
         weekPlanListScroll = 0;
+        weekPlanPreviewScroll = 0;
         weekPlanSelectedId = null;
         weekPlanSaveActive = false;
         rebuildWeekPlanWidgets();
@@ -2174,20 +2221,23 @@ public class ShiftManagerScreen extends Screen {
         int mh = Math.min(340, height - 60);
         int mx = (width - mw) / 2;
         int my = (height - mh) / 2;
-        int btnRowY = my + mh - 30;
-        int rightX = mx + 10 + (mw - 30) / 2 + 10;
-        int rightW = mw - (rightX - mx) - 10;
-        int btnW = (rightW - 8) / 2;
+        // Single button row across the bottom, full content width: Apply | Save | Delete.
+        int btnRowH = 20;
+        int btnRowY = my + mh - 10 - btnRowH;
+        int barX = mx + 10;
+        int barW = mw - 20;
+        int gap = 6;
+        int bw = (barW - 2 * gap) / 3;
 
-        // Apply is the primary action (full width, on top); Save / Delete below.
         Component applyLabel = Component.translatable(weekPlanBulk
                 ? "townstead.weekplan.apply_btn_bulk" : "townstead.weekplan.apply_btn");
         weekPlanApplyButton = Button.builder(applyLabel,
-                b -> applySelectedWeekPlan()).bounds(rightX, btnRowY - 22, rightW, 20).build();
+                b -> applySelectedWeekPlan()).bounds(barX, btnRowY, bw, btnRowH).build();
         weekPlanSaveButton = Button.builder(Component.translatable("townstead.weekplan.save_short"),
-                b -> openWeekPlanSaveOverlay()).bounds(rightX, btnRowY, btnW, 20).build();
+                b -> openWeekPlanSaveOverlay()).bounds(barX + bw + gap, btnRowY, bw, btnRowH).build();
         weekPlanDeleteButton = Button.builder(Component.translatable("townstead.shift.template.delete"),
-                b -> deleteSelectedWeekPlan()).bounds(rightX + btnW + 8, btnRowY, btnW, 20).build();
+                b -> deleteSelectedWeekPlan())
+                .bounds(barX + 2 * (bw + gap), btnRowY, barW - 2 * (bw + gap), btnRowH).build();
         weekPlanCloseButton = Button.builder(Component.translatable("townstead.shift.template.close"),
                 b -> closeWeekPlanModal()).bounds(mx + mw - 60, my + 6, 50, 18).build();
         updateWeekPlanActionStates();
@@ -2247,14 +2297,17 @@ public class ShiftManagerScreen extends Screen {
         int listX = mx + 10;
         int listY = my + 30;
         int listW = (mw - 30) / 2;
-        int listH = mh - 60;
         int rightX = listX + listW + 10;
         int rightW = mw - (rightX - mx) - 10;
-        drawBorder(g, listX, listY, listW, listH, MODAL_BORDER);
-        drawBorder(g, rightX, listY, rightW, listH - 32, MODAL_BORDER);
+        // Both panes share one height, ending just above the bottom button row,
+        // so the plan list and the detail line up 1:1.
+        int btnRowY = my + mh - 10 - 20;
+        int paneH = (btnRowY - 8) - listY;
+        drawBorder(g, listX, listY, listW, paneH, MODAL_BORDER);
+        drawBorder(g, rightX, listY, rightW, paneH, MODAL_BORDER);
 
-        renderWeekPlanList(g, listX, listY, listW, listH, mouseX, mouseY);
-        renderWeekPlanPreview(g, rightX, listY, rightW, listH - 32, mouseX, mouseY, partialTicks);
+        renderWeekPlanList(g, listX, listY, listW, paneH, mouseX, mouseY);
+        renderWeekPlanPreview(g, rightX, listY, rightW, paneH, mouseX, mouseY, partialTicks);
 
         if (weekPlanApplyButton != null) weekPlanApplyButton.render(g, mouseX, mouseY, partialTicks);
         if (weekPlanDeleteButton != null) weekPlanDeleteButton.render(g, mouseX, mouseY, partialTicks);
@@ -2357,11 +2410,22 @@ public class ShiftManagerScreen extends Screen {
             g.drawString(this.font, hl, -this.font.width(hl) / 2, 0, 0xFFA0A0A0, false);
             g.pose().popPose();
         }
+        // Day strips live in a scrollable viewport so long weeks (7, 12, ...)
+        // are all reachable; the hour header above stays fixed.
         int gridY = labelsY + 8;
         int rowH = 12;
+        int rowStep = rowH + 2;
+        int viewTop = gridY;
+        int viewBottom = y + h - 2;
+        int viewH = Math.max(0, viewBottom - viewTop);
+        int contentH = rows * rowStep;
+        int maxScroll = Math.max(0, contentH - viewH);
+        weekPlanPreviewScroll = Math.max(0, Math.min(weekPlanPreviewScroll, maxScroll));
+
+        g.enableScissor(x + 1, viewTop, x + w - 1, viewBottom);
         for (int d = 0; d < rows; d++) {
-            int ry = gridY + d * (rowH + 2);
-            if (ry + rowH > y + h - 2) break;
+            int ry = viewTop + d * rowStep - weekPlanPreviewScroll;
+            if (ry + rowH < viewTop || ry > viewBottom) continue;
             String label = (d < 64) ? weekdayShort(d) : "D" + (d + 1);
             g.drawString(this.font, label, x + pad, ry + 2, 0xFFC0C0C0, false);
             String id = days.get(d);
@@ -2372,6 +2436,16 @@ public class ShiftManagerScreen extends Screen {
                 g.fill(sx0, ry, sx0 + stripW, ry + rowH, WEEK_FALLBACK_FILL);
             }
             drawCellBorder(g, sx0, ry, stripW, rowH, 0x66000000);
+        }
+        g.disableScissor();
+
+        // Scrollbar thumb when the days overflow the viewport.
+        if (maxScroll > 0 && viewH > 0) {
+            int trackX = x + w - 3;
+            int thumbH = Math.max(12, viewH * viewH / contentH);
+            int thumbY = viewTop + (viewH - thumbH) * weekPlanPreviewScroll / maxScroll;
+            g.fill(trackX, viewTop, trackX + 2, viewBottom, 0x33FFFFFF);
+            g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, 0xAAFFFFFF);
         }
     }
 
@@ -2530,13 +2604,14 @@ public class ShiftManagerScreen extends Screen {
         int listX = mx + 10;
         int listY = my + 30;
         int listW = (mw - 30) / 2;
-        int listH = mh - 60;
-        if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + listH) {
+        int paneH = (my + mh - 10 - 20 - 8) - listY;
+        if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
             List<WeekPlan> plans = WeekPlanClientStore.all();
             int dy = listY + 4 - weekPlanListScroll;
             for (WeekPlan p : plans) {
                 if (mouseY >= dy && mouseY < dy + LIST_ENTRY_H) {
                     weekPlanSelectedId = p.id().equals(weekPlanSelectedId) ? null : p.id();
+                    weekPlanPreviewScroll = 0; // fresh plan, start at the top
                     updateWeekPlanActionStates();
                     break;
                 }
