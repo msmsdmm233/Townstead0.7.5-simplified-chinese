@@ -160,6 +160,7 @@ public class ShiftManagerScreen extends Screen {
     private List<UUID> modalBulkTargets = List.of();
     private ResourceLocation modalSelectedId = null;
     private int modalListScroll = 0;
+    private int modalPreviewScroll = 0;   // scrolls the detail pane when content is taller than the pane
     private boolean modalSaveAsActive = false;
     private boolean modalRenamingTitle = false;
     private EditBox modalRenameInput;
@@ -681,24 +682,32 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private static final int LIST_ENTRY_H = 18;
-    private static final int LIST_DIVIDER_GAP = 10;
+    // Odd so the 1px divider splits the gap evenly (5px above / line / 5px below);
+    // an even gap leaves one extra pixel above the line.
+    private static final int LIST_DIVIDER_GAP = 11;
 
-    private void renderModalList(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY) {
-        List<ShiftTemplate> templates = ShiftTemplateClientStore.all();
+    // ---- Shared built-in/custom picker list (template + week-plan modals) ----
+    // One implementation so both pickers get identical divider spacing, row
+    // height, colours and hit-testing. Rows must be ordered built-ins first.
+
+    /** One row in a picker list. */
+    private record ListRow(String label, boolean builtIn, boolean selected, boolean assignedDot) {}
+
+    private void renderEntryList(GuiGraphics g, int x, int y, int w, int h, int scroll,
+                                 List<ListRow> rows, boolean reserveDot, int mouseX, int mouseY) {
+        if (rows.isEmpty()) return;
         int innerX = x + 2;
         int innerY = y + 4;
         int innerR = x + w - 2;
         int innerB = y + h - 2;
-        String assignedId = modalTarget != null ? shiftVillagerTemplateIds.get(modalTarget) : null;
-
-        int dy = innerY - modalListScroll;
+        int textX = innerX + 6 + (reserveDot ? 8 : 0);
+        // Clip to the box so entries scrolled past the edges don't draw outside.
+        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
+        int dy = innerY - scroll;
         boolean sawBuiltIn = false;
         boolean dividerDrawn = false;
-        // Clip to the box so entries scrolled past the edges don't draw their
-        // labels outside the panel.
-        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
-        for (ShiftTemplate t : templates) {
-            if (sawBuiltIn && !t.builtIn() && !dividerDrawn) {
+        for (ListRow row : rows) {
+            if (sawBuiltIn && !row.builtIn() && !dividerDrawn) {
                 int divY = dy + LIST_DIVIDER_GAP / 2;
                 if (divY > innerY && divY < innerB) {
                     g.fill(innerX + 6, divY, innerR - 6, divY + 1, 0xFF455565);
@@ -706,72 +715,77 @@ public class ShiftManagerScreen extends Screen {
                 dy += LIST_DIVIDER_GAP;
                 dividerDrawn = true;
             }
-
             if (dy + LIST_ENTRY_H >= innerY && dy <= innerB) {
                 int yT = Math.max(dy, innerY);
                 int yB = Math.min(dy + LIST_ENTRY_H - 1, innerB);
-                boolean selected = t.id().equals(modalSelectedId);
                 boolean hovered = mouseX >= innerX && mouseX < innerR && mouseY >= yT && mouseY <= yB;
-                if (selected) g.fill(innerX, yT, innerR, yB, LIST_SELECTED_BG);
+                if (row.selected()) g.fill(innerX, yT, innerR, yB, LIST_SELECTED_BG);
                 else if (hovered) g.fill(innerX, yT, innerR, yB, LIST_HOVER_BG);
-
-                int dotX = innerX + 6;
-                int dotY = dy + LIST_ENTRY_H / 2 - 2;
-                if (t.id().toString().equals(assignedId)) {
+                if (reserveDot && row.assignedDot()) {
+                    int dotX = innerX + 6;
+                    int dotY = dy + LIST_ENTRY_H / 2 - 2;
                     g.fill(dotX, dotY, dotX + 4, dotY + 4, LIST_ASSIGNED_TAG);
                 }
-
-                String label = t.displayName();
-                int textX = dotX + 8;
-                int maxNameW = (innerR - 6) - textX;
-                String trunc = label;
-                while (this.font.width(trunc) > maxNameW && trunc.length() > 1) {
+                int color = row.builtIn() ? 0xFFE0E0E0 : 0xFFC9F0FF;
+                String trunc = row.label();
+                int maxW = (innerR - 6) - textX;
+                while (this.font.width(trunc) > maxW && trunc.length() > 1) {
                     trunc = trunc.substring(0, trunc.length() - 1);
                 }
-                if (!trunc.equals(label)) trunc += "..";
+                if (!trunc.equals(row.label())) trunc += "..";
                 g.drawString(this.font, trunc, textX,
-                        dy + (LIST_ENTRY_H - this.font.lineHeight) / 2 + 1,
-                        0xFFE0E0E0, false);
+                        dy + (LIST_ENTRY_H - this.font.lineHeight) / 2 + 1, color, false);
             }
             dy += LIST_ENTRY_H;
-            if (t.builtIn()) sawBuiltIn = true;
+            if (row.builtIn()) sawBuiltIn = true;
         }
         g.disableScissor();
     }
 
-    /** Total height the list's content occupies, including the built-in/user divider gap. */
-    private int modalListContentHeight() {
-        List<ShiftTemplate> templates = ShiftTemplateClientStore.all();
-        int h = 0;
-        boolean sawBuiltIn = false;
-        boolean dividerAdded = false;
-        for (ShiftTemplate t : templates) {
-            if (sawBuiltIn && !t.builtIn() && !dividerAdded) {
-                h += LIST_DIVIDER_GAP;
-                dividerAdded = true;
-            }
-            h += LIST_ENTRY_H;
-            if (t.builtIn()) sawBuiltIn = true;
-        }
+    /** Total content height (rows + the divider gap when both kinds are present). */
+    private int entryListContentHeight(List<ListRow> rows) {
+        int h = rows.size() * LIST_ENTRY_H;
+        boolean hasBuilt = false, hasCustom = false;
+        for (ListRow r : rows) { if (r.builtIn()) hasBuilt = true; else hasCustom = true; }
+        if (hasBuilt && hasCustom) h += LIST_DIVIDER_GAP;
         return h;
     }
 
-    /** Convert a click y inside the list area to a template, accounting for the divider gap. */
-    private ShiftTemplate hitTestListEntry(double mouseY, int innerY) {
-        List<ShiftTemplate> templates = ShiftTemplateClientStore.all();
-        int dy = innerY - modalListScroll;
+    /** Row index at mouseY (matching renderEntryList's layout), or -1. */
+    private int entryListIndexAt(int y, int scroll, List<ListRow> rows, double mouseY) {
+        int dy = (y + 4) - scroll;
         boolean sawBuiltIn = false;
-        boolean dividerAdded = false;
-        for (ShiftTemplate t : templates) {
-            if (sawBuiltIn && !t.builtIn() && !dividerAdded) {
-                dy += LIST_DIVIDER_GAP;
-                dividerAdded = true;
-            }
-            if (mouseY >= dy && mouseY < dy + LIST_ENTRY_H) return t;
+        boolean dividerDone = false;
+        for (int i = 0; i < rows.size(); i++) {
+            ListRow row = rows.get(i);
+            if (sawBuiltIn && !row.builtIn() && !dividerDone) { dy += LIST_DIVIDER_GAP; dividerDone = true; }
+            if (mouseY >= dy && mouseY < dy + LIST_ENTRY_H) return i;
             dy += LIST_ENTRY_H;
-            if (t.builtIn()) sawBuiltIn = true;
+            if (row.builtIn()) sawBuiltIn = true;
         }
-        return null;
+        return -1;
+    }
+
+    private List<ListRow> templateRows() {
+        String assignedId = modalTarget != null ? shiftVillagerTemplateIds.get(modalTarget) : null;
+        List<ListRow> rows = new ArrayList<>();
+        for (ShiftTemplate t : ShiftTemplateClientStore.all()) {
+            rows.add(new ListRow(t.displayName(), t.builtIn(), t.id().equals(modalSelectedId),
+                    t.id().toString().equals(assignedId)));
+        }
+        return rows;
+    }
+
+    private List<ListRow> weekPlanRows() {
+        List<ListRow> rows = new ArrayList<>();
+        for (WeekPlan p : WeekPlanClientStore.all()) {
+            rows.add(new ListRow(p.displayName(), p.builtIn(), p.id().equals(weekPlanSelectedId), false));
+        }
+        return rows;
+    }
+
+    private void renderModalList(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY) {
+        renderEntryList(g, x, y, w, h, modalListScroll, templateRows(), true, mouseX, mouseY);
     }
 
     private void renderModalPreview(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY, float partialTicks) {
@@ -784,12 +798,54 @@ public class ShiftManagerScreen extends Screen {
             previewGridCellW = 0;
             return;
         }
+        // Clip all preview content to the pane so nothing draws past the border.
+        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
         int padding = 10;
+        int fh = this.font.lineHeight;
+        boolean renamingThis = modalRenamingTitle && !t.builtIn() && modalRenameInput != null;
+        boolean editable = !t.builtIn();
+
+        int gridX = x + padding;
+        int gridW = w - padding * 2;
+        int pcell = Math.max(4, gridW / ShiftData.HOURS_PER_DAY);
+        int gridActualW = pcell * ShiftData.HOURS_PER_DAY;
+        int rightBound = gridX + gridActualW;
+
+        int[] shifts = effectiveTemplateShifts(t);
+        int[] counts = new int[ShiftData.ORDINAL_COLORS.length];
+        for (int v : shifts) if (v >= 0 && v < counts.length) counts[v]++;
+
+        // Measure the legend's wrapped line count up front so we know the total
+        // content height (and therefore how far the pane can scroll).
+        int swatchSize = 9;
+        int legLineH = swatchSize + 6;
+        int legendLines = 1;
+        {
+            int msx = gridX;
+            for (int i = 0; i < counts.length; i++) {
+                String label = Component.translatable(ShiftData.ORDINAL_TO_KEY[i]).getString() + " " + counts[i] + "h";
+                int entryW = swatchSize + 3 + this.font.width(label);
+                if (msx != gridX && msx + entryW > rightBound) { msx = gridX; legendLines++; }
+                msx += entryW + 12;
+            }
+        }
+
+        // Layout offsets from the content top (independent of scroll).
+        int tagOff = fh + 3;
+        int gridOff = tagOff + fh + 8;
+        int legendOff = gridOff + CELL_H + 10;
+        int usedOff = legendOff + legendLines * legLineH + 6;
+        int contentH = usedOff + fh + (editable ? fh + 2 : 0);
+
+        int viewH = h - padding * 2;
+        int maxScroll = Math.max(0, contentH - viewH);
+        modalPreviewScroll = Math.max(0, Math.min(modalPreviewScroll, maxScroll));
+        int top = y + padding - modalPreviewScroll;
 
         // Title (clickable on user templates for inline rename) / EditBox when renaming
         int titleX = x + padding;
-        int titleY = y + padding;
-        if (modalRenamingTitle && !t.builtIn() && modalRenameInput != null) {
+        int titleY = top;
+        if (renamingThis) {
             modalRenameInput.setX(titleX);
             modalRenameInput.setY(titleY - 2);
             modalRenameInput.render(g, mouseX, mouseY, partialTicks);
@@ -803,17 +859,14 @@ public class ShiftManagerScreen extends Screen {
             previewTitleH = this.font.lineHeight;
         }
 
-        String tag = t.builtIn() ? "Built-in" : "Custom";
-        int tagY = titleY + this.font.lineHeight + 3;
-        g.drawString(this.font, Component.literal(tag), titleX, tagY, 0xFFA0A0A0, false);
+        // Type tag (hidden while renaming, since the EditBox overlaps it)
+        if (!renamingThis) {
+            String tag = t.builtIn() ? "Built-in" : "Custom";
+            g.drawString(this.font, Component.literal(tag), titleX, top + tagOff, 0xFFA0A0A0, false);
+        }
 
-        // Preview grid — matches the outside grid (CELL_H, same cell colors, same cellW math)
-        int gridY = tagY + this.font.lineHeight + 8;
-        int gridX = titleX;
-        int gridW = w - padding * 2;
-        int pcell = Math.max(4, gridW / ShiftData.HOURS_PER_DAY);
-        int gridActualW = pcell * ShiftData.HOURS_PER_DAY;
-
+        // Preview grid — matches the outside grid (CELL_H, same cell colors)
+        int gridY = top + gridOff;
         previewGridX = gridX;
         previewGridY = gridY;
         previewGridCellW = pcell;
@@ -831,41 +884,26 @@ public class ShiftManagerScreen extends Screen {
             g.drawString(this.font, label, -this.font.width(label) / 2, -this.font.lineHeight, 0xFFC0C0C0, false);
             g.pose().popPose();
         }
-
-        int[] shifts = effectiveTemplateShifts(t);
-        boolean editable = !t.builtIn();
         for (int h2 = 0; h2 < ShiftData.HOURS_PER_DAY; h2++) {
             int cx = gridX + h2 * pcell;
             int ord = shifts[h2];
             if (ord < 0 || ord >= ShiftData.ORDINAL_COLORS.length) ord = ShiftData.ORD_IDLE;
             g.fill(cx, gridY, cx + pcell - 1, gridY + CELL_H - 1, ShiftData.ORDINAL_COLORS[ord]);
-            // Hover affordance on user templates
             if (editable && mouseX >= cx && mouseX < cx + pcell - 1
                     && mouseY >= gridY && mouseY < gridY + CELL_H - 1) {
                 g.fill(cx, gridY, cx + pcell - 1, gridY + CELL_H - 1, 0x40FFFFFF);
             }
         }
 
-        // Activity summary — clickable like the bottom legend. Wraps to a new
-        // line when it would overflow the preview pane (small screens).
-        int swatchSize = 9;
-        int lineH = swatchSize + 6;
-        int textOffsetY = swatchSize - this.font.lineHeight + 1; // align text bottom to swatch bottom
-        int[] counts = new int[ShiftData.ORDINAL_COLORS.length];
-        for (int v : shifts) {
-            if (v >= 0 && v < counts.length) counts[v]++;
-        }
+        // Activity summary legend (clickable to set paint mode), wraps as needed.
+        int textOffsetY = swatchSize - this.font.lineHeight + 1;
         summaryHitH = swatchSize + 4;
-        int rightBound = gridX + gridActualW;
         int sx = gridX;
-        int sy = gridY + CELL_H + 10;
+        int sy = top + legendOff;
         for (int i = 0; i < counts.length; i++) {
             String label = Component.translatable(ShiftData.ORDINAL_TO_KEY[i]).getString() + " " + counts[i] + "h";
             int entryW = swatchSize + 3 + this.font.width(label);
-            if (sx != gridX && sx + entryW > rightBound) { // wrap
-                sx = gridX;
-                sy += lineH;
-            }
+            if (sx != gridX && sx + entryW > rightBound) { sx = gridX; sy += legLineH; }
             int hitY = sy - 2;
             boolean active = shiftPaintOrdinal == i;
             if (active) {
@@ -881,19 +919,25 @@ public class ShiftManagerScreen extends Screen {
             sx += entryW + 12;
         }
 
-        // Assigned-to count (below the last summary row)
+        // Assigned-to count + editable hint, flowing below the legend.
         int used = countAssignedTo(t);
-        int usedY = sy + this.font.lineHeight + 6;
         String usedText = used == 0
                 ? Component.translatable("townstead.shift.template.used_none").getString()
                 : Component.translatable("townstead.shift.template.used_by", used).getString();
-        g.drawString(this.font, usedText, gridX, usedY, 0xFFA0A0A0, false);
-
-        // Editable hint on its own line below, so it can't collide with the
-        // assigned-count text on a narrow pane.
+        g.drawString(this.font, usedText, gridX, top + usedOff, 0xFFA0A0A0, false);
         if (editable) {
             String hint = Component.translatable("townstead.shift.template.edit_hint").getString();
-            g.drawString(this.font, hint, gridX, usedY + this.font.lineHeight + 2, 0xFF707070, false);
+            g.drawString(this.font, hint, gridX, top + usedOff + fh + 2, 0xFF707070, false);
+        }
+        g.disableScissor();
+
+        // Scrollbar thumb when the content is taller than the pane.
+        if (maxScroll > 0) {
+            int trackX = x + w - 3;
+            int thumbH = Math.max(12, viewH * viewH / contentH);
+            int thumbY = (y + padding) + (viewH - thumbH) * modalPreviewScroll / maxScroll;
+            g.fill(trackX, y + padding, trackX + 2, y + h - padding, 0x33FFFFFF);
+            g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, 0xAAFFFFFF);
         }
     }
 
@@ -913,6 +957,10 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private void renderSaveAsOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        // Lift above the modal content so the opaque panel occludes the
+        // (text-batched) preview behind it instead of letting it bleed through.
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 60);
         g.fill(0, 0, width, height, OVERLAY_DIM);
         int mw = 280;
         int mh = 88;
@@ -926,6 +974,7 @@ public class ShiftManagerScreen extends Screen {
         if (modalSaveAsInput != null) modalSaveAsInput.render(g, mouseX, mouseY, partialTicks);
         if (modalSaveAsConfirmButton != null) modalSaveAsConfirmButton.render(g, mouseX, mouseY, partialTicks);
         if (modalSaveAsCancelButton != null) modalSaveAsCancelButton.render(g, mouseX, mouseY, partialTicks);
+        g.pose().popPose();
     }
 
     private void drawBorder(GuiGraphics g, int x, int y, int w, int h, int color) {
@@ -969,6 +1018,9 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private void renderDeleteConfirm(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        // Lift above the modal content so nothing behind bleeds through.
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 60);
         g.fill(0, 0, width, height, OVERLAY_DIM);
         int mx = (width - CONFIRM_W) / 2;
         int my = (height - CONFIRM_H) / 2;
@@ -985,6 +1037,7 @@ public class ShiftManagerScreen extends Screen {
         }
         if (confirmDeleteNo != null) confirmDeleteNo.render(g, mouseX, mouseY, partialTicks);
         if (confirmDeleteYes != null) confirmDeleteYes.render(g, mouseX, mouseY, partialTicks);
+        g.pose().popPose();
     }
 
     // --------------------------------------------------------- Modal control
@@ -996,6 +1049,7 @@ public class ShiftManagerScreen extends Screen {
         modalBulkTargets = List.of();
         modalSaveAsActive = false;
         modalListScroll = 0;
+        modalPreviewScroll = 0;
         // Default selection: the currently-assigned template for that row, if any
         String assigned = target != null ? shiftVillagerTemplateIds.get(target) : null;
         ShiftTemplate assignedTemplate = ShiftTemplateClientStore.find(assigned);
@@ -1012,6 +1066,7 @@ public class ShiftManagerScreen extends Screen {
         modalBulkTargets = new ArrayList<>(selectedVillagers);
         modalSaveAsActive = false;
         modalListScroll = 0;
+        modalPreviewScroll = 0;
         modalSelectedId = null;
         rebuildModalWidgets();
     }
@@ -1488,13 +1543,15 @@ public class ShiftManagerScreen extends Screen {
         int listW = (mw - 30) / 2;
         int paneH = (my + mh - 10 - 20 - 8) - listY;
         if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
-            int innerY = listY + 4;
-            ShiftTemplate hit = hitTestListEntry(mouseY, innerY);
+            int idx = entryListIndexAt(listY, modalListScroll, templateRows(), mouseY);
+            List<ShiftTemplate> all = ShiftTemplateClientStore.all();
+            ShiftTemplate hit = (idx >= 0 && idx < all.size()) ? all.get(idx) : null;
             if (hit != null) {
                 ResourceLocation newId = hit.id().equals(modalSelectedId) ? null : hit.id();
                 if (!java.util.Objects.equals(newId, modalSelectedId)) {
                     modalSelectedId = newId;
                     shiftPaintOrdinal = -1;
+                    modalPreviewScroll = 0; // fresh template, start at the top
                     if (modalRenamingTitle) cancelRename();
                 }
                 updateModalActionStates();
@@ -1535,12 +1592,17 @@ public class ShiftManagerScreen extends Screen {
             int listX = mx + 10;
             int listY = my + 30;
             int listW = (mw - 30) / 2;
+            int rightX = listX + listW + 10;
+            int rightW = mw - (rightX - mx) - 10;
             int paneH = (my + mh - 10 - 20 - 8) - listY;
             if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
-                int listSize = modalListContentHeight();
+                int listSize = entryListContentHeight(templateRows());
                 int visible = paneH - 8;
                 int maxScroll = Math.max(0, listSize - visible);
                 modalListScroll = (int) Math.max(0, Math.min(maxScroll, modalListScroll - scrollY * 12));
+            } else if (mouseX >= rightX && mouseX <= rightX + rightW && mouseY >= listY && mouseY <= listY + paneH) {
+                // Detail pane: scroll the preview (render clamps the range).
+                modalPreviewScroll = (int) Math.max(0, modalPreviewScroll - scrollY * 12);
             }
             return true;
         }
@@ -1557,7 +1619,7 @@ public class ShiftManagerScreen extends Screen {
             int rightW = mw - (rightX - mx) - 10;
             int paneH = (my + mh - 10 - 20 - 8) - listY;
             if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
-                int listSize = WeekPlanClientStore.all().size() * LIST_ENTRY_H;
+                int listSize = entryListContentHeight(weekPlanRows());
                 int visible = paneH - 8;
                 int maxScroll = Math.max(0, listSize - visible);
                 weekPlanListScroll = (int) Math.max(0, Math.min(maxScroll, weekPlanListScroll - scrollY * 12));
@@ -2284,6 +2346,7 @@ public class ShiftManagerScreen extends Screen {
         modalBulkTargets = List.of();
         modalSaveAsActive = false;
         modalListScroll = 0;
+        modalPreviewScroll = 0;
         String cur = ShiftClientStore.getWeek(uuid).dayTemplate(day);
         ShiftTemplate t = (cur == null || cur.isEmpty()) ? null : ShiftTemplateClientStore.find(cur);
         modalSelectedId = t != null ? t.id() : null;
@@ -2439,46 +2502,12 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private void renderWeekPlanList(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY) {
-        List<WeekPlan> plans = WeekPlanClientStore.all();
-        int innerX = x + 2;
-        int innerY = y + 4;
-        int innerR = x + w - 2;
-        int innerB = y + h - 2;
-        if (plans.isEmpty()) {
+        if (WeekPlanClientStore.all().isEmpty()) {
             g.drawString(this.font, Component.translatable("townstead.weekplan.none"),
-                    innerX + 4, innerY + 4, 0xFF808080, false);
+                    x + 6, y + 8, 0xFF808080, false);
             return;
         }
-        int dy = innerY - weekPlanListScroll;
-        boolean sawBuiltIn = false;
-        // Clip to the box so off-screen entries don't draw outside the panel.
-        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
-        for (WeekPlan p : plans) {
-            // Divider line at the built-in -> custom boundary (no vertical gap,
-            // so click hit-testing stays a simple fixed-height scan).
-            if (sawBuiltIn && !p.builtIn() && dy > innerY && dy < innerB) {
-                g.fill(innerX + 6, dy, innerR - 6, dy + 1, 0xFF455565);
-            }
-            if (dy + LIST_ENTRY_H >= innerY && dy <= innerB) {
-                int yT = Math.max(dy, innerY);
-                int yB = Math.min(dy + LIST_ENTRY_H - 1, innerB);
-                boolean selected = p.id().equals(weekPlanSelectedId);
-                boolean hovered = mouseX >= innerX && mouseX < innerR && mouseY >= yT && mouseY <= yB;
-                if (selected) g.fill(innerX, yT, innerR, yB, LIST_SELECTED_BG);
-                else if (hovered) g.fill(innerX, yT, innerR, yB, LIST_HOVER_BG);
-                int color = p.builtIn() ? 0xFFE0E0E0 : 0xFFC9F0FF;
-                String label = p.displayName();
-                int maxW = (innerR - 6) - (innerX + 6);
-                String trunc = label;
-                while (this.font.width(trunc) > maxW && trunc.length() > 1) trunc = trunc.substring(0, trunc.length() - 1);
-                if (!trunc.equals(label)) trunc += "..";
-                g.drawString(this.font, trunc, innerX + 6,
-                        dy + (LIST_ENTRY_H - this.font.lineHeight) / 2 + 1, color, false);
-            }
-            dy += LIST_ENTRY_H;
-            if (p.builtIn()) sawBuiltIn = true;
-        }
-        g.disableScissor();
+        renderEntryList(g, x, y, w, h, weekPlanListScroll, weekPlanRows(), false, mouseX, mouseY);
     }
 
     private void renderWeekPlanPreview(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY, float pt) {
@@ -2506,9 +2535,13 @@ public class ShiftManagerScreen extends Screen {
             wpTitleW = this.font.width(p.displayName());
             wpTitleH = this.font.lineHeight;
         }
-        String tag = p.builtIn()
-                ? Component.translatable("townstead.weekplan.builtin_tag").getString() : "Custom";
-        g.drawString(this.font, tag, titleX, titleY + this.font.lineHeight + 2, 0xFFA0A0A0, false);
+        // Hide the type tag while the rename box is up (the EditBox overlaps it).
+        boolean renamingThis = weekPlanRenaming && !p.builtIn() && weekPlanRenameInput != null;
+        if (!renamingThis) {
+            String tag = p.builtIn()
+                    ? Component.translatable("townstead.weekplan.builtin_tag").getString() : "Custom";
+            g.drawString(this.font, tag, titleX, titleY + this.font.lineHeight + 2, 0xFFA0A0A0, false);
+        }
 
         // Mini week preview: one row of day strips, with an hour-label header.
         List<String> days = p.dayTemplates();
@@ -2616,6 +2649,10 @@ public class ShiftManagerScreen extends Screen {
     }
 
     private void renderWeekPlanSaveOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        // Lift above the modal content so the opaque panel occludes the
+        // (text-batched) preview behind it instead of letting it bleed through.
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 60);
         g.fill(0, 0, width, height, OVERLAY_DIM);
         int mw = 280;
         int mh = 88;
@@ -2628,6 +2665,7 @@ public class ShiftManagerScreen extends Screen {
         if (weekPlanSaveInput != null) weekPlanSaveInput.render(g, mouseX, mouseY, partialTicks);
         if (weekPlanSaveConfirm != null) weekPlanSaveConfirm.render(g, mouseX, mouseY, partialTicks);
         if (weekPlanSaveCancel != null) weekPlanSaveCancel.render(g, mouseX, mouseY, partialTicks);
+        g.pose().popPose();
     }
 
     private void openWeekPlanSaveOverlay() {
@@ -2746,15 +2784,12 @@ public class ShiftManagerScreen extends Screen {
         int paneH = (my + mh - 10 - 20 - 8) - listY;
         if (mouseX >= listX && mouseX <= listX + listW && mouseY >= listY && mouseY <= listY + paneH) {
             List<WeekPlan> plans = WeekPlanClientStore.all();
-            int dy = listY + 4 - weekPlanListScroll;
-            for (WeekPlan p : plans) {
-                if (mouseY >= dy && mouseY < dy + LIST_ENTRY_H) {
-                    weekPlanSelectedId = p.id().equals(weekPlanSelectedId) ? null : p.id();
-                    weekPlanPreviewScroll = 0; // fresh plan, start at the top
-                    updateWeekPlanActionStates();
-                    break;
-                }
-                dy += LIST_ENTRY_H;
+            int idx = entryListIndexAt(listY, weekPlanListScroll, weekPlanRows(), mouseY);
+            if (idx >= 0 && idx < plans.size()) {
+                ResourceLocation id = plans.get(idx).id();
+                weekPlanSelectedId = id.equals(weekPlanSelectedId) ? null : id;
+                weekPlanPreviewScroll = 0; // fresh plan, start at the top
+                updateWeekPlanActionStates();
             }
             return true;
         }
