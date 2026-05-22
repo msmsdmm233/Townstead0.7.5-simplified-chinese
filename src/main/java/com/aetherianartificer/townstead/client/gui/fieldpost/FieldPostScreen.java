@@ -1768,7 +1768,15 @@ public class FieldPostScreen extends Screen {
         } else {
             seedPlan.put(key, tool.toolId);
             if (SeedAssignment.AUTO.equals(tool.toolId) || SeedAssignment.isExplicitSeed(tool.toolId)) {
-                soilPlan.putIfAbsent(key, SoilType.FARMLAND);
+                // Auto-pick the soil this crop actually needs. Water crops (rice, medicinal leek)
+                // only grow on WATER, so a dirt cell would silently fail — set WATER outright
+                // (overriding an incompatible default). Land crops keep the FARMLAND default but
+                // never override a soil the user deliberately painted.
+                if (preferredSoilForSeed(tool.toolId) == SoilType.WATER) {
+                    soilPlan.put(key, SoilType.WATER);
+                } else {
+                    soilPlan.putIfAbsent(key, SoilType.FARMLAND);
+                }
             }
         }
         maybeShowMismatchToast(key);
@@ -2046,6 +2054,24 @@ public class FieldPostScreen extends Screen {
         Integer bits = seedSoilCompat.get(seedId);
         if (bits == null) return true;
         return (bits & (1 << soil.ordinal())) != 0;
+    }
+
+    /**
+     * The soil type a freshly-painted seed should default its cell to. Returns WATER for crops whose
+     * only compatible soil is WATER (paddy/surface crops like rice and medicinal leek), so painting
+     * them implies a water cell; FARMLAND for everything else (the historic default). AUTO and
+     * unknown seeds have no compat entry, so they fall through to FARMLAND.
+     */
+    private com.aetherianartificer.townstead.farming.cellplan.SoilType preferredSoilForSeed(String seedId) {
+        Integer bits = seedSoilCompat.get(seedId);
+        if (bits != null && bits != 0) {
+            int waterBit = 1 << com.aetherianartificer.townstead.farming.cellplan.SoilType.WATER.ordinal();
+            // Water-only crop: WATER allowed and no other soil is.
+            if ((bits & waterBit) != 0 && (bits & ~waterBit) == 0) {
+                return com.aetherianartificer.townstead.farming.cellplan.SoilType.WATER;
+            }
+        }
+        return com.aetherianartificer.townstead.farming.cellplan.SoilType.FARMLAND;
     }
 
     @Override

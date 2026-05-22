@@ -759,6 +759,25 @@ public final class TownsteadNetwork {
                 newProf,
                 claimedJobSite
         );
+
+        // A villager promoted at runtime keeps idling until a world reload rebuilds its brain:
+        // MCA derives the brain's schedule during refreshBrain, but at this synchronous moment the
+        // freshly-claimed job site / residency state hasn't settled, so it lands on a schedule with
+        // no WORK window. Nothing recomputes the schedule afterward, so the work AI never starts
+        // (HarvestWorkTask gates on getSchedule().getActivityAt() == WORK). Rebuild the brain again a
+        // few ticks later, once that state has caught up, so the schedule comes back correct without
+        // requiring the player to reload the world.
+        if (townstead$requiresJobSite(newProf) && !villager.isBaby()) {
+            level.getServer().tell(new net.minecraft.server.TickTask(
+                    level.getServer().getTickCount() + 3,
+                    () -> {
+                        if (villager.isAlive()
+                                && villager.level() instanceof net.minecraft.server.level.ServerLevel settledLevel
+                                && villager.getVillagerData().getProfession() == newProf) {
+                            villager.refreshBrain(settledLevel);
+                        }
+                    }));
+        }
     }
 
     private static void townstead$clearProfessionState(VillagerEntityMCA villager) {
