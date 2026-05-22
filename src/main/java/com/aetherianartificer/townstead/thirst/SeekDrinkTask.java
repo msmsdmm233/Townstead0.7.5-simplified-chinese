@@ -10,11 +10,12 @@ import com.aetherianartificer.townstead.hunger.NearbyItemSources;
 import com.aetherianartificer.townstead.hunger.TargetReachabilityCache;
 import com.aetherianartificer.townstead.hunger.VillagerSearchCadence;
 import com.aetherianartificer.townstead.hunger.VillagerEatingManager;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.brain.VillagerBrain;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.ai.behavior.Behavior;
@@ -70,11 +71,7 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
 
         // Don't interrupt an existing walk target unless critically thirsty
         if (villager.getBrain().getMemory(MemoryModuleType.WALK_TARGET).isPresent()) {
-            //? if neoforge {
-            int quickCheck = ThirstData.getThirst(com.aetherianartificer.townstead.villager.TownsteadVillagerState.thirst(villager));
-            //?} else {
-            /*int quickCheck = ThirstData.getThirst(villager.getPersistentData().getCompound("townstead_thirst"));
-            *///?}
+            int quickCheck = TownsteadVillagers.get(villager).needs().thirst();
             if (quickCheck >= ThirstData.EMERGENCY_THRESHOLD) return false;
         }
 
@@ -84,17 +81,13 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
         }
         if (!VillagerSearchCadence.isDue(level, villager, SEARCH_CADENCE_KEY)) return false;
 
-        //? if neoforge {
-        CompoundTag thirst = com.aetherianartificer.townstead.villager.TownsteadVillagerState.thirst(villager);
-        //?} else {
-        /*CompoundTag thirst = villager.getPersistentData().getCompound("townstead_thirst");
-        *///?}
-        int t = ThirstData.getThirst(thirst);
-        boolean drinkingMode = ThirstData.isDrinkingMode(thirst);
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        int t = needs.thirst();
+        boolean drinkingMode = needs.drinkingMode();
         if (t >= ThirstData.LUNCH_THRESHOLD && !drinkingMode) return false;
 
         long gameTime = level.getGameTime();
-        long lastDrank = ThirstData.getLastDrankTime(thirst);
+        long lastDrank = needs.lastDrankTime();
         long minInterval = (drinkingMode || t <= ThirstData.EMERGENCY_THRESHOLD) ? 20L : ThirstData.MIN_DRINK_INTERVAL;
         if ((gameTime - lastDrank) < minInterval) return false;
 
@@ -180,12 +173,8 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
         targetItem = null;
         targetContainerSlot = null;
         ConsumableTargetClaims.releaseAll(villager.getUUID());
-        //? if neoforge {
-        CompoundTag thirst = com.aetherianartificer.townstead.villager.TownsteadVillagerState.thirst(villager);
-        //?} else {
-        /*CompoundTag thirst = villager.getPersistentData().getCompound("townstead_thirst");
-        *///?}
-        cooldown = (ThirstData.isDrinkingMode(thirst) || ThirstData.getThirst(thirst) < ThirstData.ADEQUATE_THRESHOLD) ? 5 : 200;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        cooldown = (needs.drinkingMode() || needs.thirst() < ThirstData.ADEQUATE_THRESHOLD) ? 5 : 200;
         VillagerSearchCadence.schedule(level, villager, SEARCH_CADENCE_KEY, cooldown, 20);
     }
 

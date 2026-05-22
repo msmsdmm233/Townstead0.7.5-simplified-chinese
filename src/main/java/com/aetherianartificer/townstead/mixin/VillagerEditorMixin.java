@@ -17,6 +17,7 @@ import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import com.aetherianartificer.townstead.thirst.ThirstClientStore;
 import com.aetherianartificer.townstead.thirst.ThirstData;
 import com.aetherianartificer.townstead.thirst.ThirstSetPayload;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.client.gui.components.Button;
@@ -360,11 +361,7 @@ public abstract class VillagerEditorMixin extends Screen {
         if (ThirstClientStore.hasThirst(villager.getId())) {
             return ThirstClientStore.getThirst(villager.getId());
         }
-        //? if neoforge {
-        return com.aetherianartificer.townstead.villager.TownsteadVillagers.get(villager).needs().thirst();
-        //?} else if forge {
-        /*return ThirstData.getThirst(villager.getPersistentData().getCompound("townstead_thirst"));
-        *///?}
+        return TownsteadVillagers.get(villager).needs().thirst();
     }
 
     @Unique
@@ -404,10 +401,6 @@ public abstract class VillagerEditorMixin extends Screen {
         if (FatigueClientStore.hasFatigue(villager.getId())) {
             return FatigueClientStore.getFatigue(villager.getId());
         }
-        //? if neoforge {
-        return com.aetherianartificer.townstead.villager.TownsteadVillagers.get(villager).needs().fatigue();
-        //?} else if forge {
-        /*return FatigueData.getFatigue(villager.getPersistentData().getCompound("townstead_fatigue"));
-        *///?}
+        return TownsteadVillagers.get(villager).needs().fatigue();
     }
 }

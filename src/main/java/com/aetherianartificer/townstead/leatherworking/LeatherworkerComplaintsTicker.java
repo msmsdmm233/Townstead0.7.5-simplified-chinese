@@ -1,8 +1,8 @@
 package com.aetherianartificer.townstead.leatherworking;
 
 import com.aetherianartificer.townstead.Townstead;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.npc.VillagerProfession;
@@ -58,24 +58,11 @@ public final class LeatherworkerComplaintsTicker {
     }
 
     private static boolean onThrottle(VillagerEntityMCA villager, long gameTime) {
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        long last = data.getLong(LAST_COMPLAINT_KEY);
+        long last = TownsteadVillagers.get(villager).professionMemory().cooldown(LAST_COMPLAINT_KEY);
         return gameTime - last < COMPLAINT_INTERVAL_TICKS;
     }
 
     private static void markComplained(VillagerEntityMCA villager, long gameTime) {
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        data.putLong(LAST_COMPLAINT_KEY, gameTime);
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, data);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        data.putLong(LAST_COMPLAINT_KEY, gameTime);
-        villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        TownsteadVillagers.get(villager).professionMemory().setCooldown(LAST_COMPLAINT_KEY, gameTime);
     }
 }

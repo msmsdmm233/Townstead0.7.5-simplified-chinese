@@ -13,6 +13,10 @@ import com.aetherianartificer.townstead.ai.work.WorkTargetFailures;
 import com.aetherianartificer.townstead.ai.work.WorkPathing;
 import com.aetherianartificer.townstead.ai.work.WorkTargetProgress;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 //? if forge {
 /*import com.aetherianartificer.townstead.TownsteadNetwork;
 *///?}
@@ -1575,22 +1579,14 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
 
     private void townstead$awardFarmerXp(ServerLevel level, VillagerEntityMCA villager, long gameTime, int amount, String source) {
         if (amount <= 0) return;
-        //? if neoforge {
-        CompoundTag hunger = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        FarmerProgressData.GainResult result = FarmerProgressData.addXp(hunger, amount, gameTime);
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
+        ProfessionProgress.GainResult result = ProfessionProgress.addXp(mem, ProfessionXpType.FARMER, amount, gameTime);
         if (result.appliedXp() <= 0) return;
+        CompoundTag hungerTag = TownsteadVillagers.get(villager).needs().hungerTag();
         //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, hunger);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", hunger);
-        *///?}
-        //? if neoforge {
-        PacketDistributor.sendToPlayersTrackingEntity(villager, Townstead.townstead$hungerSync(villager, hunger));
+        PacketDistributor.sendToPlayersTrackingEntity(villager, Townstead.townstead$hungerSync(villager, hungerTag));
         //?} else if forge {
-        /*TownsteadNetwork.sendToTrackingEntity(villager, Townstead.townstead$hungerSync(villager, hunger));
+        /*TownsteadNetwork.sendToTrackingEntity(villager, Townstead.townstead$hungerSync(villager, hungerTag));
         *///?}
 
         if (result.tierUp()) {
@@ -1607,8 +1603,8 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
                         result.tierBefore(),
                         result.tierAfter(),
                         source,
-                        FarmerProgressData.getXp(hunger),
-                        FarmerProgressData.getXpToNextTier(hunger)
+                        ProfessionProgress.getXp(mem, ProfessionXpType.FARMER),
+                        ProfessionProgress.getXpToNextTier(mem, ProfessionXpType.FARMER)
                 );
             }
         }
@@ -1619,18 +1615,9 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
         HungerData.FarmBlockedReason previous = blockedReason;
         blockedReason = reason;
 
-        //? if neoforge {
-        CompoundTag hunger = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        if (HungerData.getFarmBlockedReason(hunger) != reason) {
-            HungerData.setFarmBlockedReason(hunger, reason);
-            //? if neoforge {
-            com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, hunger);
-            //?} else {
-            /*villager.getPersistentData().put("townstead_hunger", hunger);
-            *///?}
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        if (needs.farmBlockedReason() != reason) {
+            needs.setFarmBlockedReason(reason);
         }
         //? if neoforge {
         PacketDistributor.sendToPlayersTrackingEntity(villager, new FarmStatusSyncPayload(villager.getId(), reason.id()));
@@ -1819,11 +1806,7 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
 
     private static boolean townstead$isFatigueGated(VillagerEntityMCA villager) {
         if (!TownsteadConfig.isVillagerFatigueEnabled()) return false;
-        //? if neoforge {
-        CompoundTag fatigue = com.aetherianartificer.townstead.villager.TownsteadVillagerState.fatigue(villager);
-        //?} else {
-        /*CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
-        *///?}
-        return FatigueData.isGated(fatigue) || FatigueData.getFatigue(fatigue) >= FatigueData.DROWSY_THRESHOLD;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        return needs.gated() || needs.fatigue() >= FatigueData.DROWSY_THRESHOLD;
     }
 }

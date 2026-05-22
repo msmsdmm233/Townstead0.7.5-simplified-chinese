@@ -17,11 +17,12 @@ import com.aetherianartificer.townstead.compat.farmersdelight.cook.ModRecipeRegi
 import com.aetherianartificer.townstead.compat.farmersdelight.cook.ModRecipeRegistry.StationType;
 import com.aetherianartificer.townstead.compat.farmersdelight.cook.StationHandler;
 import com.aetherianartificer.townstead.compat.farmersdelight.cook.StationHandler.StationSlot;
-import com.aetherianartificer.townstead.hunger.CookProgressData;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.server.world.data.Building;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -255,17 +256,7 @@ public class BaristaWorkTask extends ProducerWorkTask {
     protected void awardProductionXp(ServerLevel level, VillagerEntityMCA villager, long gameTime) {
         if (activeRecipe == null) return;
         int xp = Math.max(1, activeRecipe.tier());
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        CookProgressData.addXp(data, xp, level.getGameTime());
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        ProfessionProgress.addXp(TownsteadVillagers.get(villager).professionMemory(), ProfessionXpType.COOK, xp, level.getGameTime());
     }
 
     // ── Hooks ──

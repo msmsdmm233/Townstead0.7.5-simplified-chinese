@@ -62,8 +62,8 @@ import com.aetherianartificer.townstead.village.VillageResidentsSyncPayload;
 import com.aetherianartificer.townstead.client.catalog.CatalogDataLoader;
 import com.aetherianartificer.townstead.hunger.HungerClientStore;
 import com.aetherianartificer.townstead.hunger.HungerData;
-import com.aetherianartificer.townstead.hunger.FarmerProgressData;
-import com.aetherianartificer.townstead.hunger.CookProgressData;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
 import com.aetherianartificer.townstead.hunger.FarmStatusSyncPayload;
 import com.aetherianartificer.townstead.hunger.ButcherStatusSyncPayload;
 import com.aetherianartificer.townstead.hunger.FishermanHookLinkPayload;
@@ -1892,10 +1892,11 @@ public class Townstead {
         com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
         if (lifeSync != null) PacketDistributor.sendToPlayer(sp, lifeSync);
         //?} else if forge {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
+        /*TownsteadVillager state = TownsteadVillagers.get(villager);
+        CompoundTag hunger = state.needs().hungerTag();
         TownsteadNetwork.sendToPlayer(sp, townstead$hungerSync(villager, hunger));
         if (ThirstBridgeResolver.isActive()) {
-            CompoundTag thirst = villager.getPersistentData().getCompound("townstead_thirst");
+            CompoundTag thirst = state.needs().thirstTag();
             TownsteadNetwork.sendToPlayer(sp, townstead$thirstSync(villager, thirst));
         }
         TownsteadNetwork.sendToPlayer(sp, new FarmStatusSyncPayload(
@@ -1906,9 +1907,9 @@ public class Townstead {
                 villager.getId(),
                 HungerData.getButcherBlockedReason(hunger).id()
         ));
-        CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
+        CompoundTag fatigue = state.needs().fatigueTag();
         TownsteadNetwork.sendToPlayer(sp, townstead$fatigueSync(villager, fatigue));
-        CompoundTag shift = villager.getPersistentData().getCompound("townstead_shift");
+        CompoundTag shift = state.schedule().toTag();
         if (ShiftData.hasCustomShifts(shift)) {
             TownsteadNetwork.sendToPlayer(sp, new ShiftSyncPayload(
                     villager.getUUID(), ShiftData.getShifts(shift)));
@@ -1919,15 +1920,16 @@ public class Townstead {
     }
 
     public static HungerSyncPayload townstead$hungerSync(VillagerEntityMCA villager, CompoundTag hunger) {
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
         return new HungerSyncPayload(
                 villager.getId(),
                 HungerData.getHunger(hunger),
-                FarmerProgressData.getTier(hunger),
-                FarmerProgressData.getXp(hunger),
-                FarmerProgressData.getXpToNextTier(hunger),
-                CookProgressData.getTier(hunger),
-                CookProgressData.getXp(hunger),
-                CookProgressData.getXpToNextTier(hunger)
+                ProfessionProgress.getTier(mem, ProfessionXpType.FARMER),
+                ProfessionProgress.getXp(mem, ProfessionXpType.FARMER),
+                ProfessionProgress.getXpToNextTier(mem, ProfessionXpType.FARMER),
+                ProfessionProgress.getTier(mem, ProfessionXpType.COOK),
+                ProfessionProgress.getXp(mem, ProfessionXpType.COOK),
+                ProfessionProgress.getXpToNextTier(mem, ProfessionXpType.COOK)
         );
     }
 

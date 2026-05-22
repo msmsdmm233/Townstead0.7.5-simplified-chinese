@@ -1,7 +1,6 @@
 package com.aetherianartificer.townstead.compat.farmersdelight;
 
 import com.aetherianartificer.townstead.Townstead;
-import com.aetherianartificer.townstead.hunger.CookProgressData;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.server.world.data.Building;
 import net.conczin.mca.server.world.data.Village;

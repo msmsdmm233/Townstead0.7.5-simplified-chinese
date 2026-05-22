@@ -10,13 +10,14 @@ import com.aetherianartificer.townstead.hunger.ConsumableTargetClaims;
 import com.aetherianartificer.townstead.hunger.NearbyItemSources;
 import com.aetherianartificer.townstead.hunger.VillagerEatingManager;
 import com.aetherianartificer.townstead.hunger.VillagerSearchCadence;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.brain.VillagerBrain;
 import net.conczin.mca.entity.ai.relationship.AgeState;
 import net.conczin.mca.entity.ai.relationship.Personality;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
@@ -250,18 +251,9 @@ public class HydrateYoungTask extends Behavior<VillagerEntityMCA> {
         int quenched = bridge.quenched(drink);
 
         caregiver.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-        //? if neoforge {
-        CompoundTag childThirst = com.aetherianartificer.townstead.villager.TownsteadVillagerState.thirst(childTarget);
-        //?} else {
-        /*CompoundTag childThirst = childTarget.getPersistentData().getCompound("townstead_thirst");
-        *///?}
-        ThirstData.applyDrink(childThirst, hydration, quenched, bridge.extraHydrationToQuenched());
-        ThirstData.setLastDrankTime(childThirst, level.getGameTime());
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveThirst(childTarget, childThirst);
-        //?} else {
-        /*childTarget.getPersistentData().put("townstead_thirst", childThirst);
-        *///?}
+        TownsteadVillager.Needs childNeeds = TownsteadVillagers.get(childTarget).needs();
+        childNeeds.applyDrink(hydration, quenched, bridge.extraHydrationToQuenched());
+        childNeeds.setLastDrankTime(level.getGameTime());
 
         ItemStack remainder = bridge.onDrinkConsumed(drink);
         if (remainder.isEmpty()) {
@@ -285,12 +277,7 @@ public class HydrateYoungTask extends Behavior<VillagerEntityMCA> {
             return false;
         }
         if (TownsteadConfig.isVillagerFatigueEnabled()) {
-            //? if neoforge {
-            CompoundTag fatigueTag = com.aetherianartificer.townstead.villager.TownsteadVillagerState.fatigue(caregiver);
-            //?} else {
-            /*CompoundTag fatigueTag = caregiver.getPersistentData().getCompound("townstead_fatigue");
-            *///?}
-            if (FatigueData.getFatigue(fatigueTag) >= FatigueData.COLLAPSE_THRESHOLD) {
+            if (TownsteadVillagers.get(caregiver).needs().fatigue() >= FatigueData.COLLAPSE_THRESHOLD) {
                 return false;
             }
         }
@@ -342,12 +329,7 @@ public class HydrateYoungTask extends Behavior<VillagerEntityMCA> {
         if (!(ageState == AgeState.BABY || ageState == AgeState.TODDLER || ageState == AgeState.CHILD)) {
             return false;
         }
-        //? if neoforge {
-        CompoundTag thirst = com.aetherianartificer.townstead.villager.TownsteadVillagerState.thirst(villager);
-        //?} else {
-        /*CompoundTag thirst = villager.getPersistentData().getCompound("townstead_thirst");
-        *///?}
-        return ThirstData.getThirst(thirst) < ThirstData.ADEQUATE_THRESHOLD;
+        return TownsteadVillagers.get(villager).needs().thirst() < ThirstData.ADEQUATE_THRESHOLD;
     }
 
     private boolean hasDrink(VillagerEntityMCA villager, ThirstCompatBridge bridge) {

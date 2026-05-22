@@ -28,7 +28,7 @@ import java.util.UUID;
  * boundaries and in temporary adapters for older call sites.</p>
  */
 public final class TownsteadVillager {
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     private final UUID villagerId;
     private boolean dirty;
@@ -114,6 +114,11 @@ public final class TownsteadVillager {
         markDirty();
     }
 
+    public void upgradeFromLegacyRoot(CompoundTag root) {
+        professionMemory.mergeLegacyHunger(root.getCompound("hunger"));
+        markDirty();
+    }
+
     public final class Needs {
         private int hunger = HungerData.DEFAULT_HUNGER;
         private float saturation = HungerData.DEFAULT_SATURATION;
@@ -192,6 +197,21 @@ public final class TownsteadVillager {
 
         public HungerData.FishermanBlockedReason fishermanBlockedReason() {
             return fishermanBlockedReason;
+        }
+
+        public void setFarmBlockedReason(HungerData.FarmBlockedReason reason) {
+            farmBlockedReason = reason == null ? HungerData.FarmBlockedReason.NONE : reason;
+            markDirty();
+        }
+
+        public void setButcherBlockedReason(HungerData.ButcherBlockedReason reason) {
+            butcherBlockedReason = reason == null ? HungerData.ButcherBlockedReason.NONE : reason;
+            markDirty();
+        }
+
+        public void setFishermanBlockedReason(HungerData.FishermanBlockedReason reason) {
+            fishermanBlockedReason = reason == null ? HungerData.FishermanBlockedReason.NONE : reason;
+            markDirty();
         }
 
         public void setHunger(int value) {
@@ -757,13 +777,16 @@ public final class TownsteadVillager {
         }
     }
 
-    public final class ProfessionMemory {
+    public final class ProfessionMemory implements ProfessionXpStore {
         private static final String LEGACY_COOK_TRADES_LEVEL = "townsteadCookTradesLevel";
         private static final String LEGACY_BARISTA_TRADES_LEVEL = "townsteadBaristaTradesLevel";
         private String lastProfession = "";
         private ButcherSettings.SlaughterOverride slaughterOverride = ButcherSettings.SlaughterOverride.FOLLOW_CONFIG;
         private final Map<String, Progress> progressByProfession = new HashMap<>();
         private final Map<String, Integer> tradeBackfillLevels = new HashMap<>();
+        private final Map<String, Long> cooldowns = new HashMap<>();
+        private int lastSeenShopTier = -1;
+        private final Map<String, ProfessionXp> xpByProfession = new HashMap<>();
 
         public String lastProfession() {
             return lastProfession;
@@ -798,6 +821,41 @@ public final class TownsteadVillager {
             return Math.max(0, tradeBackfillLevels.getOrDefault(key, 0));
         }
 
+        /**
+         * Last gameTime a named per-villager throttle fired (complaint cooldowns,
+         * the slaughter work throttle, etc.). Returns 0 if never recorded.
+         */
+        public long cooldown(String key) {
+            if (key == null) return 0L;
+            return cooldowns.getOrDefault(key, 0L);
+        }
+
+        public void setCooldown(String key, long gameTime) {
+            if (key == null || key.isBlank()) return;
+            cooldowns.put(key, gameTime);
+            markDirty();
+        }
+
+        public int lastSeenShopTier() {
+            return lastSeenShopTier;
+        }
+
+        public void setLastSeenShopTier(int tier) {
+            lastSeenShopTier = tier;
+            markDirty();
+        }
+
+        public ProfessionXp professionXp(String professionId) {
+            if (professionId == null) return ProfessionXp.EMPTY;
+            return xpByProfession.getOrDefault(professionId, ProfessionXp.EMPTY);
+        }
+
+        public void setProfessionXp(String professionId, ProfessionXp value) {
+            if (professionId == null || professionId.isBlank()) return;
+            xpByProfession.put(professionId, value == null ? ProfessionXp.EMPTY : value);
+            markDirty();
+        }
+
         public void setTradeBackfillLevel(String key, int level) {
             if (key == null || key.isBlank()) return;
             int clamped = Math.max(0, level);
@@ -829,6 +887,25 @@ public final class TownsteadVillager {
                 if (level > 0) backfill.putInt(entry.getKey(), level);
             }
             tag.put("tradeBackfillLevels", backfill);
+            CompoundTag cooldownTag = new CompoundTag();
+            for (Map.Entry<String, Long> entry : cooldowns.entrySet()) {
+                cooldownTag.putLong(entry.getKey(), entry.getValue());
+            }
+            tag.put("cooldowns", cooldownTag);
+            if (lastSeenShopTier >= 0) tag.putInt("lastSeenShopTier", lastSeenShopTier);
+            CompoundTag xpAll = new CompoundTag();
+            for (Map.Entry<String, ProfessionXp> entry : xpByProfession.entrySet()) {
+                ProfessionXp value = entry.getValue();
+                if (value == null || value.isEmpty()) continue;
+                CompoundTag xp = new CompoundTag();
+                xp.putInt("xp", value.xp());
+                xp.putInt("tier", value.tier());
+                xp.putLong("lastTierUp", value.lastTierUpTick());
+                xp.putLong("xpDay", value.xpDay());
+                xp.putInt("xpToday", value.xpToday());
+                xpAll.put(entry.getKey(), xp);
+            }
+            tag.put("professionXp", xpAll);
             return tag;
         }
 
@@ -851,6 +928,23 @@ public final class TownsteadVillager {
                 int level = Math.max(0, backfill.getInt(key));
                 if (level > 0) tradeBackfillLevels.put(key, level);
             }
+            cooldowns.clear();
+            CompoundTag cooldownTag = tag.getCompound("cooldowns");
+            for (String key : cooldownTag.getAllKeys()) {
+                cooldowns.put(key, cooldownTag.getLong(key));
+            }
+            lastSeenShopTier = tag.contains("lastSeenShopTier") ? tag.getInt("lastSeenShopTier") : -1;
+            xpByProfession.clear();
+            CompoundTag xpAll = tag.getCompound("professionXp");
+            for (String key : xpAll.getAllKeys()) {
+                CompoundTag xp = xpAll.getCompound(key);
+                xpByProfession.put(key, new ProfessionXp(
+                        xp.getInt("xp"),
+                        xp.getInt("tier"),
+                        xp.getLong("lastTierUp"),
+                        xp.getLong("xpDay"),
+                        xp.getInt("xpToday")));
+            }
             markDirty();
         }
 
@@ -870,6 +964,75 @@ public final class TownsteadVillager {
             if (cookLevel > 0) tradeBackfillLevels.put("cook", cookLevel);
             int baristaLevel = Math.max(0, hunger.getInt(LEGACY_BARISTA_TRADES_LEVEL));
             if (baristaLevel > 0) tradeBackfillLevels.put("barista", baristaLevel);
+            // Complaint throttles, the slaughter work throttle, and last-seen shop
+            // tier were all piggybacked in townstead_hunger.
+            cooldowns.clear();
+            long leatherworkerComplaint = hunger.getLong("townstead_lastLeatherworkerComplaint");
+            if (leatherworkerComplaint != 0L) cooldowns.put("townstead_lastLeatherworkerComplaint", leatherworkerComplaint);
+            long butcheryComplaint = hunger.getLong("townstead_lastButcheryComplaint");
+            if (butcheryComplaint != 0L) cooldowns.put("townstead_lastButcheryComplaint", butcheryComplaint);
+            long slaughterTick = hunger.getLong("townstead_lastSlaughterTick");
+            if (slaughterTick != 0L) cooldowns.put("townstead_lastSlaughterTick", slaughterTick);
+            lastSeenShopTier = hunger.contains("townstead_lastSeenShopTier") ? hunger.getInt("townstead_lastSeenShopTier") : -1;
+            // Per-profession XP was piggybacked in townstead_hunger as flat <id>Xp/<id>Tier/... keys.
+            xpByProfession.clear();
+            importLegacyProfessionXp(hunger, "farmer");
+            importLegacyProfessionXp(hunger, "butcher");
+            importLegacyProfessionXp(hunger, "cook");
+            importLegacyProfessionXp(hunger, "shepherd");
+        }
+
+        private void mergeLegacyHunger(CompoundTag hunger) {
+            if (slaughterOverride == ButcherSettings.SlaughterOverride.FOLLOW_CONFIG) {
+                slaughterOverride = ButcherSettings.getSlaughterOverride(hunger);
+            }
+            if (lastProfession.isEmpty()) {
+                lastProfession = hunger.getString("townsteadLastProfession");
+            }
+            if (tradeBackfillLevel("cook") == 0) {
+                int cookLevel = Math.max(0, hunger.getInt(LEGACY_COOK_TRADES_LEVEL));
+                if (cookLevel > 0) tradeBackfillLevels.put("cook", cookLevel);
+            }
+            if (tradeBackfillLevel("barista") == 0) {
+                int baristaLevel = Math.max(0, hunger.getInt(LEGACY_BARISTA_TRADES_LEVEL));
+                if (baristaLevel > 0) tradeBackfillLevels.put("barista", baristaLevel);
+            }
+            mergeLegacyCooldown(hunger, "townstead_lastLeatherworkerComplaint");
+            mergeLegacyCooldown(hunger, "townstead_lastButcheryComplaint");
+            mergeLegacyCooldown(hunger, "townstead_lastSlaughterTick");
+            if (lastSeenShopTier < 0 && hunger.contains("townstead_lastSeenShopTier")) {
+                lastSeenShopTier = hunger.getInt("townstead_lastSeenShopTier");
+            }
+            mergeLegacyProfessionXp(hunger, "farmer");
+            mergeLegacyProfessionXp(hunger, "butcher");
+            mergeLegacyProfessionXp(hunger, "cook");
+            mergeLegacyProfessionXp(hunger, "shepherd");
+            markDirty();
+        }
+
+        private void mergeLegacyCooldown(CompoundTag hunger, String key) {
+            if (cooldowns.containsKey(key)) return;
+            long value = hunger.getLong(key);
+            if (value != 0L) cooldowns.put(key, value);
+        }
+
+        private void mergeLegacyProfessionXp(CompoundTag hunger, String id) {
+            if (!professionXp(id).isEmpty()) return;
+            importLegacyProfessionXp(hunger, id);
+        }
+
+        private void importLegacyProfessionXp(CompoundTag hunger, String id) {
+            if (!(hunger.contains(id + "Xp") || hunger.contains(id + "Tier")
+                    || hunger.contains(id + "XpDay") || hunger.contains(id + "XpToday")
+                    || hunger.contains(id + "LastTierUpTick"))) {
+                return;
+            }
+            xpByProfession.put(id, new ProfessionXp(
+                    Math.max(0, hunger.getInt(id + "Xp")),
+                    hunger.getInt(id + "Tier"),
+                    hunger.getLong(id + "LastTierUpTick"),
+                    hunger.getLong(id + "XpDay"),
+                    Math.max(0, hunger.getInt(id + "XpToday"))));
         }
 
         public record Progress(int level, int xp) {}

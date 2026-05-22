@@ -24,9 +24,10 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
  * client decode cap as a belt-and-suspenders measure in case the slim payload
  * still grows large (many residents, many tasks, many building types).</p>
  *
- * <p>1.21.1-only: 1.20.1 Forge MCA encodes this payload through the legacy
- * {@code SimpleChannel}/{@code NbtDataMessage} path, which uses different
- * machinery; if the same bloat surfaces there, it needs a separate fix.</p>
+ * <p>On 1.20.1 Forge, MCA encodes this payload through the legacy
+ * {@code SimpleChannel}/{@code NbtDataMessage} path, so the Forge branch
+ * slims the {@code CompoundTag} handed to {@code NbtDataMessage}'s
+ * constructor instead.</p>
  */
 @Mixin(targets = "net.conczin.mca.network.s2c.GetVillageResponse", remap = false)
 public class GetVillageResponseSlimPayloadMixin {
@@ -49,12 +50,26 @@ public class GetVillageResponseSlimPayloadMixin {
     }
 }
 //?} else if forge {
-/*import org.spongepowered.asm.mixin.Mixin;
+/*import com.aetherianartificer.townstead.compat.mca.VillageSnapshotSlimmer;
+import net.minecraft.nbt.CompoundTag;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Mixin(targets = "net.conczin.mca.network.s2c.GetVillageResponse", remap = false)
 public class GetVillageResponseSlimPayloadMixin {
-    // No-op on 1.20.1: MCA Forge 1.20.1 serializes GetVillageResponse via
-    // SimpleChannel / NbtDataMessage, which does not go through the
-    // ByteBufCodecs.COMPOUND_TAG encode call this mixin targets.
+    @ModifyArg(
+            method = "<init>",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/conczin/mca/network/NbtDataMessage;<init>(Lnet/minecraft/nbt/CompoundTag;)V"
+            ),
+            index = 0,
+            require = 1,
+            remap = false
+    )
+    private static CompoundTag townstead$slimVillageSnapshot(CompoundTag value) {
+        return VillageSnapshotSlimmer.slim(value);
+    }
 }
 *///?}

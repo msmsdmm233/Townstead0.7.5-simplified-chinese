@@ -3,14 +3,16 @@ package com.aetherianartificer.townstead.compat.butchery;
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.ai.work.producer.ProducerStationClaims;
-import com.aetherianartificer.townstead.hunger.ButcherProgressData;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.aetherianartificer.townstead.tick.WorkToolTicker;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.server.world.data.Building;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -334,22 +336,13 @@ public class CarcassWorkTask extends Behavior<VillagerEntityMCA> {
     }
 
     private static void emitNoKnifeChat(ServerLevel level, VillagerEntityMCA villager, long gameTime) {
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        long last = data.getLong(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY);
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
+        long last = mem.cooldown(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY);
         if (gameTime - last < ButcheryComplaintsTicker.COMPLAINT_INTERVAL_TICKS) return;
         String key = "dialogue.chat.butcher_request.no_skinning_knife/"
                 + (1 + level.random.nextInt(3));
         villager.sendChatToAllAround(key);
-        data.putLong(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY, gameTime);
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        mem.setCooldown(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY, gameTime);
     }
 
     private static void playDrainSounds(ServerLevel level, BlockPos pos) {
@@ -390,21 +383,12 @@ public class CarcassWorkTask extends Behavior<VillagerEntityMCA> {
     }
 
     private static void emitStuckChat(ServerLevel level, VillagerEntityMCA villager, long gameTime) {
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        long last = data.getLong(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY);
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
+        long last = mem.cooldown(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY);
         if (gameTime - last < ButcheryComplaintsTicker.COMPLAINT_INTERVAL_TICKS) return;
         String key = "dialogue.chat.butcher_request.carcass_stuck/" + (1 + level.random.nextInt(3));
         villager.sendChatToAllAround(key);
-        data.putLong(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY, gameTime);
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        mem.setCooldown(ButcheryComplaintsTicker.LAST_COMPLAINT_KEY, gameTime);
     }
 
     // --- helpers ---
@@ -763,17 +747,8 @@ public class CarcassWorkTask extends Behavior<VillagerEntityMCA> {
 
     private static void awardXp(VillagerEntityMCA villager, int amount, long gameTime) {
         if (amount <= 0) return;
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        ButcherProgressData.GainResult result = ButcherProgressData.addXp(data, amount, gameTime);
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
+        ProfessionProgress.GainResult result = ProfessionProgress.addXp(mem, ProfessionXpType.BUTCHER, amount, gameTime);
         if (result.tierUp()) {
             ButcherTradeLevelSync.syncToTier(villager, result.tierAfter());
         }

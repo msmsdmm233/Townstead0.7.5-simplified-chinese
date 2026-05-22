@@ -4,6 +4,8 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.ai.work.ReachableTargetSelector;
 import com.aetherianartificer.townstead.thirst.VillagerDrinkingManager;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.brain.VillagerBrain;
@@ -11,7 +13,6 @@ import net.minecraft.core.BlockPos;
 //? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
 //?}
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.ai.behavior.Behavior;
@@ -69,11 +70,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
 
         // Don't interrupt an existing walk target unless critically hungry
         if (villager.getBrain().getMemory(MemoryModuleType.WALK_TARGET).isPresent()) {
-            //? if neoforge {
-            int quickCheck = HungerData.getHunger(com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager));
-            //?} else {
-            /*int quickCheck = HungerData.getHunger(villager.getPersistentData().getCompound("townstead_hunger"));
-            *///?}
+            int quickCheck = TownsteadVillagers.get(villager).needs().hunger();
             if (quickCheck >= HungerData.EMERGENCY_THRESHOLD) return false;
         }
 
@@ -83,17 +80,13 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
         }
         if (!VillagerSearchCadence.isDue(level, villager, SEARCH_CADENCE_KEY)) return false;
 
-        //? if neoforge {
-        CompoundTag hunger = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        int h = HungerData.getHunger(hunger);
-        boolean eatingMode = HungerData.isEatingMode(hunger);
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        int h = needs.hunger();
+        boolean eatingMode = needs.eatingMode();
         if (h >= HungerData.LUNCH_THRESHOLD) return false;
 
         long gameTime = level.getGameTime();
-        long lastAte = HungerData.getLastAteTime(hunger);
+        long lastAte = needs.lastAteTime();
         long minEatInterval = (eatingMode || h < HungerData.EMERGENCY_THRESHOLD) ? 20L : HungerData.MIN_EAT_INTERVAL;
         if ((gameTime - lastAte) < minEatInterval) return false;
 
@@ -200,12 +193,8 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
         targetItem = null;
         targetContainerSlot = null;
         ConsumableTargetClaims.releaseAll(villager.getUUID());
-        //? if neoforge {
-        CompoundTag hunger = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        cooldown = (HungerData.isEatingMode(hunger) || HungerData.getHunger(hunger) < HungerData.ADEQUATE_THRESHOLD) ? 5 : 200;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        cooldown = (needs.eatingMode() || needs.hunger() < HungerData.ADEQUATE_THRESHOLD) ? 5 : 200;
         VillagerSearchCadence.schedule(level, villager, SEARCH_CADENCE_KEY, cooldown, 20);
     }
 

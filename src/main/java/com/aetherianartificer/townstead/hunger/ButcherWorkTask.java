@@ -13,13 +13,16 @@ import com.aetherianartificer.townstead.ai.work.producer.ProducerRecipe;
 import com.aetherianartificer.townstead.ai.work.producer.ProducerStationClaims;
 import com.aetherianartificer.townstead.ai.work.producer.ProducerStationState;
 import com.aetherianartificer.townstead.ai.work.producer.ProducerWorkTask;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 //? if forge {
 /*import com.aetherianartificer.townstead.TownsteadNetwork;
 *///?}
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -334,17 +337,7 @@ public class ButcherWorkTask extends ProducerWorkTask {
         // trade catalog. Without Butchery there are no Butchery-specific trades
         // to unlock, so the data layer stays dormant.
         if (!ButcheryCompat.isLoaded()) return;
-        //? if neoforge {
-        CompoundTag data = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        ButcherProgressData.addXp(data, 1, gameTime);
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        ProfessionProgress.addXp(TownsteadVillagers.get(villager).professionMemory(), ProfessionXpType.BUTCHER, 1, gameTime);
     }
 
     // ── Hooks ──
@@ -555,19 +548,10 @@ public class ButcherWorkTask extends ProducerWorkTask {
     }
 
     private void syncBlockedReasonIfChanged(ServerLevel level, VillagerEntityMCA villager, HungerData.ButcherBlockedReason mapped) {
-        //? if neoforge {
-        CompoundTag hunger = com.aetherianartificer.townstead.villager.TownsteadVillagerState.hunger(villager);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        if (HungerData.getButcherBlockedReason(hunger) == mapped) return;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        if (needs.butcherBlockedReason() == mapped) return;
 
-        HungerData.setButcherBlockedReason(hunger, mapped);
-        //? if neoforge {
-        com.aetherianartificer.townstead.villager.TownsteadVillagerState.saveHunger(villager, hunger);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", hunger);
-        *///?}
+        needs.setButcherBlockedReason(mapped);
 
         //? if neoforge {
         PacketDistributor.sendToPlayersTrackingEntity(villager, new ButcherStatusSyncPayload(villager.getId(), mapped.id()));

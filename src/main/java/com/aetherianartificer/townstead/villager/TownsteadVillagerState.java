@@ -30,7 +30,14 @@ public final class TownsteadVillagerState {
             state.loadSnapshotTag(snapshot);
             return;
         }
-        CompoundTag legacy = loadLegacyRoot(villager);
+        if (snapshot.contains("schema")) {
+            state.loadSnapshotTag(snapshot);
+            state.upgradeFromLegacyRoot(loadLegacyRoot(villager, false));
+            saveSnapshot(villager, state);
+            state.clearDirty();
+            return;
+        }
+        CompoundTag legacy = loadLegacyRoot(villager, true);
         state.migrateLegacyRoot(legacy);
         saveSnapshot(villager, state);
         state.clearDirty();
@@ -38,46 +45,6 @@ public final class TownsteadVillagerState {
 
     static void saveSnapshot(VillagerEntityMCA villager, TownsteadVillager state) {
         saveSnapshotTag(villager, state.toSnapshotTag());
-    }
-
-    public static CompoundTag hunger(VillagerEntityMCA villager) {
-        return get(villager).needs().hungerTag();
-    }
-
-    public static void saveHunger(VillagerEntityMCA villager, CompoundTag tag) {
-        get(villager).needs().loadHunger(tag);
-    }
-
-    public static CompoundTag thirst(VillagerEntityMCA villager) {
-        return get(villager).needs().thirstTag();
-    }
-
-    public static void saveThirst(VillagerEntityMCA villager, CompoundTag tag) {
-        get(villager).needs().loadThirst(tag);
-    }
-
-    public static CompoundTag fatigue(VillagerEntityMCA villager) {
-        return get(villager).needs().fatigueTag();
-    }
-
-    public static void saveFatigue(VillagerEntityMCA villager, CompoundTag tag) {
-        get(villager).needs().loadFatigue(tag);
-    }
-
-    public static CompoundTag shift(VillagerEntityMCA villager) {
-        return get(villager).schedule().toTag();
-    }
-
-    public static void saveShift(VillagerEntityMCA villager, CompoundTag tag) {
-        get(villager).schedule().load(tag);
-    }
-
-    public static CompoundTag life(VillagerEntityMCA villager) {
-        return get(villager).life().toTag();
-    }
-
-    public static void saveLife(VillagerEntityMCA villager, CompoundTag tag) {
-        get(villager).life().load(tag);
     }
 
     private static CompoundTag loadSnapshotTag(VillagerEntityMCA villager) {
@@ -99,7 +66,7 @@ public final class TownsteadVillagerState {
         *///?}
     }
 
-    private static CompoundTag loadLegacyRoot(VillagerEntityMCA villager) {
+    private static CompoundTag loadLegacyRoot(VillagerEntityMCA villager, boolean preferNestedSnapshot) {
         CompoundTag root = new CompoundTag();
         //? if neoforge {
         root.put("hunger", villager.getData(Townstead.HUNGER_DATA).copy());
@@ -107,7 +74,7 @@ public final class TownsteadVillagerState {
         root.put("fatigue", villager.getData(Townstead.FATIGUE_DATA).copy());
         root.put("shift", villager.getData(Townstead.SHIFT_DATA).copy());
         CompoundTag life = villager.getData(Townstead.LIFE_DATA).copy();
-        if (life.contains(SNAPSHOT_KEY)) {
+        if (preferNestedSnapshot && life.contains(SNAPSHOT_KEY)) {
             CompoundTag nested = life.getCompound(SNAPSHOT_KEY);
             if (nested.contains("needs")) return expandSnapshot(nested);
         }
@@ -115,7 +82,7 @@ public final class TownsteadVillagerState {
         root.put("life", life);
         //?} else if forge {
         /*CompoundTag persistent = villager.getPersistentData();
-        if (persistent.contains(SNAPSHOT_KEY)) {
+        if (preferNestedSnapshot && persistent.contains(SNAPSHOT_KEY)) {
             CompoundTag nested = persistent.getCompound(SNAPSHOT_KEY);
             if (nested.contains("needs")) return expandSnapshot(nested);
         }
