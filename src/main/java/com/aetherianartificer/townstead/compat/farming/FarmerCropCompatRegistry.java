@@ -17,7 +17,8 @@ public final class FarmerCropCompatRegistry {
             new PeruvianDelightCropCompat(),
             new VineryCropCompat(),
             new FarmingForBlockheadsCompat(),
-            new CreepyDelightCropCompat()
+            new CreepyDelightCropCompat(),
+            new CauponaCropCompat()
     );
 
     private FarmerCropCompatRegistry() {}
