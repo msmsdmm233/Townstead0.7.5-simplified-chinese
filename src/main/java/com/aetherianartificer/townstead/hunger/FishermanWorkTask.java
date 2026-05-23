@@ -16,6 +16,8 @@ import com.aetherianartificer.townstead.ai.work.WorkTargetFailures;
 import com.aetherianartificer.townstead.ai.work.WorkTargetProgress;
 import com.aetherianartificer.townstead.ai.work.WorkTaskAdapter;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 //? if forge {
 /*import com.aetherianartificer.townstead.TownsteadNetwork;
 *///?}
@@ -25,7 +27,6 @@ import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.brain.VillagerBrain;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -1191,12 +1192,8 @@ public class FishermanWorkTask extends Behavior<VillagerEntityMCA> implements Wo
 
     private static boolean townstead$isFatigueGated(VillagerEntityMCA villager) {
         if (!TownsteadConfig.isVillagerFatigueEnabled()) return false;
-        //? if neoforge {
-        CompoundTag fatigue = villager.getData(Townstead.FATIGUE_DATA);
-        //?} else {
-        /*CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
-        *///?}
-        return FatigueData.isGated(fatigue) || FatigueData.getFatigue(fatigue) >= FatigueData.DROWSY_THRESHOLD;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        return needs.gated() || needs.fatigue() >= FatigueData.DROWSY_THRESHOLD;
     }
 
     // ── FakePlayer + fishing loot ──
@@ -1326,18 +1323,9 @@ public class FishermanWorkTask extends Behavior<VillagerEntityMCA> implements Wo
         if (blockedReason == reason) return;
         blockedReason = reason;
 
-        //? if neoforge {
-        CompoundTag hunger = villager.getData(Townstead.HUNGER_DATA);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        if (HungerData.getFishermanBlockedReason(hunger) != reason) {
-            HungerData.setFishermanBlockedReason(hunger, reason);
-            //? if neoforge {
-            villager.setData(Townstead.HUNGER_DATA, hunger);
-            //?} else {
-            /*villager.getPersistentData().put("townstead_hunger", hunger);
-            *///?}
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        if (needs.fishermanBlockedReason() != reason) {
+            needs.setFishermanBlockedReason(reason);
         }
         //? if neoforge {
         PacketDistributor.sendToPlayersTrackingEntity(villager, new FishermanStatusSyncPayload(villager.getId(), reason.id()));

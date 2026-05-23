@@ -10,11 +10,12 @@ import com.aetherianartificer.townstead.ai.work.WorkTaskAdapter;
 import com.aetherianartificer.townstead.ai.work.WorkTargetFailures;
 import com.aetherianartificer.townstead.ai.work.WorkTargetProgress;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.brain.VillagerBrain;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.behavior.Behavior;
@@ -713,11 +714,7 @@ public abstract class ProducerWorkTask extends Behavior<VillagerEntityMCA> imple
 
     protected static boolean isFatigueGated(VillagerEntityMCA villager) {
         if (!TownsteadConfig.isVillagerFatigueEnabled()) return false;
-        //? if neoforge {
-        CompoundTag fatigue = villager.getData(Townstead.FATIGUE_DATA);
-        //?} else {
-        /*CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
-        *///?}
-        return FatigueData.isGated(fatigue) || FatigueData.getFatigue(fatigue) >= FatigueData.DROWSY_THRESHOLD;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        return needs.gated() || needs.fatigue() >= FatigueData.DROWSY_THRESHOLD;
     }
 }

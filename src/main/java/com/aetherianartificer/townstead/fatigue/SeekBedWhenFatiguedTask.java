@@ -4,11 +4,12 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.hunger.TargetReachabilityCache;
 import com.aetherianartificer.townstead.hunger.VillagerSearchCadence;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.behavior.Behavior;
 import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
@@ -52,14 +53,10 @@ public class SeekBedWhenFatiguedTask extends Behavior<VillagerEntityMCA> {
         if (villager.isSleeping()) return false;
         if (cooldown > 0) { cooldown--; return false; }
 
-        //? if neoforge {
-        CompoundTag fatigue = villager.getData(Townstead.FATIGUE_DATA);
-        //?} else {
-        /*CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
-        *///?}
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
 
-        RestDecision decision = RestCoordinator.decide(RestCoordinator.capture(villager, fatigue, false, false));
-        RestCoordinator.recordDecision(villager, fatigue, decision, null);
+        RestDecision decision = RestCoordinator.decide(RestCoordinator.capture(villager, needs, false, false));
+        RestCoordinator.recordDecision(villager, needs, decision, null);
         if (!decision.shouldSeekBed()) return false;
 
         emergencyClaimPos = null;
@@ -78,13 +75,13 @@ public class SeekBedWhenFatiguedTask extends Behavior<VillagerEntityMCA> {
                             // HOME beds are MCA-owned. Push the villager into REST and let
                             // MCA's REST package handle the final walk + SleepInBed flow.
                             villager.getBrain().setActiveActivityIfPossible(Activity.REST);
-                            RestCoordinator.recordDecision(villager, fatigue, decision, pos);
+                            RestCoordinator.recordDecision(villager, needs, decision, pos);
                             return false;
                         }
                         //?} else {
                         /*if (!state.getValue(BedBlock.OCCUPIED) && TargetReachabilityCache.canAttempt(level, villager, pos)) {
                             villager.getBrain().setActiveActivityIfPossible(Activity.REST);
-                            RestCoordinator.recordDecision(villager, fatigue, decision, pos);
+                            RestCoordinator.recordDecision(villager, needs, decision, pos);
                             return false;
                         }
                         *///?}
@@ -98,26 +95,22 @@ public class SeekBedWhenFatiguedTask extends Behavior<VillagerEntityMCA> {
         BlockPos found = findNearbyUnclaimedBed(level, villager, level.getGameTime());
         if (found == null) {
             VillagerSearchCadence.schedule(level, villager, SEARCH_CADENCE_KEY, 60, 20);
-            RestCoordinator.recordBlockedDecision(villager, fatigue, decision.reason(), SleepBlockReason.NO_BED_FOUND, null);
+            RestCoordinator.recordBlockedDecision(villager, needs, decision.reason(), SleepBlockReason.NO_BED_FOUND, null);
             return false;
         }
         bedPos = found;
         emergencyClaimPos = found;
-        RestCoordinator.recordDecision(villager, fatigue, decision, bedPos);
+        RestCoordinator.recordDecision(villager, needs, decision, bedPos);
         return true;
     }
 
     @Override
     protected void start(ServerLevel level, VillagerEntityMCA villager, long gameTime) {
         if (bedPos == null) return;
-        //? if neoforge {
-        CompoundTag fatigue = villager.getData(Townstead.FATIGUE_DATA);
-        //?} else {
-        /*CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
-        *///?}
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
         if (!TargetReachabilityCache.canAttempt(level, villager, bedPos)) {
             releaseEmergencyClaim(level, villager);
-            RestCoordinator.recordBlockedDecision(villager, fatigue, SleepReason.fromId(RestDebugData.getRestDebugReasonId(fatigue)), SleepBlockReason.BED_UNREACHABLE, bedPos);
+            RestCoordinator.recordBlockedDecision(villager, needs, SleepReason.fromId(needs.restDebugReasonId()), SleepBlockReason.BED_UNREACHABLE, bedPos);
             bedPos = null;
             cooldown = 40;
             VillagerSearchCadence.schedule(level, villager, SEARCH_CADENCE_KEY, cooldown, 20);
@@ -128,7 +121,7 @@ public class SeekBedWhenFatiguedTask extends Behavior<VillagerEntityMCA> {
         if (path == null || !path.canReach()) {
             TargetReachabilityCache.recordFailure(level, villager, bedPos, UNREACHABLE_BED_TTL_TICKS);
             releaseEmergencyClaim(level, villager);
-            RestCoordinator.recordBlockedDecision(villager, fatigue, SleepReason.fromId(RestDebugData.getRestDebugReasonId(fatigue)), SleepBlockReason.BED_UNREACHABLE, bedPos);
+            RestCoordinator.recordBlockedDecision(villager, needs, SleepReason.fromId(needs.restDebugReasonId()), SleepBlockReason.BED_UNREACHABLE, bedPos);
             bedPos = null;
             cooldown = 40;
             VillagerSearchCadence.schedule(level, villager, SEARCH_CADENCE_KEY, cooldown, 20);
@@ -189,24 +182,15 @@ public class SeekBedWhenFatiguedTask extends Behavior<VillagerEntityMCA> {
 
             // Temporarily point HOME at the emergency bed so MCA's SleepInBed
             // behaviour handles occupancy, positioning, and wake-up normally.
-            // The original HOME is saved in fatigue NBT and restored on wake.
-            //? if neoforge {
-            CompoundTag ft = villager.getData(Townstead.FATIGUE_DATA);
-            //?} else {
-            /*CompoundTag ft = villager.getPersistentData().getCompound("townstead_fatigue");
-            *///?}
+            // The original HOME is saved in fatigue state and restored on wake.
+            TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
             Optional<GlobalPos> prevHome = villager.getBrain().getMemory(MemoryModuleType.HOME);
             if (prevHome.isPresent()) {
-                FatigueData.saveHome(ft, prevHome.get());
+                needs.saveHome(prevHome.get());
             } else {
-                FatigueData.saveNoHome(ft);
+                needs.saveNoHome();
             }
-            FatigueData.setEmergencyBed(ft, headPos);
-            //? if neoforge {
-            villager.setData(Townstead.FATIGUE_DATA, ft);
-            //?} else {
-            /*villager.getPersistentData().put("townstead_fatigue", ft);
-            *///?}
+            needs.setEmergencyBed(headPos);
             villager.getBrain().setMemory(MemoryModuleType.HOME, GlobalPos.of(level.dimension(), headPos));
             villager.getBrain().setActiveActivityIfPossible(Activity.REST);
             doStop(level, villager, gameTime);
@@ -221,12 +205,8 @@ public class SeekBedWhenFatiguedTask extends Behavior<VillagerEntityMCA> {
             return false;
         }
 
-        //? if neoforge {
-        CompoundTag fatigue = villager.getData(Townstead.FATIGUE_DATA);
-        //?} else {
-        /*CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
-        *///?}
-        RestDecision decision = RestCoordinator.decide(RestCoordinator.capture(villager, fatigue, false, false));
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        RestDecision decision = RestCoordinator.decide(RestCoordinator.capture(villager, needs, false, false));
         boolean keepUsing = decision.shouldSeekBed();
         if (!keepUsing) {
             releaseEmergencyClaim(level, villager);

@@ -1,12 +1,13 @@
 package com.aetherianartificer.townstead.compat.butchery;
 
 import com.aetherianartificer.townstead.Townstead;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.server.world.data.Building;
 import net.conczin.mca.server.world.data.Village;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
@@ -37,7 +38,6 @@ public final class ButcheryComplaintsTicker {
     static final long COMPLAINT_INTERVAL_TICKS = 1200L; // 1 in-game minute
     private static final double PLAYER_RANGE = 24.0;
     static final String LAST_COMPLAINT_KEY = "townstead_lastButcheryComplaint";
-    private static final String LAST_SEEN_TIER_KEY = "townstead_lastSeenShopTier";
 
     //? if >=1.21 {
     private static final ResourceLocation HOOK_ID = ResourceLocation.parse("butchery:hook");
@@ -90,44 +90,25 @@ public final class ButcheryComplaintsTicker {
      */
     private static boolean checkShopPromotion(VillagerEntityMCA villager, ServerLevel level) {
         int currentTier = ButcheryShopScanner.tierFor(level, villager);
-        //? if neoforge {
-        CompoundTag data = villager.getData(Townstead.HUNGER_DATA);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        int lastTier = data.contains(LAST_SEEN_TIER_KEY) ? data.getInt(LAST_SEEN_TIER_KEY) : -1;
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
+        int lastTier = mem.lastSeenShopTier();
 
         // First observation seeds the cache silently so a fresh villager
         // doesn't celebrate a tier they were hired into.
         if (lastTier < 0) {
-            data.putInt(LAST_SEEN_TIER_KEY, currentTier);
-            //? if neoforge {
-            villager.setData(Townstead.HUNGER_DATA, data);
-            //?} else {
-            /*villager.getPersistentData().put("townstead_hunger", data);
-            *///?}
+            mem.setLastSeenShopTier(currentTier);
             return false;
         }
 
         if (currentTier <= lastTier) {
             // Downgrade or no change: record but don't announce.
             if (currentTier != lastTier) {
-                data.putInt(LAST_SEEN_TIER_KEY, currentTier);
-                //? if neoforge {
-                villager.setData(Townstead.HUNGER_DATA, data);
-                //?} else {
-                /*villager.getPersistentData().put("townstead_hunger", data);
-                *///?}
+                mem.setLastSeenShopTier(currentTier);
             }
             return false;
         }
 
-        data.putInt(LAST_SEEN_TIER_KEY, currentTier);
-        //? if neoforge {
-        villager.setData(Townstead.HUNGER_DATA, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        mem.setLastSeenShopTier(currentTier);
         String key = "dialogue.chat.butcher_flavor.shop_promoted_to_tier_" + currentTier;
         villager.sendChatToAllAround(key);
         return true;
@@ -248,25 +229,12 @@ public final class ButcheryComplaintsTicker {
     }
 
     private static boolean onThrottle(VillagerEntityMCA villager, long gameTime) {
-        //? if neoforge {
-        CompoundTag data = villager.getData(Townstead.HUNGER_DATA);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        long last = data.getLong(LAST_COMPLAINT_KEY);
+        long last = TownsteadVillagers.get(villager).professionMemory().cooldown(LAST_COMPLAINT_KEY);
         return gameTime - last < COMPLAINT_INTERVAL_TICKS;
     }
 
     private static void markComplained(VillagerEntityMCA villager, long gameTime) {
-        //? if neoforge {
-        CompoundTag data = villager.getData(Townstead.HUNGER_DATA);
-        data.putLong(LAST_COMPLAINT_KEY, gameTime);
-        villager.setData(Townstead.HUNGER_DATA, data);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        data.putLong(LAST_COMPLAINT_KEY, gameTime);
-        villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        TownsteadVillagers.get(villager).professionMemory().setCooldown(LAST_COMPLAINT_KEY, gameTime);
     }
 
     private static String variant(String baseKey, int max, ServerLevel level) {

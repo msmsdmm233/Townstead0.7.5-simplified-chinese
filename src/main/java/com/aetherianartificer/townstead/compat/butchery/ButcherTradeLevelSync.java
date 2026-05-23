@@ -4,8 +4,8 @@ import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.world.entity.npc.VillagerData;
 
 /**
- * Bridges {@link com.aetherianartificer.townstead.hunger.ButcherProgressData}
- * tiers onto vanilla's {@link VillagerData#getLevel()} so butcher XP earned
+ * Bridges {@link com.aetherianartificer.townstead.villager.ProfessionProgress}
+ * butcher tiers onto vanilla's {@link VillagerData#getLevel()} so butcher XP earned
  * through slaughter and carcass work actually unlocks the higher-tier trades
  * registered by {@link ButcherTradesCompat}.
  *

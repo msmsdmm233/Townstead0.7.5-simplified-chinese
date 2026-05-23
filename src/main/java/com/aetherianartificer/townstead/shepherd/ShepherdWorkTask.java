@@ -1,10 +1,12 @@
 package com.aetherianartificer.townstead.shepherd;
 
 import com.aetherianartificer.townstead.Townstead;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.ItemTags;
@@ -188,16 +190,6 @@ public class ShepherdWorkTask extends Behavior<VillagerEntityMCA> {
 
     private static void awardXp(VillagerEntityMCA villager, int amount, long gameTime) {
         if (amount <= 0) return;
-        //? if neoforge {
-        CompoundTag data = villager.getData(Townstead.HUNGER_DATA);
-        //?} else {
-        /*CompoundTag data = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        ShepherdProgressData.addXp(data, amount, gameTime);
-        //? if neoforge {
-        villager.setData(Townstead.HUNGER_DATA, data);
-        //?} else {
-        /*villager.getPersistentData().put("townstead_hunger", data);
-        *///?}
+        ProfessionProgress.addXp(TownsteadVillagers.get(villager).professionMemory(), ProfessionXpType.SHEPHERD, amount, gameTime);
     }
 }

@@ -28,24 +28,53 @@ public final class VillageSnapshotSlimmer {
     private VillageSnapshotSlimmer() {}
 
     public static CompoundTag slim(CompoundTag villageData) {
-        CompoundTag copy = villageData.copy();
-        if (!copy.contains("buildings", Tag.TAG_LIST)) return copy;
-        ListTag buildings = copy.getList("buildings", Tag.TAG_COMPOUND);
-        for (int i = 0; i < buildings.size(); i++) {
-            CompoundTag building = buildings.getCompound(i);
-            if (!building.contains("blocks2", Tag.TAG_COMPOUND)) continue;
-            CompoundTag blocks2 = building.getCompound("blocks2");
-            CompoundTag trimmed = new CompoundTag();
-            for (String blockKey : blocks2.getAllKeys()) {
-                ListTag positions = blocks2.getList(blockKey, Tag.TAG_COMPOUND);
-                ListTag empties = new ListTag();
-                for (int j = 0; j < positions.size(); j++) {
-                    empties.add(new CompoundTag());
-                }
-                trimmed.put(blockKey, empties);
+        CompoundTag copy = new CompoundTag();
+        for (String key : villageData.getAllKeys()) {
+            if ("buildings".equals(key) && villageData.contains("buildings", Tag.TAG_LIST)) {
+                copy.put("buildings", slimBuildings(villageData.getList("buildings", Tag.TAG_COMPOUND)));
+                continue;
             }
-            building.put("blocks2", trimmed);
+            Tag value = villageData.get(key);
+            if (value != null) copy.put(key, value.copy());
         }
         return copy;
+    }
+
+    private static ListTag slimBuildings(ListTag source) {
+        ListTag buildings = new ListTag();
+        for (int i = 0; i < source.size(); i++) {
+            buildings.add(slimBuilding(source.getCompound(i)));
+        }
+        return buildings;
+    }
+
+    private static CompoundTag slimBuilding(CompoundTag source) {
+        CompoundTag building = new CompoundTag();
+        for (String key : source.getAllKeys()) {
+            if ("blocks2".equals(key) && source.contains("blocks2", Tag.TAG_COMPOUND)) {
+                building.put("blocks2", slimBlocks2(source.getCompound("blocks2")));
+                continue;
+            }
+            Tag value = source.get(key);
+            if (value != null) building.put(key, value.copy());
+        }
+        return building;
+    }
+
+    private static CompoundTag slimBlocks2(CompoundTag blocks2) {
+        CompoundTag trimmed = new CompoundTag();
+        for (String blockKey : blocks2.getAllKeys()) {
+            ListTag positions = blocks2.getList(blockKey, Tag.TAG_COMPOUND);
+            trimmed.put(blockKey, placeholders(positions.size()));
+        }
+        return trimmed;
+    }
+
+    private static ListTag placeholders(int count) {
+        ListTag empties = new ListTag();
+        for (int i = 0; i < count; i++) {
+            empties.add(new CompoundTag());
+        }
+        return empties;
     }
 }

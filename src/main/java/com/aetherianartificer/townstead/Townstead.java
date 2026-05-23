@@ -53,14 +53,17 @@ import com.aetherianartificer.townstead.shift.template.ShiftTemplateRegistry;
 import com.aetherianartificer.townstead.shift.template.ShiftTemplateSavePayload;
 import com.aetherianartificer.townstead.shift.template.ShiftTemplateSavedData;
 import com.aetherianartificer.townstead.shift.template.ShiftTemplateSyncPayload;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagerState;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.aetherianartificer.townstead.village.VillageResidentClientStore;
 import com.aetherianartificer.townstead.village.VillageResidentRoster;
 import com.aetherianartificer.townstead.village.VillageResidentsSyncPayload;
 import com.aetherianartificer.townstead.client.catalog.CatalogDataLoader;
 import com.aetherianartificer.townstead.hunger.HungerClientStore;
 import com.aetherianartificer.townstead.hunger.HungerData;
-import com.aetherianartificer.townstead.hunger.FarmerProgressData;
-import com.aetherianartificer.townstead.hunger.CookProgressData;
+import com.aetherianartificer.townstead.villager.ProfessionProgress;
+import com.aetherianartificer.townstead.villager.ProfessionXpType;
 import com.aetherianartificer.townstead.hunger.FarmStatusSyncPayload;
 import com.aetherianartificer.townstead.hunger.ButcherStatusSyncPayload;
 import com.aetherianartificer.townstead.hunger.FishermanHookLinkPayload;
@@ -333,17 +336,27 @@ public class Townstead {
         NeoForge.EVENT_BUS.addListener(this::onStartTracking);
         NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.tick.ServerTickEvent.Post e) -> {
-            com.aetherianartificer.townstead.village.VillageStartupSeedScheduler.tick(e.getServer());
-            com.aetherianartificer.townstead.spirit.VillageSpiritQueryScheduler.tick(e.getServer());
-            com.aetherianartificer.townstead.calendar.WorldCalendarTicker.tick(e.getServer());
+            townstead$profile("server.village_startup_seed", () ->
+                    com.aetherianartificer.townstead.village.VillageStartupSeedScheduler.tick(e.getServer()));
+            townstead$profile("server.village_spirit_query", () ->
+                    com.aetherianartificer.townstead.spirit.VillageSpiritQueryScheduler.tick(e.getServer()));
+            townstead$profile("server.world_calendar", () ->
+                    com.aetherianartificer.townstead.calendar.WorldCalendarTicker.tick(e.getServer()));
+            townstead$profile("server.memory_lifecycle", () ->
+                    com.aetherianartificer.townstead.memory.TownsteadMemoryLifecycle.tick(e.getServer()));
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.EntityJoinLevelEvent e) -> {
             if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel sl) {
                 com.aetherianartificer.townstead.calendar.AgeableCatchup.onEntityJoin(e.getEntity(), sl.getServer());
+                if (e.getEntity() instanceof VillagerEntityMCA villager) {
+                    com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
+                }
             }
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
                 townstead$seedBuildingRecognition(e.getServer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
+                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer()));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
                 ShiftTemplateRegistry.setServer(e.getServer()));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent e) ->
@@ -352,6 +365,8 @@ public class Townstead {
                 WeekPlanRegistry.setServer(e.getServer()));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent e) ->
                 WeekPlanRegistry.clearServer());
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent e) ->
+                com.aetherianartificer.townstead.memory.TownsteadMemoryLifecycle.clearAll());
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
                 townstead$sendShiftTemplateSync(sp);
@@ -378,6 +393,10 @@ public class Townstead {
                 (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.commands.CalendarCommands.register(
                                 e.getDispatcher(), e.getBuildContext()));
+        NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.MemoryDiagnosticsCommands.register(
+                                e.getDispatcher(), e.getBuildContext()));
         townstead$registerEmotePlaybackClear();
         registerDialogueConditions();
         LOGGER.info("Townstead loaded");
@@ -393,6 +412,7 @@ public class Townstead {
             // Dedicated server: no client-side playback registry to clear.
         }
     }
+
     //?} else if forge {
     /*public Townstead() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -421,18 +441,28 @@ public class Townstead {
         MinecraftForge.EVENT_BUS.addListener(this::addReloadListeners);
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.TickEvent.ServerTickEvent e) -> {
             if (e.phase == net.minecraftforge.event.TickEvent.Phase.END) {
-                com.aetherianartificer.townstead.village.VillageStartupSeedScheduler.tick(e.getServer());
-                com.aetherianartificer.townstead.spirit.VillageSpiritQueryScheduler.tick(e.getServer());
-                com.aetherianartificer.townstead.calendar.WorldCalendarTicker.tick(e.getServer());
+                townstead$profile("server.village_startup_seed", () ->
+                        com.aetherianartificer.townstead.village.VillageStartupSeedScheduler.tick(e.getServer()));
+                townstead$profile("server.village_spirit_query", () ->
+                        com.aetherianartificer.townstead.spirit.VillageSpiritQueryScheduler.tick(e.getServer()));
+                townstead$profile("server.world_calendar", () ->
+                        com.aetherianartificer.townstead.calendar.WorldCalendarTicker.tick(e.getServer()));
+                townstead$profile("server.memory_lifecycle", () ->
+                        com.aetherianartificer.townstead.memory.TownsteadMemoryLifecycle.tick(e.getServer()));
             }
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.EntityJoinLevelEvent e) -> {
             if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel sl) {
                 com.aetherianartificer.townstead.calendar.AgeableCatchup.onEntityJoin(e.getEntity(), sl.getServer());
+                if (e.getEntity() instanceof VillagerEntityMCA villager) {
+                    com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
+                }
             }
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
                 townstead$seedBuildingRecognition(e.getServer()));
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
+                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer()));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
                 ShiftTemplateRegistry.setServer(e.getServer()));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStoppingEvent e) ->
@@ -441,6 +471,8 @@ public class Townstead {
                 WeekPlanRegistry.setServer(e.getServer()));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStoppingEvent e) ->
                 WeekPlanRegistry.clearServer());
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStoppingEvent e) ->
+                com.aetherianartificer.townstead.memory.TownsteadMemoryLifecycle.clearAll());
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
                 TownsteadNetwork.sendShiftTemplateSync(sp);
@@ -467,6 +499,10 @@ public class Townstead {
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.commands.CalendarCommands.register(
                                 e.getDispatcher(), e.getBuildContext()));
+        MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.MemoryDiagnosticsCommands.register(
+                                e.getDispatcher(), e.getBuildContext()));
         try {
             Class.forName("net.minecraft.client.Minecraft");
             MinecraftForge.EVENT_BUS.addListener(
@@ -479,6 +515,19 @@ public class Townstead {
         LOGGER.info("Townstead loaded");
     }
     *///?}
+
+    private static void townstead$profile(String name, Runnable runnable) {
+        if (!com.aetherianartificer.townstead.diagnostics.TownsteadProfiler.enabled()) {
+            runnable.run();
+            return;
+        }
+        long start = System.nanoTime();
+        try {
+            runnable.run();
+        } finally {
+            com.aetherianartificer.townstead.diagnostics.TownsteadProfiler.record(name, System.nanoTime() - start);
+        }
+    }
 
     //? if neoforge {
     private void addPackFinders(net.neoforged.neoforge.event.AddPackFindersEvent event) {
@@ -572,12 +621,7 @@ public class Townstead {
         GiftPredicate.register("hunger", (json, name) ->
                 GsonHelper.convertToString(json, name).toLowerCase(Locale.ROOT),
                 state -> (villager, stack, player) -> {
-                    //? if neoforge {
-                    CompoundTag data = villager.getData(HUNGER_DATA);
-                    //?} else if forge {
-                    /*CompoundTag data = villager.getPersistentData().getCompound("townstead:hunger_data");
-                    *///?}
-                    int h = HungerData.getHunger(data);
+                    int h = TownsteadVillagers.get(villager).needs().hunger();
                     HungerData.HungerState current = HungerData.getState(h);
                     return townstead$hungerAtLeast(current, state) ? 1.0f : 0.0f;
                 });
@@ -585,12 +629,7 @@ public class Townstead {
                         GsonHelper.convertToString(json, name).toLowerCase(Locale.ROOT),
                 state -> (villager, stack, player) -> {
                     if (!ThirstBridgeResolver.isActive()) return 0.0f;
-                    //? if neoforge {
-                    CompoundTag data = villager.getData(THIRST_DATA);
-                    //?} else if forge {
-                    /*CompoundTag data = villager.getPersistentData().getCompound("townstead:thirst_data");
-                    *///?}
-                    int t = ThirstData.getThirst(data);
+                    int t = TownsteadVillagers.get(villager).needs().thirst();
                     ThirstData.ThirstState current = ThirstData.getState(t);
                     return townstead$thirstAtLeast(current, state) ? 1.0f : 0.0f;
                 });
@@ -598,12 +637,7 @@ public class Townstead {
                         GsonHelper.convertToString(json, name).toLowerCase(Locale.ROOT),
                 state -> (villager, stack, player) -> {
                     if (!TownsteadConfig.isVillagerFatigueEnabled()) return 0.0f;
-                    //? if neoforge {
-                    CompoundTag data = villager.getData(FATIGUE_DATA);
-                    //?} else if forge {
-                    /*CompoundTag data = villager.getPersistentData().getCompound("townstead:fatigue_data");
-                    *///?}
-                    int f = FatigueData.getFatigue(data);
+                    int f = TownsteadVillagers.get(villager).needs().fatigue();
                     FatigueData.FatigueState current = FatigueData.getState(f);
                     return townstead$fatigueAtLeast(current, state) ? 1.0f : 0.0f;
                 });
@@ -1211,25 +1245,24 @@ public class Townstead {
             Entity entity = sp.serverLevel().getEntity(payload.entityId());
             if (!(entity instanceof VillagerEntityMCA villager)) return;
 
-            CompoundTag hunger = villager.getData(HUNGER_DATA);
-            int currentHunger = HungerData.getHunger(hunger);
+            TownsteadVillager state = TownsteadVillagers.get(villager);
+            int currentHunger = state.needs().hunger();
 
             // hunger == -1 is a query: respond with current value, don't modify
             if (payload.hunger() == -1) {
-                PacketDistributor.sendToPlayer(sp, townstead$hungerSync(villager, hunger));
+                PacketDistributor.sendToPlayer(sp, townstead$hungerSync(villager, state.needs().hungerTag()));
                 return;
             }
 
             int newHunger = payload.hunger();
             LOGGER.debug("HungerSet packet: entityId={}, target={}", payload.entityId(), newHunger);
-            HungerData.setHunger(hunger, newHunger);
+            state.needs().setHunger(newHunger);
             // Reset saturation when increasing (for clean testing); leave it when decreasing
             if (newHunger > currentHunger) {
-                HungerData.setSaturation(hunger, Math.min(newHunger, HungerData.MAX_SATURATION));
+                state.needs().setSaturation(Math.min(newHunger, HungerData.MAX_SATURATION));
             }
-            HungerData.setExhaustion(hunger, 0f);
-            villager.setData(HUNGER_DATA, hunger);
-            HungerSyncPayload sync = townstead$hungerSync(villager, hunger);
+            state.needs().setHungerExhaustion(0f);
+            HungerSyncPayload sync = townstead$hungerSync(villager, state.needs().hungerTag());
             PacketDistributor.sendToPlayer(sp, sync);
             PacketDistributor.sendToPlayersTrackingEntity(villager, sync);
             int syncedHunger = sync.hunger();
@@ -1244,23 +1277,22 @@ public class Townstead {
             Entity entity = sp.serverLevel().getEntity(payload.entityId());
             if (!(entity instanceof VillagerEntityMCA villager)) return;
 
-            CompoundTag thirst = villager.getData(THIRST_DATA);
-            int currentThirst = ThirstData.getThirst(thirst);
+            TownsteadVillager state = TownsteadVillagers.get(villager);
+            int currentThirst = state.needs().thirst();
 
             if (payload.thirst() == -1) {
-                PacketDistributor.sendToPlayer(sp, townstead$thirstSync(villager, thirst));
+                PacketDistributor.sendToPlayer(sp, townstead$thirstSync(villager, state.needs().thirstTag()));
                 return;
             }
 
             int newThirst = payload.thirst();
             LOGGER.debug("ThirstSet packet: entityId={}, target={}", payload.entityId(), newThirst);
-            ThirstData.setThirst(thirst, newThirst);
+            state.needs().setThirst(newThirst);
             if (newThirst > currentThirst) {
-                ThirstData.setQuenched(thirst, Math.min(newThirst, ThirstData.MAX_QUENCHED));
+                state.needs().setQuenched(Math.min(newThirst, ThirstData.MAX_QUENCHED));
             }
-            ThirstData.setExhaustion(thirst, 0f);
-            villager.setData(THIRST_DATA, thirst);
-            ThirstSyncPayload sync = townstead$thirstSync(villager, thirst);
+            state.needs().setThirstExhaustion(0f);
+            ThirstSyncPayload sync = townstead$thirstSync(villager, state.needs().thirstTag());
             PacketDistributor.sendToPlayer(sp, sync);
             PacketDistributor.sendToPlayersTrackingEntity(villager, sync);
         });
@@ -1288,7 +1320,7 @@ public class Townstead {
             // Query mode: empty shifts array. Reply with both the daily array
             // and the weekly state so the editor has everything in one round-trip.
             if (payload.shifts().length == 0) {
-                CompoundTag shiftTag = villager.getData(SHIFT_DATA);
+                CompoundTag shiftTag = TownsteadVillagers.get(villager).schedule().toTag();
                 PacketDistributor.sendToPlayer(sp, new ShiftSyncPayload(
                         payload.villagerUuid(), ShiftData.getShifts(shiftTag)));
                 PacketDistributor.sendToPlayer(sp, new ShiftWeekSyncPayload(
@@ -1311,10 +1343,9 @@ public class Townstead {
     private static void townstead$writeVillagerShifts(VillagerEntityMCA villager, int[] shifts,
                                                        ServerPlayer originator, boolean echoToOriginator,
                                                        String templateId) {
-        CompoundTag shiftTag = villager.getData(SHIFT_DATA);
-        ShiftData.setShifts(shiftTag, shifts);
-        ShiftData.setTemplateId(shiftTag, templateId);
-        villager.setData(SHIFT_DATA, shiftTag);
+        TownsteadVillager state = TownsteadVillagers.get(villager);
+        state.schedule().setShifts(shifts);
+        state.schedule().setTemplateId(templateId);
         ShiftScheduleApplier.apply(villager);
 
         ShiftSyncPayload sync = new ShiftSyncPayload(villager.getUUID(), shifts);
@@ -1503,10 +1534,10 @@ public class Townstead {
 
     private static void townstead$writeVillagerWeek(VillagerEntityMCA villager, String mode,
                                                     java.util.List<String> weekDays, ServerPlayer originator) {
-        CompoundTag shiftTag = villager.getData(SHIFT_DATA);
-        ShiftData.setMode(shiftTag, mode);
-        ShiftData.setWeekDayTemplates(shiftTag, weekDays);
-        villager.setData(SHIFT_DATA, shiftTag);
+        TownsteadVillager state = TownsteadVillagers.get(villager);
+        state.schedule().setMode(mode);
+        state.schedule().setWeekDayTemplates(weekDays);
+        CompoundTag shiftTag = state.schedule().toTag();
         ShiftScheduleApplier.apply(villager);
 
         ShiftWeekSyncPayload sync = new ShiftWeekSyncPayload(
@@ -1673,6 +1704,25 @@ public class Townstead {
                 newProf,
                 claimedJobSite
         );
+
+        // A villager promoted at runtime keeps idling until a world reload rebuilds its brain:
+        // MCA derives the brain's schedule during refreshBrain, but at this synchronous moment the
+        // freshly-claimed job site / residency state hasn't settled, so it lands on a schedule with
+        // no WORK window. Nothing recomputes the schedule afterward, so the work AI never starts
+        // (HarvestWorkTask gates on getSchedule().getActivityAt() == WORK). Rebuild the brain again a
+        // few ticks later, once that state has caught up, so the schedule comes back correct without
+        // requiring the player to reload the world.
+        if (townstead$requiresJobSite(newProf) && !villager.isBaby()) {
+            level.getServer().tell(new net.minecraft.server.TickTask(
+                    level.getServer().getTickCount() + 3,
+                    () -> {
+                        if (villager.isAlive()
+                                && villager.level() instanceof ServerLevel settledLevel
+                                && villager.getVillagerData().getProfession() == newProf) {
+                            villager.refreshBrain(settledLevel);
+                        }
+                    }));
+        }
     }
 
     private static void townstead$clearProfessionState(VillagerEntityMCA villager) {
@@ -1780,26 +1830,25 @@ public class Townstead {
             Entity entity = sp.serverLevel().getEntity(payload.entityId());
             if (!(entity instanceof VillagerEntityMCA villager)) return;
 
-            CompoundTag fatigue = villager.getData(FATIGUE_DATA);
-            int currentFatigue = FatigueData.getFatigue(fatigue);
+            TownsteadVillager state = TownsteadVillagers.get(villager);
+            int currentFatigue = state.needs().fatigue();
 
             if (payload.fatigue() == -1) {
-                PacketDistributor.sendToPlayer(sp, townstead$fatigueSync(villager, fatigue));
+                PacketDistributor.sendToPlayer(sp, townstead$fatigueSync(villager, state.needs().fatigueTag()));
                 return;
             }
 
             int newFatigue = payload.fatigue();
             LOGGER.debug("FatigueSet packet: entityId={}, target={}", payload.entityId(), newFatigue);
-            FatigueData.setFatigue(fatigue, newFatigue);
+            state.needs().setFatigue(newFatigue);
             // Clear collapse/gate flags when setting via editor
             if (newFatigue < FatigueData.COLLAPSE_THRESHOLD) {
-                FatigueData.setCollapsed(fatigue, false);
+                state.needs().setCollapsed(false);
             }
             if (newFatigue < FatigueData.RECOVERY_GATE) {
-                FatigueData.setGated(fatigue, false);
+                state.needs().setGated(false);
             }
-            villager.setData(FATIGUE_DATA, fatigue);
-            FatigueSyncPayload sync = townstead$fatigueSync(villager, fatigue);
+            FatigueSyncPayload sync = townstead$fatigueSync(villager, state.needs().fatigueTag());
             PacketDistributor.sendToPlayer(sp, sync);
             PacketDistributor.sendToPlayersTrackingEntity(villager, sync);
         });
@@ -1859,10 +1908,11 @@ public class Townstead {
         if (!(event.getTarget() instanceof VillagerEntityMCA villager)) return;
 
         //? if neoforge {
-        CompoundTag hunger = villager.getData(HUNGER_DATA);
+        TownsteadVillager state = TownsteadVillagers.get(villager);
+        CompoundTag hunger = state.needs().hungerTag();
         PacketDistributor.sendToPlayer(sp, townstead$hungerSync(villager, hunger));
         if (ThirstBridgeResolver.isActive()) {
-            CompoundTag thirst = villager.getData(THIRST_DATA);
+            CompoundTag thirst = state.needs().thirstTag();
             PacketDistributor.sendToPlayer(sp, townstead$thirstSync(villager, thirst));
         }
         PacketDistributor.sendToPlayer(sp, new FarmStatusSyncPayload(
@@ -1873,9 +1923,9 @@ public class Townstead {
                 villager.getId(),
                 HungerData.getButcherBlockedReason(hunger).id()
         ));
-        CompoundTag fatigue = villager.getData(FATIGUE_DATA);
+        CompoundTag fatigue = state.needs().fatigueTag();
         PacketDistributor.sendToPlayer(sp, townstead$fatigueSync(villager, fatigue));
-        CompoundTag shift = villager.getData(SHIFT_DATA);
+        CompoundTag shift = state.schedule().toTag();
         if (ShiftData.hasCustomShifts(shift)) {
             PacketDistributor.sendToPlayer(sp, new ShiftSyncPayload(
                     villager.getUUID(), ShiftData.getShifts(shift)));
@@ -1883,10 +1933,11 @@ public class Townstead {
         com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
         if (lifeSync != null) PacketDistributor.sendToPlayer(sp, lifeSync);
         //?} else if forge {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
+        /*TownsteadVillager state = TownsteadVillagers.get(villager);
+        CompoundTag hunger = state.needs().hungerTag();
         TownsteadNetwork.sendToPlayer(sp, townstead$hungerSync(villager, hunger));
         if (ThirstBridgeResolver.isActive()) {
-            CompoundTag thirst = villager.getPersistentData().getCompound("townstead_thirst");
+            CompoundTag thirst = state.needs().thirstTag();
             TownsteadNetwork.sendToPlayer(sp, townstead$thirstSync(villager, thirst));
         }
         TownsteadNetwork.sendToPlayer(sp, new FarmStatusSyncPayload(
@@ -1897,9 +1948,9 @@ public class Townstead {
                 villager.getId(),
                 HungerData.getButcherBlockedReason(hunger).id()
         ));
-        CompoundTag fatigue = villager.getPersistentData().getCompound("townstead_fatigue");
+        CompoundTag fatigue = state.needs().fatigueTag();
         TownsteadNetwork.sendToPlayer(sp, townstead$fatigueSync(villager, fatigue));
-        CompoundTag shift = villager.getPersistentData().getCompound("townstead_shift");
+        CompoundTag shift = state.schedule().toTag();
         if (ShiftData.hasCustomShifts(shift)) {
             TownsteadNetwork.sendToPlayer(sp, new ShiftSyncPayload(
                     villager.getUUID(), ShiftData.getShifts(shift)));
@@ -1910,15 +1961,16 @@ public class Townstead {
     }
 
     public static HungerSyncPayload townstead$hungerSync(VillagerEntityMCA villager, CompoundTag hunger) {
+        TownsteadVillager.ProfessionMemory mem = TownsteadVillagers.get(villager).professionMemory();
         return new HungerSyncPayload(
                 villager.getId(),
                 HungerData.getHunger(hunger),
-                FarmerProgressData.getTier(hunger),
-                FarmerProgressData.getXp(hunger),
-                FarmerProgressData.getXpToNextTier(hunger),
-                CookProgressData.getTier(hunger),
-                CookProgressData.getXp(hunger),
-                CookProgressData.getXpToNextTier(hunger)
+                ProfessionProgress.getTier(mem, ProfessionXpType.FARMER),
+                ProfessionProgress.getXp(mem, ProfessionXpType.FARMER),
+                ProfessionProgress.getXpToNextTier(mem, ProfessionXpType.FARMER),
+                ProfessionProgress.getTier(mem, ProfessionXpType.COOK),
+                ProfessionProgress.getXp(mem, ProfessionXpType.COOK),
+                ProfessionProgress.getXpToNextTier(mem, ProfessionXpType.COOK)
         );
     }
 

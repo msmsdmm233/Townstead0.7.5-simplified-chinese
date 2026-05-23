@@ -2,25 +2,25 @@ package com.aetherianartificer.townstead.fatigue;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.TownsteadConfig;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.schedule.Activity;
 
 public final class RestCoordinator {
     private RestCoordinator() {}
 
-    public static RestContext capture(VillagerEntityMCA villager, CompoundTag fatigue, boolean hasValidSleepingBed, boolean guardRole) {
-        return capture(villager, fatigue, hasValidSleepingBed, guardRole, currentScheduleActivity(villager), false);
+    public static RestContext capture(VillagerEntityMCA villager, TownsteadVillager.Needs needs, boolean hasValidSleepingBed, boolean guardRole) {
+        return capture(villager, needs, hasValidSleepingBed, guardRole, currentScheduleActivity(villager), false);
     }
 
-    public static RestContext capture(VillagerEntityMCA villager, CompoundTag fatigue, boolean hasValidSleepingBed, boolean guardRole, Activity scheduleActivity, boolean restOverrideActive) {
+    public static RestContext capture(VillagerEntityMCA villager, TownsteadVillager.Needs needs, boolean hasValidSleepingBed, boolean guardRole, Activity scheduleActivity, boolean restOverrideActive) {
         return new RestContext(
                 TownsteadConfig.isVillagerFatigueEnabled(),
                 scheduleActivity,
-                FatigueData.getFatigue(fatigue),
-                FatigueData.isCollapsed(fatigue),
+                needs.fatigue(),
+                needs.collapsed(),
                 villager.isSleeping(),
                 villager.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET).isPresent(),
                 villager.getLastHurtByMob() != null,
@@ -57,12 +57,12 @@ public final class RestCoordinator {
         return new RestDecision(reason, blockReason, shouldSeekBed, shouldOverride, shouldWake, shouldHoldGuardAtRest);
     }
 
-    public static void recordDecision(VillagerEntityMCA villager, CompoundTag fatigue, RestDecision decision, BlockPos targetBed) {
-        String previousReason = RestDebugData.getRestDebugReasonId(fatigue);
-        String previousBlock = RestDebugData.getRestDebugBlockId(fatigue);
-        long previousTarget = RestDebugData.getRestDebugTargetBed(fatigue);
+    public static void recordDecision(VillagerEntityMCA villager, TownsteadVillager.Needs needs, RestDecision decision, BlockPos targetBed) {
+        String previousReason = needs.restDebugReasonId();
+        String previousBlock = needs.restDebugBlockId();
+        long previousTarget = needs.restDebugTargetBed();
 
-        RestDebugData.setRestDebugDecision(fatigue, decision.reason(), decision.blockReason(), targetBed);
+        needs.setRestDebugDecision(decision.reason(), decision.blockReason(), targetBed);
 
         if (!TownsteadConfig.isVillagerSleepDebugEnabled()) return;
 
@@ -82,8 +82,8 @@ public final class RestCoordinator {
         );
     }
 
-    public static void recordBlockedDecision(VillagerEntityMCA villager, CompoundTag fatigue, SleepReason reason, SleepBlockReason blockReason, BlockPos targetBed) {
-        recordDecision(villager, fatigue, new RestDecision(reason, blockReason, false, false, false, false), targetBed);
+    public static void recordBlockedDecision(VillagerEntityMCA villager, TownsteadVillager.Needs needs, SleepReason reason, SleepBlockReason blockReason, BlockPos targetBed) {
+        recordDecision(villager, needs, new RestDecision(reason, blockReason, false, false, false, false), targetBed);
     }
 
     static SleepReason determineReason(RestContext context) {

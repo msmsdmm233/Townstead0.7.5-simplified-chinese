@@ -4,6 +4,8 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.ai.work.ReachableTargetSelector;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
+import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.brain.VillagerBrain;
@@ -13,7 +15,6 @@ import net.minecraft.core.BlockPos;
 //? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
 //?}
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
@@ -275,18 +276,9 @@ public class CareForYoungTask extends Behavior<VillagerEntityMCA> {
 
         food.shrink(1);
         caregiver.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-        //? if neoforge {
-        CompoundTag childHunger = childTarget.getData(Townstead.HUNGER_DATA);
-        //?} else {
-        /*CompoundTag childHunger = childTarget.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        HungerData.applyFood(childHunger, props);
-        HungerData.setLastAteTime(childHunger, level.getGameTime());
-        //? if neoforge {
-        childTarget.setData(Townstead.HUNGER_DATA, childHunger);
-        //?} else {
-        /*childTarget.getPersistentData().put("townstead_hunger", childHunger);
-        *///?}
+        TownsteadVillager.Needs childNeeds = TownsteadVillagers.get(childTarget).needs();
+        childNeeds.applyFood(props);
+        childNeeds.setLastAteTime(level.getGameTime());
 
         nextFeedTick = gameTime + FEED_INTERVAL;
         if (!townstead$isYoungHungry(childTarget)) {
@@ -303,12 +295,7 @@ public class CareForYoungTask extends Behavior<VillagerEntityMCA> {
         }
         // Exhausted villagers cannot volunteer as caregivers
         if (TownsteadConfig.isVillagerFatigueEnabled()) {
-            //? if neoforge {
-            CompoundTag fatigueTag = caregiver.getData(Townstead.FATIGUE_DATA);
-            //?} else {
-            /*CompoundTag fatigueTag = caregiver.getPersistentData().getCompound("townstead_fatigue");
-            *///?}
-            if (FatigueData.getFatigue(fatigueTag) >= FatigueData.COLLAPSE_THRESHOLD) {
+            if (TownsteadVillagers.get(caregiver).needs().fatigue() >= FatigueData.COLLAPSE_THRESHOLD) {
                 return false;
             }
         }
@@ -360,12 +347,7 @@ public class CareForYoungTask extends Behavior<VillagerEntityMCA> {
         if (!(ageState == AgeState.BABY || ageState == AgeState.TODDLER || ageState == AgeState.CHILD)) {
             return false;
         }
-        //? if neoforge {
-        CompoundTag hunger = villager.getData(Townstead.HUNGER_DATA);
-        //?} else {
-        /*CompoundTag hunger = villager.getPersistentData().getCompound("townstead_hunger");
-        *///?}
-        return HungerData.getHunger(hunger) < HungerData.ADEQUATE_THRESHOLD;
+        return TownsteadVillagers.get(villager).needs().hunger() < HungerData.ADEQUATE_THRESHOLD;
     }
 
     private boolean townstead$hasFood(VillagerEntityMCA villager) {
