@@ -6,6 +6,7 @@
   "gui.townstead_calendar.button.stamp": "Stamps",
   "gui.townstead_calendar.stamp.title": "Stamps",
   "gui.townstead_calendar.stamp.visibility": "Visibility",
+  "gui.townstead_calendar.stamp.visibility.tooltip": "Private stamps are visible only to you. Public stamps are visible to everyone.",
   "gui.townstead_calendar.stamp.public": "Public",
   "gui.townstead_calendar.stamp.private": "Private",
   "gui.townstead_calendar.stamp.caption": "Caption",
