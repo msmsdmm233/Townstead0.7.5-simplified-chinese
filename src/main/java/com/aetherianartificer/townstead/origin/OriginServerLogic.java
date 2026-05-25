@@ -12,9 +12,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Branch-agnostic server handling for {@link OriginSetC2SPayload}: resolves the
  * target (player self or villager), validates the origin against the registry,
- * applies it (player id, or villager id + gene clamp), or answers a request.
- * The two network branches only differ in how they ship the returned
- * {@link Result} back, so the decision logic lives here once.
+ * applies it (player id, or villager id + a gene re-roll into the origin's
+ * ranges), or answers a request. MCA's {@code Genetics} is SynchedEntityData, so
+ * the re-roll syncs to tracking clients the same tick (no reload). The two
+ * network branches only differ in how they ship the returned {@link Result}
+ * back, so the decision logic lives here once.
  */
 public final class OriginServerLogic {
 
@@ -51,7 +53,13 @@ public final class OriginServerLogic {
         ResourceLocation id = resolveKnown(originId);
         if (id == null) return null;
         state.life().setOrigin(id.toString());
-        OriginGenes.clamp(villager, OriginRegistry.effectiveGenome(id));
+        // Flush now: the origin lives in a data attachment that only persists when
+        // the snapshot is written, and the periodic flush may not run before the
+        // world saves/exits — which lost the origin (and so the skin tint) on reload.
+        TownsteadVillagers.flush(villager);
+        // Genes are committed by the editor's WYSIWYG preview via MCA's
+        // syncVillagerData (client rolls within the origin's ranges, then saves by
+        // UUID); here we only record the origin id.
         return new Result(villager.getId(), id.toString());
     }
 

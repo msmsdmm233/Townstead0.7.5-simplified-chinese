@@ -4,5 +4,6 @@
   "description": { "translate": "gene.townstead_origins.diurnal.desc" },
   "category": "Activity",
   "dominance": "dominant",
+  "locus": "townstead_origins:activity",
   "chronotype": "diurnal"
 }

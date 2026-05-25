@@ -45,11 +45,14 @@ public abstract class DestinyScreenMixin extends Screen {
         OriginPicker.Widgets ws = OriginPicker.build(
                 Minecraft.getInstance(),
                 this.width / 2, this.height / 2 - 80, 175, 185, OriginSetC2SPayload.SELF,
-                this::townstead$sendOriginSet);
+                this::townstead$sendOriginSet,
+                sel -> { /* player-model live preview not wired yet */ });
+        addRenderableWidget(ws.tabOrigin());
+        addRenderableWidget(ws.tabGenes());
         addRenderableWidget(ws.search());
         addRenderableWidget(ws.list());
         addRenderableWidget(ws.description());
-        addRenderableWidget(ws.traits());
+        addRenderableWidget(ws.master());
         addRenderableWidget(ws.apply());
 
         townstead$sendOriginSet("");

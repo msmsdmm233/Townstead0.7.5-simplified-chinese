@@ -4,5 +4,6 @@
   "description": { "translate": "gene.townstead_origins.omnivore.desc" },
   "category": "Diet",
   "dominance": "dominant",
+  "locus": "townstead_origins:diet",
   "diet": "omnivore"
 }

@@ -57,6 +57,12 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
                 buf.writeUtf(in.geneId());
                 buf.writeFloat(in.occurrence());
             }
+            buf.writeVarInt(e.geneRanges().size());
+            for (OriginCatalogEntry.GeneRangeView r : e.geneRanges()) {
+                buf.writeUtf(r.key());
+                buf.writeFloat(r.min());
+                buf.writeFloat(r.max());
+            }
         }
         buf.writeVarInt(genes.size());
         for (GeneCatalogEntry g : genes) {
@@ -70,7 +76,7 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             buf.writeUtf(g.targetId());
             buf.writeFloat(g.amount());
             buf.writeVarInt(g.dominanceOrdinal());
-            buf.writeUtf(g.alleleGroup());
+            buf.writeUtf(g.locus());
             buf.writeVarInt(g.weight());
         }
     }
@@ -92,8 +98,13 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             for (int j = 0; j < gn; j++) {
                 inherited.add(new OriginCatalogEntry.Inherited(buf.readUtf(), buf.readFloat()));
             }
+            int rn = buf.readVarInt();
+            List<OriginCatalogEntry.GeneRangeView> ranges = new ArrayList<>(rn);
+            for (int j = 0; j < rn; j++) {
+                ranges.add(new OriginCatalogEntry.GeneRangeView(buf.readUtf(), buf.readFloat(), buf.readFloat()));
+            }
             entries.add(new OriginCatalogEntry(id, name, singular, plural, backstory,
-                    speciesName, ancestryName, heritageName, inherited));
+                    speciesName, ancestryName, heritageName, inherited, ranges));
         }
         int m = buf.readVarInt();
         List<GeneCatalogEntry> genes = new ArrayList<>(m);

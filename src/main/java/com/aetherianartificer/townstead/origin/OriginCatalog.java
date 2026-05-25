@@ -35,11 +35,17 @@ public final class OriginCatalog {
             String plural = demonym != null ? demonym.plural().getString() : name;
             Component backstory = OriginRegistry.resolveBackstory(origin);
 
-            List<InheritedGene> inherited = OriginRegistry.effectiveGenome(origin).inheritedGenes();
+            Genome genome = OriginRegistry.effectiveGenome(origin);
+            List<InheritedGene> inherited = genome.inheritedGenes();
             List<OriginCatalogEntry.Inherited> views = new ArrayList<>(inherited.size());
             for (InheritedGene gene : inherited) {
                 views.add(new OriginCatalogEntry.Inherited(gene.geneId().toString(), gene.occurrence()));
                 genes.computeIfAbsent(gene.geneId(), OriginCatalog::toGeneEntry);
+            }
+
+            List<OriginCatalogEntry.GeneRangeView> ranges = new ArrayList<>(genome.genes().size());
+            for (Map.Entry<String, GeneRange> r : genome.genes().entrySet()) {
+                ranges.add(new OriginCatalogEntry.GeneRangeView(r.getKey(), r.getValue().min(), r.getValue().max()));
             }
 
             origins.add(new OriginCatalogEntry(
@@ -48,7 +54,7 @@ public final class OriginCatalog {
                     name(SpeciesRegistry.byId(origin.species())),
                     name(AncestryRegistry.byId(origin.ancestry())),
                     name(HeritageRegistry.byId(origin.heritage())),
-                    views));
+                    views, ranges));
         }
         return new Snapshot(origins, new ArrayList<>(genes.values()));
     }
@@ -69,7 +75,7 @@ public final class OriginCatalog {
                 display.min(), display.max(),
                 display.targetId(), display.amount(),
                 gene.dominance().ordinal(),
-                gene.alleleGroup() != null ? gene.alleleGroup().toString() : "",
+                gene.locus() != null ? gene.locus().toString() : "",
                 gene.weight());
     }
 

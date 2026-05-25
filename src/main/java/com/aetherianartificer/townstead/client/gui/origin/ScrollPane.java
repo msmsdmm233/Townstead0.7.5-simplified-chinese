@@ -74,7 +74,7 @@ abstract class ScrollPane extends AbstractWidget {
     *///?}
 
     private boolean scrollBy(double mouseX, double mouseY, double dy) {
-        if (!isMouseOver(mouseX, mouseY)) return false;
+        if (!visible || !isMouseOver(mouseX, mouseY)) return false;
         int innerH = getHeight() - PAD * 2;
         int maxScroll = Math.max(0, contentHeight - innerH);
         if (maxScroll <= 0) return false;

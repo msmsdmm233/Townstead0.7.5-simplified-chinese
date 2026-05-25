@@ -22,21 +22,38 @@ import java.util.Map;
  */
 public final class OriginGenes {
 
+    /** The full MCA float-gene set, in a fixed order (used for snapshot/restore). */
+    private static final Genetics.GeneType[] ORDERED = {
+            Genetics.SIZE, Genetics.WIDTH, Genetics.BREAST,
+            Genetics.MELANIN, Genetics.HEMOGLOBIN, Genetics.EUMELANIN, Genetics.PHEOMELANIN,
+            Genetics.SKIN, Genetics.FACE, Genetics.VOICE, Genetics.VOICE_TONE
+    };
+
     private static final Map<String, Genetics.GeneType> BY_KEY = buildIndex();
 
     private OriginGenes() {}
 
     private static Map<String, Genetics.GeneType> buildIndex() {
-        Genetics.GeneType[] all = {
-                Genetics.SIZE, Genetics.WIDTH, Genetics.BREAST,
-                Genetics.MELANIN, Genetics.HEMOGLOBIN, Genetics.EUMELANIN, Genetics.PHEOMELANIN,
-                Genetics.SKIN, Genetics.FACE, Genetics.VOICE, Genetics.VOICE_TONE
-        };
         Map<String, Genetics.GeneType> index = new LinkedHashMap<>();
-        for (Genetics.GeneType type : all) {
+        for (Genetics.GeneType type : ORDERED) {
             index.put(normalizeKey(type.key()), type);
         }
         return Map.copyOf(index);
+    }
+
+    /** Capture all MCA float genes (fixed order) so a preview can be reverted. */
+    public static float[] snapshot(VillagerEntityMCA villager) {
+        Genetics genetics = villager.getGenetics();
+        float[] out = new float[ORDERED.length];
+        for (int i = 0; i < ORDERED.length; i++) out[i] = genetics.getGene(ORDERED[i]);
+        return out;
+    }
+
+    /** Restore a {@link #snapshot}; no-op on a null/mismatched array. */
+    public static void restore(VillagerEntityMCA villager, float[] snapshot) {
+        if (snapshot == null || snapshot.length != ORDERED.length) return;
+        Genetics genetics = villager.getGenetics();
+        for (int i = 0; i < ORDERED.length; i++) genetics.setGene(ORDERED[i], snapshot[i]);
     }
 
     /** Normalize an author-supplied gene key to the form used as a map key. */

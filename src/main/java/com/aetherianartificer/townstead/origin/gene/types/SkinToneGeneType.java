@@ -7,23 +7,22 @@ import com.google.gson.JsonObject;
 import net.minecraft.util.GsonHelper;
 
 /**
- * A race's skin colour as a range within a named palette/colorway (peers, no
- * privileged default): {@code warm} = the pale-to-deep spectrum (drives MCA
- * melanin), {@code verdant}, {@code ashen}, … = custom tints for other tones.
- * {@code min}/{@code max} narrow the band. Display-only for now (a range chip);
- * the actual tinting — MCA melanin for {@code warm}, a custom skin recolor for
- * others — is a deferred effects/render phase.
+ * A race's skin colour as a gradient between two RGB endpoints given in HTML hex
+ * ({@code from} → {@code to}); a villager lands at a point along it (the position
+ * is the villager's roll, wired in the render phase). Arbitrary colours, so any
+ * tone works (warm browns, orc green, undead grey) with no privileged palette.
+ * If {@code to} is omitted it defaults to {@code from} (a flat colour).
  *
- * <p>JSON: {@code { "type":"townstead_origins:skin_tone", "palette":"warm",
- * "min":0.0, "max":1.0 }}</p>
+ * <p>JSON: {@code { "type":"townstead_origins:skin_tone", "from":"#F0D5B5",
+ * "to":"#4A3020" }}</p>
  */
 public final class SkinToneGeneType implements GeneType {
 
     public static final String KEY = "townstead_origins:skin_tone";
 
-    public record Instance(String palette, float min, float max) implements GeneInstance {
+    public record Instance(int from, int to) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
-        @Override public GeneDisplay display() { return GeneDisplay.range(min, max); }
+        @Override public GeneDisplay display() { return GeneDisplay.color(from, to); }
     }
 
     @Override
@@ -31,11 +30,23 @@ public final class SkinToneGeneType implements GeneType {
 
     @Override
     public GeneInstance parse(JsonObject json) {
-        String palette = GsonHelper.getAsString(json, "palette", "warm");
-        float min = GsonHelper.getAsFloat(json, "min", 0f);
-        float max = GsonHelper.getAsFloat(json, "max", 1f);
-        return new Instance(palette, min, max);
-        // TODO(effects): "warm" palette -> roll within MCA melanin/hemoglobin;
-        // other palettes -> tint the skin texture (custom render).
+        int from = parseHex(GsonHelper.getAsString(json, "from", ""), 0xE8C6A2);
+        int to = json.has("to") ? parseHex(GsonHelper.getAsString(json, "to", ""), from) : from;
+        return new Instance(from, to);
+    }
+
+    /** Parse {@code #RRGGBB} / {@code RRGGBB} / {@code #RGB}; fall back on anything malformed. */
+    private static int parseHex(String raw, int fallback) {
+        if (raw == null) return fallback;
+        String s = raw.trim();
+        if (s.startsWith("#")) s = s.substring(1);
+        if (s.length() == 3) {
+            s = "" + s.charAt(0) + s.charAt(0) + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2);
+        }
+        try {
+            return Integer.parseInt(s, 16) & 0xFFFFFF;
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 }

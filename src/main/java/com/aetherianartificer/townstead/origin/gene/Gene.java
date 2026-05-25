@@ -9,9 +9,9 @@ import org.jetbrains.annotations.Nullable;
  * type {@link GeneInstance}. Races grant genes by id; the picker groups them by
  * {@link #category} and renders each via {@link #display}.
  *
- * <p>{@link #alleleGroup} (when set) marks the gene as one allele of a locus —
- * genes sharing a group are mutually exclusive, resolved by {@link #dominance}
- * then {@link #weight} (a deferred runtime concern). Loaded from
+ * <p>{@link #locus} (when set) is the slot this gene is an allele of — genes
+ * sharing a locus are mutually exclusive, resolved by {@link #dominance} then
+ * {@link #weight} (a deferred runtime concern). Loaded from
  * {@code data/<ns>/gene/<path>.json}.</p>
  */
 public record Gene(
@@ -20,7 +20,7 @@ public record Gene(
         @Nullable Component description,
         String category,
         Dominance dominance,
-        @Nullable ResourceLocation alleleGroup,
+        @Nullable ResourceLocation locus,
         int weight,
         GeneInstance instance
 ) {

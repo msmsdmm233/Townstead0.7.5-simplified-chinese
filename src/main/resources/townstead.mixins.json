@@ -37,6 +37,7 @@
     "client.VillagerEntityBaseModelMcaAnimationMixin",
     "client.VillagerEntityModelMcaCopyWearMixin",
     "client.VillagerLayerBendMixin",
+    "client.SkinLayerTintMixin",
     "InteractScreenMixin",
     "VillagerEditorMixin",
     "VillagerEditorOriginMixin",

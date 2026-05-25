@@ -1,6 +1,11 @@
 package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.client.gui.origin.OriginPicker;
+import com.aetherianartificer.townstead.client.origin.OriginClientStore;
+import com.aetherianartificer.townstead.origin.GeneRange;
+import com.aetherianartificer.townstead.origin.Genome;
+import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
+import com.aetherianartificer.townstead.origin.OriginGenes;
 import com.aetherianartificer.townstead.origin.OriginSetC2SPayload;
 import net.conczin.mca.client.gui.DestinyScreen;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
@@ -16,18 +21,24 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * Adds an "origins" tab to MCA's Villager Editor. When editing an NPC the picker
- * targets that villager (by network id); when editing the player's own model
- * (villagerUUID == playerUUID) it targets the player ({@link OriginSetC2SPayload#SELF}).
+ * targets that villager (by network id resolved from its UUID); when editing the
+ * player's own model it targets the player ({@link OriginSetC2SPayload#SELF}).
  *
- * <p>The picker sits in the editor's right-hand content column
- * ({@code [width/2, width/2+175]}), beside the rotating model — the same region
- * MCA's other page widgets use. The Destiny screen is a subclass with its own
- * {@code getPages}/{@code setPage}, handled by {@link DestinyScreenMixin}, so this
- * mixin skips it.</p>
+ * <p><b>Live preview:</b> MCA's editor renders/saves a client dummy {@code villager}
+ * (the sliders write to it; {@code syncVillagerData} saves it by UUID). Selecting
+ * an origin rolls its genome onto that dummy (WYSIWYG), tags it so the skin-tint
+ * layer paints it, and marks the preview dirty. The original genes are snapshotted
+ * on entering the page and restored whenever the user leaves the tab or MCA saves,
+ * <em>unless</em> Apply ran — Apply clears the dirty flag and calls
+ * {@code syncVillagerData}, committing the exact previewed genes to the real
+ * villager. So browsing never commits; only Apply does.</p>
  */
 @Mixin(VillagerEditorScreen.class)
 public abstract class VillagerEditorOriginMixin extends Screen {
@@ -35,6 +46,10 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     @Shadow(remap = false) @Final protected VillagerEntityMCA villager;
     @Shadow(remap = false) @Final UUID villagerUUID;
     @Shadow(remap = false) @Final UUID playerUUID;
+    @Shadow(remap = false) public abstract void syncVillagerData();
+
+    @Unique private boolean townstead$previewDirty;
+    @Unique private float[] townstead$geneSnapshot;
 
     private VillagerEditorOriginMixin() {
         super(null);
@@ -50,27 +65,91 @@ public abstract class VillagerEditorOriginMixin extends Screen {
         cir.setReturnValue(out);
     }
 
+    // Leaving any page (or rebuilding one) drops an un-applied preview first, so a
+    // browsed origin can't leak into another tab or get saved by MCA's Done.
+    @Inject(method = "setPage", remap = false, at = @At("HEAD"))
+    private void townstead$revertOnPageChange(String page, CallbackInfo ci) {
+        if ((Object) this instanceof DestinyScreen) return;
+        townstead$revertPreview();
+    }
+
+    // MCA's save path: revert an un-applied preview so Done won't commit it. Apply
+    // clears the dirty flag before calling this, so the previewed genes survive.
+    @Inject(method = "syncVillagerData", remap = false, at = @At("HEAD"))
+    private void townstead$revertOnSync(CallbackInfo ci) {
+        if ((Object) this instanceof DestinyScreen) return;
+        townstead$revertPreview();
+    }
+
     @Inject(method = "setPage", remap = false, at = @At("TAIL"))
     private void townstead$buildOriginsPage(String page, CallbackInfo ci) {
         if ((Object) this instanceof DestinyScreen) return;
         if (!"origins".equals(page)) return;
 
-        int target = villagerUUID.equals(playerUUID) ? OriginSetC2SPayload.SELF : villager.getId();
-        // Span MCA's content column exactly: search top aligns with the General
-        // name field (h/2-80); Apply lands on the Done button's row (h/2+85, height 20);
-        // right edge aligned to the tab row (w/2+175).
+        // MCA's editor renders a throwaway client dummy (EntityType.create), not the
+        // live villager, so its getId() resolves to nothing server-side. Target the
+        // REAL villager by its UUID -> its actual network id (it's loaded nearby,
+        // since the player interacted with it to open the editor).
+        int target = villagerUUID.equals(playerUUID)
+                ? OriginSetC2SPayload.SELF
+                : townstead$resolveVillagerEntityId(villagerUUID);
         OriginPicker.Widgets ws = OriginPicker.build(
                 Minecraft.getInstance(),
                 this.width / 2, this.height / 2 - 80, 175, 185, target,
-                originId -> townstead$sendOriginSet(target, originId));
+                originId -> townstead$applyOrigin(target, originId),
+                this::townstead$previewOrigin);
+        addRenderableWidget(ws.tabOrigin());
+        addRenderableWidget(ws.tabGenes());
         addRenderableWidget(ws.search());
         addRenderableWidget(ws.list());
         addRenderableWidget(ws.description());
-        addRenderableWidget(ws.traits());
+        addRenderableWidget(ws.master());
         addRenderableWidget(ws.apply());
 
         // Ask the server for the target's current origin so the row highlights.
         townstead$sendOriginSet(target, "");
+        // Baseline for revert: the dummy's genes before any preview roll.
+        townstead$geneSnapshot = OriginGenes.snapshot(villager);
+        townstead$previewDirty = false;
+    }
+
+    /** Roll the selected origin's genome onto the editor dummy for a live, WYSIWYG preview. */
+    @Unique
+    private void townstead$previewOrigin(OriginCatalogEntry entry) {
+        Map<String, GeneRange> ranges = new LinkedHashMap<>();
+        for (OriginCatalogEntry.GeneRangeView r : entry.geneRanges()) {
+            ranges.put(r.key(), new GeneRange(r.min(), r.max()));
+        }
+        OriginGenes.apply(villager, new Genome(ranges, List.of()), villager.getRandom());
+        OriginClientStore.set(villager.getId(), entry.id());   // so the skin-tint layer paints the preview
+        townstead$previewDirty = true;
+    }
+
+    /** Commit the previewed genes (exactly) + the origin id to the real villager. */
+    @Unique
+    private void townstead$applyOrigin(int target, String originId) {
+        townstead$previewDirty = false;            // keep the preview; the revert hooks must not undo it
+        townstead$sendOriginSet(target, originId); // sets Life.originId on the real villager
+        syncVillagerData();                        // commits the dummy's previewed genes by UUID (WYSIWYG)
+    }
+
+    @Unique
+    private void townstead$revertPreview() {
+        if (!townstead$previewDirty) return;
+        OriginGenes.restore(villager, townstead$geneSnapshot);
+        OriginClientStore.set(villager.getId(), "");
+        townstead$previewDirty = false;
+    }
+
+    @Unique
+    private int townstead$resolveVillagerEntityId(UUID uuid) {
+        net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
+        if (level != null) {
+            for (net.minecraft.world.entity.Entity entity : level.entitiesForRendering()) {
+                if (uuid.equals(entity.getUUID())) return entity.getId();
+            }
+        }
+        return villager.getId(); // fallback (the dummy) — won't resolve, but better than crashing
     }
 
     @Unique

@@ -4,5 +4,6 @@
   "description": { "translate": "gene.townstead_origins.human_lifespan.desc" },
   "category": "Vitality",
   "dominance": "dominant",
+  "locus": "townstead_origins:lifespan",
   "multiplier": 1.0
 }

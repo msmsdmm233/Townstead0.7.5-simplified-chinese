@@ -30,6 +30,7 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
     private final int targetEntityId;
     private Consumer<OriginCatalogEntry> onSelect;
     private String filter = "";
+    private boolean shown = true;
 
     //? if >=1.21 {
     public OriginListWidget(Minecraft mc, int x, int width, int height, int y, int targetEntityId) {
@@ -51,6 +52,19 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
 
     public void setOnSelect(Consumer<OriginCatalogEntry> onSelect) {
         this.onSelect = onSelect;
+    }
+
+    /**
+     * Show or hide the list when the picker flips between its Origin and Genes
+     * views. {@code ObjectSelectionList}'s class hierarchy differs across versions
+     * (an {@code AbstractWidget} on 1.21, a bare container on 1.20.1), so render
+     * and input are gated explicitly here rather than relying on {@code visible}.
+     */
+    public void setShown(boolean shown) {
+        this.shown = shown;
+        //? if >=1.21 {
+        this.visible = shown;
+        //?}
     }
 
     public void setFilter(String filter) {
@@ -132,8 +146,18 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
     //? if >=1.21 {
     @Override
     public boolean isMouseOver(double mouseX, double mouseY) {
-        return mouseX >= this.getX() && mouseX < this.getX() + this.width
+        return shown && mouseX >= this.getX() && mouseX < this.getX() + this.width
                 && mouseY >= this.getY() && mouseY < this.getY() + this.getHeight();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return shown && super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        return shown && super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -146,10 +170,21 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
     //?} else {
     /*@Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+        if (!shown) return;
         drawPanel(g, this.x0, this.y0, this.x1, this.y1);
         g.enableScissor(this.x0, this.y0, this.x1, this.y1);
         super.render(g, mouseX, mouseY, partial);
         g.disableScissor();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return shown && super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return shown && super.mouseScrolled(mouseX, mouseY, delta);
     }
     *///?}
 

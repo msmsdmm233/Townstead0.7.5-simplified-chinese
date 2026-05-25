@@ -8,10 +8,12 @@ import com.aetherianartificer.townstead.origin.gene.GeneDisplay;
  * gene types.
  *
  * <p>{@code displayKind} is {@link GeneDisplay.Kind#ordinal()}
- * (0 = RANGE, 1 = BOOLEAN, 2 = INFLUENCE). {@code min}/{@code max} apply to RANGE;
- * {@code targetId}/{@code amount} to INFLUENCE. {@code dominanceOrdinal} is
+ * (0 = RANGE, 1 = BOOLEAN, 2 = INFLUENCE, 3 = COLOR). {@code min}/{@code max} apply to
+ * RANGE; {@code targetId} to INFLUENCE (target gene) and COLOR (two hex endpoints
+ * {@code "rrggbb-rrggbb"}, read via {@link #colorFrom()}/{@link #colorTo()});
+ * {@code amount} to INFLUENCE. {@code dominanceOrdinal} is
  * {@link com.aetherianartificer.townstead.origin.gene.Dominance#ordinal()}
- * (0 = DOMINANT, 1 = RECESSIVE); {@code alleleGroup} is empty when none.</p>
+ * (0 = DOMINANT, 1 = RECESSIVE); {@code locus} is empty when none.</p>
  */
 public record GeneCatalogEntry(
         String id,
@@ -24,7 +26,7 @@ public record GeneCatalogEntry(
         String targetId,
         float amount,
         int dominanceOrdinal,
-        String alleleGroup,
+        String locus,
         int weight
 ) {
     public boolean isRange() {
@@ -33,6 +35,33 @@ public record GeneCatalogEntry(
 
     public boolean isInfluence() {
         return displayKind == GeneDisplay.Kind.INFLUENCE.ordinal();
+    }
+
+    public boolean isColor() {
+        return displayKind == GeneDisplay.Kind.COLOR.ordinal();
+    }
+
+    public boolean isAttachment() {
+        return displayKind == GeneDisplay.Kind.ATTACHMENT.ordinal();
+    }
+
+    /** For ATTACHMENT genes, the attachment id (rides in {@code targetId}). */
+    public String attachmentId() { return targetId; }
+
+    /** COLOR gradient endpoints (RGB), parsed from {@code targetId} {@code "rrggbb-rrggbb"}. */
+    public int colorFrom() { return colorPart(0, 0xCFCFCF); }
+    public int colorTo()   { return colorPart(1, 0x4A4A4A); }
+
+    private int colorPart(int idx, int fallback) {
+        if (targetId == null) return fallback;
+        int dash = targetId.indexOf('-');
+        if (dash < 0) return fallback;
+        String part = idx == 0 ? targetId.substring(0, dash) : targetId.substring(dash + 1);
+        try {
+            return Integer.parseInt(part.trim(), 16) & 0xFFFFFF;
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     public boolean isRecessive() {

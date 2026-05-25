@@ -4,7 +4,7 @@
   "description": { "translate": "gene.townstead_origins.warm_skin.desc" },
   "category": "Appearance",
   "dominance": "dominant",
-  "palette": "warm",
-  "min": 0.0,
-  "max": 1.0
+  "locus": "townstead_origins:skin",
+  "from": "#F0D5B5",
+  "to": "#4A3020"
 }

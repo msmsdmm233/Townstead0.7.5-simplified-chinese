@@ -59,12 +59,12 @@ public final class GeneJsonLoader extends SimpleJsonResourceReloadListener {
                         : null;
                 String category = GsonHelper.getAsString(obj, "category", "general");
                 Dominance dominance = Dominance.fromString(GsonHelper.getAsString(obj, "dominance", "dominant"));
-                ResourceLocation alleleGroup = obj.has("allele_group")
-                        ? DataPackLang.parseId(GsonHelper.getAsString(obj, "allele_group", ""))
+                ResourceLocation locus = obj.has("locus")
+                        ? DataPackLang.parseId(GsonHelper.getAsString(obj, "locus", ""))
                         : null;
                 int weight = Math.max(1, GsonHelper.getAsInt(obj, "weight", 1));
                 parsed.put(file, new Gene(file, displayName, description, category,
-                        dominance, alleleGroup, weight, instance));
+                        dominance, locus, weight, instance));
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse gene {}: {}", file, ex.getMessage());
             }

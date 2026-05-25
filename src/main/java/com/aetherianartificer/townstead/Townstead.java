@@ -645,6 +645,8 @@ public class Townstead {
                     new com.aetherianartificer.townstead.origin.gene.types.AttributeGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.SkinToneGeneType());
+            com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.origin.gene.types.AttachmentGeneType());
         });
     }
 
@@ -2039,6 +2041,9 @@ public class Townstead {
         }
         com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
         if (lifeSync != null) PacketDistributor.sendToPlayer(sp, lifeSync);
+        // Origin id, so bystander clients can resolve the villager's skin tint.
+        PacketDistributor.sendToPlayer(sp, new com.aetherianartificer.townstead.origin.OriginSyncS2CPayload(
+                villager.getId(), state.life().originId()));
         //?} else if forge {
         /*TownsteadVillager state = TownsteadVillagers.get(villager);
         CompoundTag hunger = state.needs().hungerTag();
@@ -2064,6 +2069,9 @@ public class Townstead {
         }
         com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
         if (lifeSync != null) TownsteadNetwork.sendToPlayer(sp, lifeSync);
+        // Origin id, so bystander clients can resolve the villager's skin tint.
+        TownsteadNetwork.sendToPlayer(sp, new com.aetherianartificer.townstead.origin.OriginSyncS2CPayload(
+                villager.getId(), state.life().originId()));
         *///?}
     }
 

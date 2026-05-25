@@ -33,6 +33,15 @@ public final class OriginCatalogClient {
         return ORIGINS;
     }
 
+    /** The catalog entry for an origin id, or {@code null} if unknown. */
+    public static OriginCatalogEntry origin(String id) {
+        if (id == null || id.isEmpty()) return null;
+        for (OriginCatalogEntry e : ORIGINS) {
+            if (e.id().equals(id)) return e;
+        }
+        return null;
+    }
+
     /** Gene display data for a granted-gene id, or {@code null} if unknown. */
     public static GeneCatalogEntry gene(String id) {
         return GENES.get(id);
