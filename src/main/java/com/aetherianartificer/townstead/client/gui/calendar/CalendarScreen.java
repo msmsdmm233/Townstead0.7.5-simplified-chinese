@@ -533,6 +533,11 @@ public class CalendarScreen extends Screen {
         boolean haveStamps = !StampCatalog.list().isEmpty();
         if (!haveStamps && stampMode) setStampMode(false);
 
+        // 1.20.2+ auto-dims the world behind a Screen inside Screen.render;
+        // 1.20.1 does not, so draw the dim ourselves there.
+        //? if <1.21 {
+        /*renderBackground(g);
+        *///?}
         super.render(g, mouseX, mouseY, partialTick);
         hits.clear();
         paletteHits.clear();
