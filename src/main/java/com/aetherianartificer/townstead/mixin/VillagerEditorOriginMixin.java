@@ -58,11 +58,7 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     @Inject(method = "getPages", remap = false, at = @At("RETURN"), cancellable = true)
     private void townstead$appendOriginsPage(CallbackInfoReturnable<String[]> cir) {
         if ((Object) this instanceof DestinyScreen) return;
-        String[] original = cir.getReturnValue();
-        String[] out = new String[original.length + 1];
-        System.arraycopy(original, 0, out, 0, original.length);
-        out[original.length] = "origins";
-        cir.setReturnValue(out);
+        cir.setReturnValue(OriginPicker.insertOriginsPage(cir.getReturnValue()));
     }
 
     // Leaving any page (or rebuilding one) drops an un-applied preview first, so a

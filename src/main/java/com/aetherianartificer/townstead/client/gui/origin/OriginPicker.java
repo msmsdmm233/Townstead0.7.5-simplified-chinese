@@ -27,6 +27,29 @@ public final class OriginPicker {
 
     private OriginPicker() {}
 
+    /**
+     * Returns the page list with {@code "origins"} inserted right after {@code "general"}
+     * (so the tab sits between General and Body), or appended if there's no General page.
+     * Idempotent: if {@code "origins"} is already present the list is returned unchanged.
+     */
+    public static String[] insertOriginsPage(String[] pages) {
+        for (String page : pages) {
+            if ("origins".equals(page)) return pages;
+        }
+        String[] out = new String[pages.length + 1];
+        int i = 0;
+        boolean inserted = false;
+        for (String page : pages) {
+            out[i++] = page;
+            if (!inserted && "general".equals(page)) {
+                out[i++] = "origins";
+                inserted = true;
+            }
+        }
+        if (!inserted) out[i] = "origins";
+        return out;
+    }
+
     public record Widgets(Button tabOrigin, Button tabGenes, EditBox search, OriginListWidget list,
                           OriginDescriptionWidget description, OriginTraitsWidget master, Button apply) {}
 
@@ -47,7 +70,9 @@ public final class OriginPicker {
 
         int halfW = (w - gap) / 2;
 
-        EditBox search = new EditBox(mc.font, x, contentTop, w, searchH,
+        // EditBox draws its border 1px outside its bounds, so inset it by 1px and shrink
+        // by 2px to make its outer edge sit flush with the panels below (which fill [x, x+w]).
+        EditBox search = new EditBox(mc.font, x + 1, contentTop + 1, w - 2, searchH - 2,
                 Component.translatable("townstead.origin.search"));
         search.setHint(Component.translatable("townstead.origin.search"));
 

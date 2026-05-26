@@ -26,6 +26,12 @@ import java.util.function.Consumer;
 public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> {
 
     private static final int ROW_HEIGHT = 15;
+    // Vanilla anchors row 0 at getY()+4, leaving a fat top gap. We shift the widget up by
+    // TOP_INSET and draw the panel/scissor that much lower, so row 0 lands (4 - TOP_INSET)px
+    // below the panel's top border: a selected row then has the same 1px inset from the top
+    // frame as the selection fill has from the left/right edges. Clicks (getEntryAtPosition's
+    // -4) and scroll range (getMaxScroll's -4) stay consistent.
+    private static final int TOP_INSET = 2;
     private final int xPos;
     private final int targetEntityId;
     private Consumer<OriginCatalogEntry> onSelect;
@@ -34,14 +40,14 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
 
     //? if >=1.21 {
     public OriginListWidget(Minecraft mc, int x, int width, int height, int y, int targetEntityId) {
-        super(mc, width, height, y, ROW_HEIGHT);
+        super(mc, width, height + TOP_INSET, y - TOP_INSET, ROW_HEIGHT);
         this.xPos = x;
         this.targetEntityId = targetEntityId;
         this.setX(x);
     }
     //?} else {
     /*public OriginListWidget(Minecraft mc, int x, int width, int height, int top, int targetEntityId) {
-        super(mc, width, height, top, top + height, ROW_HEIGHT);
+        super(mc, width, height + TOP_INSET, top - TOP_INSET, top + height, ROW_HEIGHT);
         this.xPos = x;
         this.targetEntityId = targetEntityId;
         this.x0 = x;
@@ -147,7 +153,7 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
     @Override
     public boolean isMouseOver(double mouseX, double mouseY) {
         return shown && mouseX >= this.getX() && mouseX < this.getX() + this.width
-                && mouseY >= this.getY() && mouseY < this.getY() + this.getHeight();
+                && mouseY >= this.getY() + TOP_INSET && mouseY < this.getY() + this.getHeight();
     }
 
     @Override
@@ -160,9 +166,22 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
         return shown && super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
+    // Clip away the TOP_INSET strip the widget-shift exposes above the panel: vanilla draws
+    // the scrollbar from getY() (outside its own scissor), so wrap the whole render in one.
+    // Then stamp the frame back on top so vanilla's top edge-fade can't swallow the border.
+    @Override
+    public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        int top = this.getY() + TOP_INSET;
+        int bottom = this.getY() + this.getHeight();
+        g.enableScissor(this.getX(), top, this.getX() + this.width, bottom);
+        super.renderWidget(g, mouseX, mouseY, partialTick);
+        g.disableScissor();
+        OriginPanel.drawTopEdge(g, this.getX(), top, this.getX() + this.width);
+    }
+
     @Override
     protected void renderListBackground(GuiGraphics g) {
-        drawPanel(g, this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.getHeight());
+        drawPanel(g, this.getX(), this.getY() + TOP_INSET, this.getX() + this.width, this.getY() + this.getHeight());
     }
 
     @Override
@@ -171,10 +190,12 @@ public class OriginListWidget extends ObjectSelectionList<OriginListWidget.Row> 
     /*@Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         if (!shown) return;
-        drawPanel(g, this.x0, this.y0, this.x1, this.y1);
-        g.enableScissor(this.x0, this.y0, this.x1, this.y1);
+        int panelTop = this.y0 + TOP_INSET;
+        drawPanel(g, this.x0, panelTop, this.x1, this.y1);
+        g.enableScissor(this.x0, panelTop, this.x1, this.y1);
         super.render(g, mouseX, mouseY, partial);
         g.disableScissor();
+        OriginPanel.drawTopEdge(g, this.x0, panelTop, this.x1);
     }
 
     @Override

@@ -28,14 +28,7 @@ public abstract class DestinyScreenMixin extends Screen {
 
     @Inject(method = "getPages", remap = false, at = @At("RETURN"), cancellable = true)
     private void townstead$appendOriginsPage(CallbackInfoReturnable<String[]> cir) {
-        String[] original = cir.getReturnValue();
-        for (String page : original) {
-            if ("origins".equals(page)) return;
-        }
-        String[] out = new String[original.length + 1];
-        System.arraycopy(original, 0, out, 0, original.length);
-        out[original.length] = "origins";
-        cir.setReturnValue(out);
+        cir.setReturnValue(OriginPicker.insertOriginsPage(cir.getReturnValue()));
     }
 
     @Inject(method = "setPage", remap = false, at = @At("TAIL"))

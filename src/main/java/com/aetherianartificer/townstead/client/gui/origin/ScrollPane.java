@@ -35,7 +35,7 @@ abstract class ScrollPane extends AbstractWidget {
         int left = x + PAD;
         int innerTop = y + PAD;
         int innerBottom = y + h - PAD;
-        int innerW = w - PAD * 2 - 4; // room for the scrollbar
+        int innerW = w - PAD * 2; // full width, symmetric PAD margins; scrollbar overlays the right margin
 
         g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
         contentHeight = renderContent(g, left, innerTop - scrollOffset, innerW, innerTop, innerBottom, mouseX, mouseY);
