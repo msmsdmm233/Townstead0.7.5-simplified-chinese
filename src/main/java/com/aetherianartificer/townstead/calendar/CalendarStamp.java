@@ -5,26 +5,12 @@ import net.minecraft.network.FriendlyByteBuf;
 import java.util.UUID;
 
 /**
- * One stamp placed on the shared world calendar.
- *
- * <p>Day-aware free placement: {@code year}/{@code monthIndex}/{@code dayOfMonth}
- * are the day cell the stamp was dropped over (so it travels with the right
- * month and can be queried per-day), while {@code offX}/{@code offY} are the
- * pixel offset of the stamp's top-left from that cell's top-left, in the
- * calendar's virtual (pre-UI-scale) coordinate space — so a stamp lands in the
- * same spot regardless of window size or GUI scale.</p>
- *
- * <p>{@code textureId} is a fully-qualified texture path (e.g.
- * {@code townstead:textures/stamps/heart.png}) resolved from the placing
- * client's resource packs. {@code sourcePack} is the id of the pack that
- * provided that art at placement time (may be empty) — carried so a client
- * <em>without</em> the pack can tell the player which pack the missing art
- * comes from. The server never needs the art itself, only the strings.</p>
- *
- * <p>{@code isPublic} controls visibility: private stamps (the default) are only
- * sent to the player who placed them; public stamps are sent to everyone. The
- * server filters per-recipient, so a client never even receives others' private
- * stamps.</p>
+ * One stamp placed on the shared world calendar. {@code year/monthIndex/dayOfMonth}
+ * is the cell it was dropped over; {@code offX/offY} are its offset within that
+ * cell in virtual (pre-UI-scale) coords. {@code textureId} is a resource-pack
+ * texture path resolved on the placing client; {@code sourcePack} names the pack
+ * so clients missing the art can say so. Private stamps (default) sync only to
+ * the placer; public ones to everyone.
  */
 public record CalendarStamp(
         UUID id,

@@ -6,10 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Client-side mirror of the server's calendar stamp set. Updated wholesale by
- * {@link CalendarStampSyncPayload} (the server always sends the full list), read
- * by the calendar screen to render overlays and resolve tooltips. Cleared on
- * logout via the reflection-based cleanup in {@code TownsteadClient}.
+ * Client-side mirror of the server's visible stamp set, replaced wholesale by
+ * {@link CalendarStampSyncPayload}. Cleared on logout from {@code TownsteadClient}.
  */
 public final class CalendarStampClientStore {
 

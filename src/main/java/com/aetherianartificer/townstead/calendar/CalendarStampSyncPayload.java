@@ -11,11 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Server → client: the full set of calendar stamps. Sent on login and
- * re-broadcast to everyone after any stamp change. Stamps are small (a few
- * strings + ints each), so a full resend per edit stays well under the NBT cap.
- */
+/** Server → client: the full visible stamp set, sent on login and after any change. */
 //? if neoforge {
 public record CalendarStampSyncPayload(List<CalendarStamp> stamps) implements CustomPacketPayload {
 //?} else {

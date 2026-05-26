@@ -7,18 +7,14 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Server-side apply logic for calendar stamp actions, shared by both the
- * NeoForge and Forge network handlers. Enforces the placer-or-operator
- * permission rule on move/edit/remove; placement is open to anyone.
+ * Server-side apply logic for stamp actions, shared by both network handlers.
+ * Placement is open; move/edit/remove require placer-or-operator.
  */
 public final class CalendarStampServer {
 
     private CalendarStampServer() {}
 
-    /**
-     * Apply a stamp action from {@code sp}. Returns true if the stamp set
-     * changed (the caller is responsible for broadcasting the new snapshot).
-     */
+    /** Applies an action; returns true if the set changed (caller broadcasts). */
     public static boolean apply(ServerPlayer sp, CalendarStampActionC2SPayload p) {
         MinecraftServer server = sp.getServer();
         if (server == null) return false;
@@ -44,7 +40,6 @@ public final class CalendarStampServer {
                 if (s == null || !canEdit(sp, s)) return false;
                 boolean texProvided = p.textureId() != null && !p.textureId().isBlank();
                 String tex = texProvided ? p.textureId() : s.textureId();
-                // Source pack follows the art: keep the old one for caption-only edits.
                 String src = texProvided ? nonNull(p.sourcePack()) : s.sourcePack();
                 data.replace(s.withContent(tex, src, sanitize(p.caption()), p.isPublic()));
                 return true;
@@ -59,10 +54,7 @@ public final class CalendarStampServer {
         }
     }
 
-    /**
-     * The stamps {@code viewer} is allowed to see: every public stamp plus their
-     * own private ones. Private stamps of other players are never sent.
-     */
+    /** The stamps {@code viewer} may see: all public ones plus their own private ones. */
     public static CalendarStampSyncPayload snapshotFor(MinecraftServer server, ServerPlayer viewer) {
         java.util.UUID id = viewer.getUUID();
         ArrayList<CalendarStamp> visible = new ArrayList<>();

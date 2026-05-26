@@ -10,31 +10,20 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Client-side index of stamp art available in the player's installed resource
- * packs. A stamp pack simply drops PNGs under
- * {@code assets/townstead/textures/stamps/*.png} (the {@code townstead}
- * namespace stacks across packs). The scan also picks up the same folder under
- * any other namespace, so a personal pack can use its own if it prefers.
- *
- * <p>Enumeration uses {@link net.minecraft.server.packs.resources.ResourceManager#listResources}
- * rather than {@code getNamespaces()} so it behaves the same on 1.20.1 Forge,
- * which can omit data-only namespaces from {@code getNamespaces()} (see memory
- * {@code reference_forge_getnamespaces_dataonly}).</p>
+ * Client-side index of stamp art from installed resource packs: PNGs under
+ * {@code assets/<namespace>/textures/stamps/*.png}. Enumerated with
+ * {@code listResources} rather than {@code getNamespaces()} so 1.20.1 Forge
+ * doesn't drop data-only namespaces.
  */
 public final class StampCatalog {
 
     private static final String STAMP_DIR = "textures/stamps";
 
-    /**
-     * A single available stamp. {@code textureId} is the full blit location
-     * string; {@code sourcePack} is the id of the pack that provides the art
-     * (stored on placement so missing-pack clients can name it).
-     */
+    /** {@code textureId} is the blit location; {@code sourcePack} names the providing pack. */
     public record Entry(String textureId, ResourceLocation texture, String displayName, String sourcePack) {}
 
     private static List<Entry> cache = null;
-    // Presence cache for arbitrary server-supplied texture ids (for the
-    // missing-pack placeholder). Cleared alongside the catalog on reload.
+    // Presence of arbitrary server-supplied texture ids (for the missing-art placeholder).
     private static final Map<String, Boolean> presence = new ConcurrentHashMap<>();
 
     private StampCatalog() {}
@@ -72,7 +61,7 @@ public final class StampCatalog {
         return out;
     }
 
-    /** Whether the given stamp texture id resolves in the current packs. */
+    /** Whether the stamp texture id resolves in the current packs. */
     public static boolean hasTexture(String textureId) {
         Boolean cached = presence.get(textureId);
         if (cached != null) return cached;
@@ -104,10 +93,7 @@ public final class StampCatalog {
         *///?}
     }
 
-    /**
-     * A 1-character mark for a stamp whose art isn't installed, derived from its
-     * texture id so different missing stamps stay visually distinct.
-     */
+    /** A 1-character mark for a stamp whose art isn't installed. */
     public static String shortLabel(String textureId) {
         String base = baseName(textureId);
         return base.isEmpty() ? "?" : base.substring(0, 1).toUpperCase();

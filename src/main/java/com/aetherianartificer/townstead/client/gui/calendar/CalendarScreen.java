@@ -85,16 +85,13 @@ public class CalendarScreen extends Screen {
     private static final float MIN_UI_SCALE = 0.4f;
 
     // ── Stamps ─────────────────────────────────────────────────────────────
-    // Stamps render at this size (virtual px) anchored at their free drop point
-    // over the grid. Art is sampled full-texture into this square regardless of
-    // its native resolution, so a pack author can author at any size.
+    // Render size (virtual px); art is sampled full-texture into this square.
     private static final int STAMP_SIZE = 16;
-    private static final int PALETTE_W = 156;   // drawer width (4 spaced columns + frame)
-    private static final int DRAWER_PAD = 7;    // wood-frame inset for drawer content
-    // Drawer-pull tab that sticks out of the calendar's right edge.
-    private static final int TAB_W = 14;        // how far the tab protrudes
-    private static final int TAB_H = 52;        // tab height (fits a vertical "Stamps")
-    private static final int TAB_MARGIN = 1;    // gap between the calendar frame and the closed tab
+    private static final int PALETTE_W = 156;   // drawer width (4 columns + frame)
+    private static final int DRAWER_PAD = 7;    // frame inset for drawer content
+    private static final int TAB_W = 14;        // pull-tab protrusion
+    private static final int TAB_H = 52;        // pull-tab height
+    private static final int TAB_MARGIN = 1;    // frame-to-closed-tab gap
     private static final int DRAWER_ANIM_MS = 190; // open/close slide duration
     private static final int OPEN_OVERLAP = 4;  // px the open drawer tucks under the calendar
     private static final int THUMB = 28;        // thumbnail cell size
@@ -148,49 +145,38 @@ public class CalendarScreen extends Screen {
 
     // ── Stamp UI state ─────────────────────────────────────────────────────
     private boolean stampMode = false;
-    // Active palette stamp to place (index into StampCatalog.list()); -1 = none.
+    // Armed palette stamp to place (index into StampCatalog.list()); -1 = none.
     private int selectedPaletteIndex = -1;
-    // Currently-selected placed stamp for edit/move; null = place mode.
+    // Selected placed stamp for edit/move; null = place mode.
     @Nullable private UUID selectedStampId = null;
     @Nullable private EditBox captionBox;
-    // Visibility chosen for the NEXT placed stamp (default private).
-    private boolean newStampPublic = false;
-    // Vanilla "Back" button on the left (matches the Shift Scheduler's).
+    private boolean newStampPublic = false;   // visibility for the next placed stamp
     @Nullable private Button backButton;
     private int paletteX, paletteY, paletteW, paletteH;
-    // Slid-out (open) and tucked (closed) X anchors; paletteX rides between them.
-    private int paletteXOpen, paletteXClosed;
-    // 0 = fully closed (tucked behind the calendar), 1 = fully open. Eased per frame.
+    private int paletteXOpen, paletteXClosed;  // paletteX rides between these
+    // 0 = closed (tucked behind calendar), 1 = open. Eased per frame.
     private float drawerAnim = 0f;
-    private float drawerEase = 0f;   // eased drawerAnim for the current frame
+    private float drawerEase = 0f;
     private long drawerAnimLastMs = 0L;
-    // True only when the drawer is settled fully open; gates body interactivity.
+    // True only when settled fully open; gates body interactivity.
     private boolean drawerInteractive = false;
-    // Drawer-pull tab rect (real screen coords), refreshed each render for hit-testing.
-    private int tabX, tabY, tabW, tabH;
+    private int tabX, tabY, tabW, tabH;        // pull-tab rect (virtual coords)
     private int paletteScroll = 0;
     private int paletteContentH = 0;
-    // Drawer section coordinates (virtual coords), computed in layoutRightPanel.
+    // Drawer section coordinates (virtual), computed in layoutRightPanel.
     private int drGridTop, drGridBottom, drDividerY;
     private int drCaptionLabelY, drCaptionBoxY, drVisLabelY, drVisToggleY;
     private int drDeleteY;
-    // Set when the cursor is over the Visibility label this frame (for its tooltip).
-    private boolean hoverVisibilityInfo = false;
-    // Custom (parchment) drawer controls are click-handled via these virtual-coord
-    // hit rects, rebuilt each render.
+    private boolean hoverVisibilityInfo = false;  // cursor over Visibility label
     private final List<HitRect> paletteHits = new ArrayList<>();
-    // Thumbnail hit rects (real screen coords), rebuilt each palette render.
     private record ThumbHit(int x, int y, int w, int h, int index) {}
     private final List<ThumbHit> thumbHits = new ArrayList<>();
-    // Drag-to-move state. dragGrab* is the grab point's offset from the stamp's
-    // top-left, in virtual coords, so the stamp follows the cursor 1:1.
+    // Drag-to-move: dragGrab* is the grab offset from the stamp's top-left (virtual).
     @Nullable private UUID draggingId = null;
     private double dragVX, dragVY;
     private double dragGrabDX, dragGrabDY;
     private boolean dragMoved = false;
-    // Topmost stamp under the cursor this frame (for tooltip).
-    @Nullable private CalendarStamp hoverStamp = null;
-    // Palette thumbnail under the cursor this frame (for name tooltip); -1 = none.
+    @Nullable private CalendarStamp hoverStamp = null;  // topmost stamp under cursor
     private int hoverThumbIndex = -1;
 
     public CalendarScreen() {
@@ -213,17 +199,13 @@ public class CalendarScreen extends Screen {
 
     private void initStampWidgets() {
         StampCatalog.refresh();
-        // Only the caption field and the Back button are vanilla widgets; the
-        // header tab, visibility switch and Delete are custom parchment controls
-        // (drawn to match the calendar) handled via paletteHits.
         backButton = Button.builder(Component.translatable("townstead.gui.back"), b -> onClose())
                 .bounds(6, 0, 60, 20)
                 .build();
         addRenderableWidget(backButton);
 
-        // NOT addWidget'd: the drawer (and this field) render in scaled/virtual
-        // space, so vanilla's real-coord input routing would mis-hit. Click,
-        // key and char events are forwarded manually with virtual coords.
+        // NOT addWidget'd: the drawer renders in scaled/virtual space, so vanilla's
+        // real-coord input routing would mis-hit. Events are forwarded manually.
         captionBox = new EditBox(font, 0, 0, innerWidth(), 16,
                 Component.translatable("gui.townstead_calendar.stamp.caption"));
         captionBox.setMaxLength(CalendarStampSavedData.MAX_CAPTION_LEN);
@@ -233,25 +215,20 @@ public class CalendarScreen extends Screen {
     }
 
     /**
-     * Lay out the slide-out drawer. It matches the calendar's full height so it
-     * reads as one object and is fully hidden behind it when closed. The grid is
-     * the hero up top; the compose block (caption + visibility) and optional
-     * selected-stamp footer are pinned to the bottom.
+     * Lay out the slide-out drawer (full calendar height; grid on top, compose
+     * block pinned to the bottom). All coords are VIRTUAL so the drawer scales
+     * with the calendar.
      */
     private void layoutRightPanel() {
         paletteW = PALETTE_W;
-        // Drawer geometry is in VIRTUAL (pre-scale) coords, same space as the
-        // calendar's panelX/panelY, so it scales with the calendar.
         int calRight  = panelX + panelW + WOOD_FRAME_THICKNESS;
         int calTop    = panelY - WOOD_FRAME_THICKNESS;
         int calBottom = panelY + panelH + WOOD_FRAME_THICKNESS;
-        // The Back button is an unscaled vanilla widget; place it at the calendar's
-        // real-pixel bottom-left.
+        // Back button is an unscaled vanilla widget → real-pixel position.
         if (backButton != null) backButton.setPosition(6, Math.round(calBottom * uiScale) - 20);
 
-        // Open: tucked OPEN_OVERLAP px under the calendar's right frame so the
-        // seam is hidden. Closed: slid fully left behind the calendar so only the
-        // pull tab pokes out past the right edge.
+        // Open: tucked OPEN_OVERLAP px under the right frame (hides the seam).
+        // Closed: slid fully behind the calendar so only the pull tab pokes out.
         paletteXOpen   = calRight - OPEN_OVERLAP;
         paletteXClosed = calRight - paletteW - 2;
         paletteX = stampMode ? paletteXOpen : paletteXClosed;
@@ -259,14 +236,12 @@ public class CalendarScreen extends Screen {
         paletteY = calTop;
         paletteH = Math.max(120, calBottom - calTop);
 
-        // Position from the bottom up, leaving breathing room at the very bottom.
-        // When a stamp is selected, a clearly-separated Delete button sits below
-        // the visibility section.
+        // Bottom-up; Delete (when a stamp is selected) sits below the compose block.
         boolean sel = selectedStampId != null;
         int y = contentBottom() - BOTTOM_PAD;
         if (sel) {
             drDeleteY = y - CTRL_H;
-            y = drDeleteY - DELETE_GAP;  // gap above the Delete button
+            y = drDeleteY - DELETE_GAP;
         }
         drVisToggleY = y - CTRL_H;
         drVisLabelY = drVisToggleY - 2 - LABEL_H;
@@ -303,8 +278,7 @@ public class CalendarScreen extends Screen {
 
     private int iw() { return paletteW - 2 * DRAWER_PAD; }
     private int contentLeft() { return paletteX + DRAWER_PAD; }
-    // Padded content area inside the frame: the grid, labels, caption field and
-    // visibility switch all align to these so left/right margins stay consistent.
+    // Padded content area inside the frame; everything aligns to these for even margins.
     private int innerLeft() { return contentLeft() + CONTENT_PAD; }
     private int innerWidth() { return iw() - 2 * CONTENT_PAD; }
     private int thumbCols() { return Math.max(1, (innerWidth() + THUMB_GAP) / (THUMB + THUMB_GAP)); }
@@ -330,20 +304,15 @@ public class CalendarScreen extends Screen {
         int totalW = panelW + 2 * WOOD_FRAME_THICKNESS;
         int totalH = panelH + 2 * WOOD_FRAME_THICKNESS;
 
-        // The stamp drawer is laid out in the SAME virtual space as the calendar
-        // and scaled by the same uiScale, so it shrinks together with the calendar
-        // instead of forcing the calendar tiny. Its open footprint + pull tab is
-        // folded into the scale denominator. The calendar stays window-centred, so
-        // the drawer (on the right only) is reserved symmetrically (×2): the equal
-        // margin ends up on the left. Zero when no stamp packs are installed.
+        // The drawer scales with the calendar, so its open footprint + tab is folded
+        // into the scale denominator. The calendar stays centred, so it's reserved
+        // symmetrically (×2). Zero when no stamp packs are installed.
         int drawerReserve = StampCatalog.list().isEmpty()
                 ? 0
                 : (PALETTE_W - OPEN_OVERLAP + TAB_W + 4);
 
-        // Compute the single uniform UI scale so the design-size panel (plus the
-        // drawer's reserved footprint) fits the current window with margin on each
-        // side. Capped at 1.0 (we don't up-scale beyond the design size on large
-        // monitors — that would produce blurry text — but we shrink to fit small).
+        // Uniform UI scale fitting panel + drawer reserve in the window. Capped at
+        // 1.0 (shrink to fit small windows, never up-scale and blur).
         float scaleW = (width  - MAX_PANEL_W_MARGIN) / (float) (totalW + 2 * drawerReserve);
         float scaleH = (height - MAX_PANEL_H_MARGIN) / (float) totalH;
         uiScale = Math.min(1f, Math.min(scaleW, scaleH));
@@ -439,29 +408,25 @@ public class CalendarScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // The whole UI (calendar + drawer) is drawn scaled, so hit-test in
-        // virtual (pre-scale) space.
+        // The whole UI is drawn scaled, so hit-test in virtual (pre-scale) space.
         double vmx = mx / uiScale;
         double vmy = my / uiScale;
-        // Right-click clears whatever stamp you're holding/editing.
-        if (button == 1 && stampMode) {
+        if (button == 1 && stampMode) {  // right-click clears the held/selected stamp
             if (selectedStampId != null) { deselectStamp(); return true; }
             if (selectedPaletteIndex >= 0) { selectedPaletteIndex = -1; return true; }
         }
         if (button == 0) {
-            // The pull tab is always grabbable (toggles the slide).
+            // Pull tab is always grabbable.
             if (tabW > 0 && !StampCatalog.list().isEmpty()
                     && vmx >= tabX && vmx < tabX + tabW && vmy >= tabY && vmy < tabY + tabH) {
                 toggleStampMode();
                 return true;
             }
-            // Custom parchment controls: visibility switch, Delete (only when settled open).
             for (HitRect h : paletteHits) {
                 if (h.contains(vmx, vmy)) { h.action.run(); return true; }
             }
             if (drawerInteractive) {
-                // The caption field is the only vanilla widget inside the drawer;
-                // managed manually since it lives in scaled (virtual) space.
+                // Caption field is managed manually (not a registered widget).
                 if (captionBox != null && captionBox.visible && inBounds(captionBox, vmx, vmy)) {
                     captionBox.setFocused(true);
                     captionBox.mouseClicked(vmx, vmy, button);
@@ -527,8 +492,7 @@ public class CalendarScreen extends Screen {
                 captionBox.setFocused(false);  // unfocus rather than close the screen
                 return true;
             }
-            // canConsumeInput() swallows plain keys while editing so the inventory
-            // key doesn't close the screen mid-type.
+            // canConsumeInput() swallows plain keys so the inventory key can't close mid-type.
             if (captionBox.keyPressed(key, scan, mods) || captionBox.canConsumeInput()) {
                 return true;
             }
@@ -565,7 +529,7 @@ public class CalendarScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // No stamp art installed -> no header tab, and stamp mode forced closed.
+        // No stamp packs -> no tab, force the drawer closed.
         boolean haveStamps = !StampCatalog.list().isEmpty();
         if (!haveStamps && stampMode) setStampMode(false);
 
@@ -579,33 +543,27 @@ public class CalendarScreen extends Screen {
         hoverThumbIndex = -1;
         hoverVisibilityInfo = false;
 
-        // Advance the slide, then derive the drawer's current X from it.
         updateDrawerAnim();
         drawerEase = ease(drawerAnim);
         paletteX = Math.round(paletteXClosed + (paletteXOpen - paletteXClosed) * drawerEase);
         drawerInteractive = stampMode && drawerAnim > 0.999f;
 
-        // Every interactive coord (hit rects, hover detection) lives in
-        // virtual (pre-scale) space; remap the real mouse position so hover
-        // highlights line up with what the player actually sees on screen.
+        // Hit rects and hover live in virtual (pre-scale) space; remap the mouse.
         int vmx = Math.round(mouseX / uiScale);
         int vmy = Math.round(mouseY / uiScale);
 
         boolean bodyVisible = haveStamps && drawerAnim > 0.0015f;
         if (captionBox != null) captionBox.visible = bodyVisible;
 
-        // The drawer is drawn in the SAME scaled pose as the calendar so they
-        // shrink together.
+        // Drawer shares the calendar's scaled pose so they shrink together.
         g.pose().pushPose();
         g.pose().scale(uiScale, uiScale, 1f);
 
-        // 1. Drawer body first, so the calendar paints over its tucked portion
-        //    and it reads as sliding out from underneath.
+        // Drawer body first, so the calendar paints over its tucked portion.
         if (bodyVisible) renderPalette(g, vmx, vmy, partialTick);
-        // Body is visual-only until fully settled; don't let a moving target eat clicks.
+        // Body is visual-only until settled; don't let a moving target eat clicks.
         if (!drawerInteractive) { paletteHits.clear(); thumbHits.clear(); }
 
-        // 2. Calendar on top of the tucked drawer.
         renderPlankFrame(g);
         renderMapBackground(g);
 
@@ -623,12 +581,12 @@ public class CalendarScreen extends Screen {
         renderGrid(g, snap, vmx, vmy);
         renderStamps(g, snap, vmx, vmy);
 
-        // 3. The drawer-pull tab rides on top of everything so it's always grabbable.
+        // Pull tab on top of everything so it's always grabbable.
         if (haveStamps) renderDrawerTab(g, vmx, vmy);
 
         g.pose().popPose();
 
-        // Ghost of the stamp about to be placed, riding the cursor (real coords).
+        // Ghost of the to-be-placed stamp, riding the cursor (real coords).
         renderGhostCursor(g, mouseX, mouseY);
 
         // Tooltip renders OUTSIDE the scale block so the tooltip text stays
@@ -935,23 +893,7 @@ public class CalendarScreen extends Screen {
         g.drawString(font, s, centerX - font.width(s) / 2, y, color, false);
     }
 
-    /**
-     * Set a scissor rectangle in VIRTUAL coords (the same coord space the rest
-     * of the screen draws in). {@link GuiGraphics#enableScissor} ignores the
-     * current pose matrix and treats its rect as raw screen pixels, so when
-     * the whole screen is wrapped in {@code pose.scale(uiScale, uiScale, 1)}
-     * we'd otherwise get a mismatch between where the scissor sits and where
-     * the geometry actually lands — clipping out things that should be on
-     * screen. Floor/ceil to avoid 1-pixel seams along the scaled edge.
-     */
-    /**
-     * Mirror of {@link FrameRenderer#tileTexture} but routed through
-     * {@link #enableVirtualScissor} so the scissor lines up with the scaled
-     * geometry inside our pose.scale block. Without this, the scissor sits at
-     * the unscaled virtual coords (raw screen pixels), which doesn't match
-     * where the tiled planks actually land on screen — producing a partially
-     * cropped frame that doesn't wrap the parchment evenly.
-     */
+    /** Tiles a plank texture across a rect, clipped via {@link #enableVirtualScissor}. */
     private void tilePlankScaled(GuiGraphics g, String texture, int x, int y, int w, int h) {
         if (w <= 0 || h <= 0) return;
         final int tileSize = 16;
@@ -968,6 +910,7 @@ public class CalendarScreen extends Screen {
         g.disableScissor();
     }
 
+    /** Scissor in virtual coords: enableScissor ignores the pose, so scale to real px. */
     private void enableVirtualScissor(GuiGraphics g, int vx1, int vy1, int vx2, int vy2) {
         g.enableScissor(
                 (int) Math.floor(vx1 * uiScale),
@@ -977,27 +920,23 @@ public class CalendarScreen extends Screen {
     }
 
     /**
-     * Drawer body, built like the calendar panel ({@link #renderPlankFrame} +
-     * {@link #renderMapBackground}): plank-fill the entire rect so nothing shows
-     * through, then a 9-sliced map-parchment interior inset by {@link #DRAWER_PAD}
-     * leaving a plank border. Tiles via {@link #tilePlankScaled} so the plank
-     * scissor uses real pixels inside the scaled drawer pose.
+     * Drawer body, built like the calendar panel: plank-fill the whole rect (so
+     * nothing shows through the parchment's torn edges), then the map-parchment
+     * interior inset by {@link #DRAWER_PAD}, leaving a plank border.
      */
     private void renderDrawerPanel(GuiGraphics g) {
         int x = paletteX, y = paletteY, w = paletteW, h = paletteH;
         tilePlankScaled(g, FrameRenderer.PLANK_DARK, x, y, w, h);
 
-        // Outer shadow line — separates the panel from the screen dim.
+        // Outer shadow.
         g.fill(x - 1, y - 1, x + w + 1, y,         FrameRenderer.FRAME_SHADOW);
         g.fill(x - 1, y + h, x + w + 1, y + h + 1, FrameRenderer.FRAME_SHADOW);
         g.fill(x - 1, y, x, y + h,                 FrameRenderer.FRAME_SHADOW);
         g.fill(x + w, y, x + w + 1, y + h,         FrameRenderer.FRAME_SHADOW);
-
-        // Top/left highlight for the bevel.
+        // Top/left bevel highlight.
         g.fill(x, y, x + w, y + 1, FrameRenderer.FRAME_HIGHLIGHT);
         g.fill(x, y, x + 1, y + h, FrameRenderer.FRAME_HIGHLIGHT);
 
-        // Parchment interior (the map texture's own baked edge avoids a seam line).
         int t = DRAWER_PAD;
         nineSliceMap(g, x + t, y + t, w - 2 * t, h - 2 * t);
     }
@@ -1052,11 +991,7 @@ public class CalendarScreen extends Screen {
         g.disableScissor();
     }
 
-    /**
-     * Translucent copy of the to-be-placed stamp following the cursor over the
-     * grid — the "cursor becomes the stamp" feel. Only shown in place mode (a
-     * palette thumbnail is armed and no placed stamp is selected).
-     */
+    /** Translucent preview of the to-be-placed stamp on the cursor (place mode only). */
     private void renderGhostCursor(GuiGraphics g, int mouseX, int mouseY) {
         if (!stampMode || selectedStampId != null || draggingId != null) return;
         if (selectedPaletteIndex < 0) return;
@@ -1084,14 +1019,11 @@ public class CalendarScreen extends Screen {
 
     private void drawStamp(GuiGraphics g, CalendarStamp s, int x, int y) {
         if (StampCatalog.hasTexture(s.textureId())) {
+            // region == texture size -> UV 0..1, so any native resolution fits the square.
             ResourceLocation rl = StampCatalog.parse(s.textureId());
-            // region == texture size -> UV spans 0..1, so the whole image is
-            // sampled into the STAMP_SIZE square regardless of its native res.
             g.blit(rl, x, y, STAMP_SIZE, STAMP_SIZE, 0f, 0f, STAMP_SIZE, STAMP_SIZE, STAMP_SIZE, STAMP_SIZE);
         } else {
-            // Art not installed on this client: draw a neutral postmark-style
-            // seal carrying the stamp's initial. Still fully hoverable (hover is
-            // geometric), so the caption tooltip works regardless.
+            // Art not installed: a postmark seal with the stamp's initial (still hoverable).
             g.fill(x, y, x + STAMP_SIZE, y + STAMP_SIZE, CELL_FILL);
             drawRectBorder(g, x, y, STAMP_SIZE, STAMP_SIZE, CELL_BORDER);
             drawRectBorder(g, x + 2, y + 2, STAMP_SIZE - 4, STAMP_SIZE - 4, TODAY_BORDER);
@@ -1102,36 +1034,29 @@ public class CalendarScreen extends Screen {
 
     // ── Drawer-pull tab + drawer ─────────────────────────────────────────────
 
-    /**
-     * The pull tab on the drawer's right face. When closed it pokes out past the
-     * calendar's right edge; clicking it slides the drawer out (and back in).
-     */
+    /** The pull tab; clicking it slides the drawer out (and back in). Virtual coords. */
     private void renderDrawerTab(GuiGraphics g, int mouseX, int mouseY) {
-        // Virtual coords (drawn inside the scaled pose); mouseX/mouseY are virtual.
         int calRight  = panelX + panelW + WOOD_FRAME_THICKNESS;
         int calTop    = panelY - WOOD_FRAME_THICKNESS;
         int calBottom = panelY + panelH + WOOD_FRAME_THICKNESS;
         tabW = TAB_W;
         tabH = Math.min(TAB_H, calBottom - calTop);
-        // Slides from "just outside the calendar frame" (closed) to "glued to the
-        // open drawer's right face" (open), so it never overlaps the frame.
+        // Slides from just outside the frame (closed) to the open drawer's face (open).
         int tabClosedX = calRight + TAB_MARGIN;
         int tabOpenX   = paletteXOpen + paletteW;
         tabX = Math.round(tabClosedX + (tabOpenX - tabClosedX) * drawerEase);
-        tabY = calTop + (calBottom - calTop - tabH) / 2;  // centred on the calendar
+        tabY = calTop + (calBottom - calTop - tabH) / 2;
 
         boolean hover = mouseX >= tabX && mouseX < tabX + tabW && mouseY >= tabY && mouseY < tabY + tabH;
         int bg = stampMode ? TODAY_FILL : (hover ? NAV_BG_HOVER : NAV_BG);
         int border = stampMode ? TODAY_BORDER : NAV_BORDER;
 
-        // Drop shadow to the right/bottom so the tab reads as a raised pull.
-        g.fill(tabX + 1, tabY + 2, tabX + tabW + 1, tabY + tabH + 1, 0x50000000);
+        g.fill(tabX + 1, tabY + 2, tabX + tabW + 1, tabY + tabH + 1, 0x50000000);  // drop shadow
         g.fill(tabX, tabY, tabX + tabW, tabY + tabH, bg);
         drawRectBorder(g, tabX, tabY, tabW, tabH, border);
-        // Highlight down the protruding (right) edge.
-        g.fill(tabX + tabW - 1, tabY + 1, tabX + tabW, tabY + tabH - 1, 0x30FFFFFF);
+        g.fill(tabX + tabW - 1, tabY + 1, tabX + tabW, tabY + tabH - 1, 0x30FFFFFF);  // edge highlight
 
-        // Vertical "Stamps" label, reading top-to-bottom along the tab.
+        // Vertical "Stamps" label.
         String s = Component.translatable("gui.townstead_calendar.button.stamp").getString();
         g.pose().pushPose();
         g.pose().translate(tabX + tabW / 2f, tabY + tabH / 2f, 0f);
@@ -1143,12 +1068,8 @@ public class CalendarScreen extends Screen {
     private void renderPalette(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         thumbHits.clear();
         hoverThumbIndex = -1;
-        // The drawer slides each frame, so re-anchor the caption field's X live.
-        if (captionBox != null) captionBox.setX(innerLeft());
+        if (captionBox != null) captionBox.setX(innerLeft());  // re-anchor as the drawer slides
 
-        // Build the drawer body exactly like the calendar panel: plank-fill the
-        // whole rect first (so nothing shows through the parchment's torn edges),
-        // then lay the map-parchment interior on top with a plank border.
         renderDrawerPanel(g);
 
         int cl = innerLeft();
@@ -1161,15 +1082,13 @@ public class CalendarScreen extends Screen {
             renderThumbnails(g, list, drGridTop, drGridBottom, mouseX, mouseY);
         }
 
-        // Divider between the grid and the compose block.
-        g.fill(cl, drDividerY, cl + iwidth, drDividerY + 1, CELL_BORDER);
+        g.fill(cl, drDividerY, cl + iwidth, drDividerY + 1, CELL_BORDER);  // grid/compose divider
 
-        // Caption.
         g.drawString(font, Component.translatable("gui.townstead_calendar.stamp.caption"),
                 cl, drCaptionLabelY, DRAWER_TEXT, false);
         if (captionBox != null) captionBox.render(g, mouseX, mouseY, partialTick);
 
-        // Visibility segmented switch. Hovering the label explains the modes.
+        // Visibility switch; hovering the label shows its tooltip.
         Component visLabel = Component.translatable("gui.townstead_calendar.stamp.visibility");
         g.drawString(font, visLabel, cl, drVisLabelY, DRAWER_TEXT, false);
         if (mouseX >= cl && mouseX < cl + font.width(visLabel) && mouseY >= drVisLabelY && mouseY < drVisLabelY + LABEL_H) {
@@ -1213,17 +1132,15 @@ public class CalendarScreen extends Screen {
         paletteContentH = rows * (THUMB + THUMB_GAP);
         paletteScroll = clampPaletteScroll(paletteScroll);
 
-        // Highlight the armed thumbnail (place mode) or the selected stamp's
-        // current art (edit mode).
+        // Highlight the armed thumbnail (place mode) or the selected stamp's art (edit mode).
         int highlight = selectedPaletteIndex;
         if (selectedStampId != null) {
             CalendarStamp s = CalendarStampClientStore.byId(selectedStampId);
             highlight = (s != null) ? paletteIndexOf(s.textureId()) : -1;
         }
 
-        // Centre the grid within the padded content width.
         int gridW = cols * THUMB + (cols - 1) * THUMB_GAP;
-        int startX = innerLeft() + Math.max(0, (innerWidth() - gridW) / 2);
+        int startX = innerLeft() + Math.max(0, (innerWidth() - gridW) / 2);  // centred
         // Scissor ignores the pose, so convert the virtual clip rect to real px.
         enableVirtualScissor(g, innerLeft(), gridTop, innerLeft() + innerWidth(), gridBottom);
         for (int i = 0; i < list.size(); i++) {
@@ -1234,7 +1151,6 @@ public class CalendarScreen extends Screen {
             boolean sel = (i == highlight);
             boolean hov = mouseX >= tx && mouseX < tx + THUMB
                     && mouseY >= Math.max(ty, gridTop) && mouseY < Math.min(ty + THUMB, gridBottom);
-            // Cells styled like the calendar's day cells.
             int fill = sel ? TODAY_FILL : (hov ? CELL_HOVER : CELL_FILL);
             g.fill(tx, ty, tx + THUMB, ty + THUMB, fill);
             drawRectBorder(g, tx, ty, THUMB, THUMB, sel ? TODAY_BORDER : CELL_BORDER);
@@ -1321,8 +1237,7 @@ public class CalendarScreen extends Screen {
 
     private void onPaletteThumbClicked(int index) {
         if (selectedStampId != null) {
-            // Edit mode: a placed stamp is selected, so clicking a thumbnail
-            // re-arts THAT stamp. It does not arm placement.
+            // Edit mode: re-art the selected stamp (does not arm placement).
             CalendarStamp s = CalendarStampClientStore.byId(selectedStampId);
             if (s == null || !canEditLocal(s)) return;
             List<StampCatalog.Entry> list = StampCatalog.list();
@@ -1395,9 +1310,7 @@ public class CalendarScreen extends Screen {
         commitCaptionEdit();
         selectedStampId = s.id();
         if (captionBox != null) captionBox.setValue(s.caption());
-        // Selecting a placed stamp is edit mode, NOT placement — never arm the
-        // cursor ghost. The matching thumbnail is highlighted separately.
-        selectedPaletteIndex = -1;
+        selectedPaletteIndex = -1;  // edit mode, not placement: never arm the ghost
         layoutRightPanel();
     }
 

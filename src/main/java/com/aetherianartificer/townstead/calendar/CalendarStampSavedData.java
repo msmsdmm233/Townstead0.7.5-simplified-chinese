@@ -14,13 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Overworld-level persistence of player-placed calendar stamps. Shared across
- * the whole server: every stamp is visible to every player (subject to having
- * the source resource pack for the art). Mutations come from
- * {@code CalendarStampActionC2SPayload}; the full set re-broadcasts via
- * {@code CalendarStampSyncPayload} on any change.
- */
+/** Overworld-level persistence of player-placed calendar stamps, shared server-wide. */
 public class CalendarStampSavedData extends SavedData {
     public static final String FILE_ID = "townstead_calendar_stamps";
 

@@ -11,17 +11,9 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.UUID;
 
 /**
- * Client → server: a stamp mutation. One packet for all four verbs to keep the
- * registration surface small. The server assigns the id and {@code placedBy} on
- * {@link #ACTION_PLACE}; for the other verbs it validates that the sender is the
- * placer or an operator before applying.
- *
- * <ul>
- *   <li>{@link #ACTION_PLACE}: id ignored; texture/caption/anchor/offset used.</li>
- *   <li>{@link #ACTION_MOVE}: id + anchor/offset used; texture/caption ignored.</li>
- *   <li>{@link #ACTION_EDIT}: id + texture/caption used (empty texture = keep current).</li>
- *   <li>{@link #ACTION_REMOVE}: id used; everything else ignored.</li>
- * </ul>
+ * Client → server: a stamp mutation, one packet for all four verbs. The server
+ * assigns id + {@code placedBy} on PLACE; MOVE/EDIT/REMOVE validate placer-or-op.
+ * EDIT with an empty texture keeps the current art (caption/visibility-only edit).
  */
 //? if neoforge {
 public record CalendarStampActionC2SPayload(
