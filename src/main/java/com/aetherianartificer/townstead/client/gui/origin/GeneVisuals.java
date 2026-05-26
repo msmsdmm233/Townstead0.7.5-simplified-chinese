@@ -1,19 +1,107 @@
 package com.aetherianartificer.townstead.client.gui.origin;
 
+import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
+import com.aetherianartificer.townstead.compat.thirst.ThirstCompatBridge;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.Locale;
 
 /**
  * Shared drawing + color helpers for gene chips, reused by the picker's traits
  * list and the dedicated gene screen so the visual language stays identical:
- * per-category tints, colour-palette gradient swatches, range bars, and the
- * solid/dashed dominance border.
+ * per-category tints, colour-palette gradient swatches, range bars, the
+ * solid/dashed dominance border, the tinted stone-button backdrop, and the
+ * per-category icons.
  */
 final class GeneVisuals {
 
     private GeneVisuals() {}
+
+    /** Pixel size of a category icon (matches the 9px vanilla HUD sprites). */
+    static final int ICON_SIZE = 9;
+
+    //? if >=1.21 {
+    private static final ResourceLocation STONE = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/block/stone.png");
+    private static final ResourceLocation FOOD_ICON = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_full.png");
+    private static final ResourceLocation HEART_ICON = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/heart/full.png");
+    private static final ResourceLocation ENERGY_ICON = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_full.png");
+    private static final ResourceLocation STEVE_SKIN = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/entity/player/wide/steve.png");
+    //?} else {
+    /*private static final ResourceLocation STONE = new ResourceLocation("minecraft", "textures/block/stone.png");
+    private static final ResourceLocation VANILLA_ICONS = new ResourceLocation("minecraft", "textures/gui/icons.png");
+    private static final ResourceLocation ENERGY_ICON = new ResourceLocation("townstead", "textures/gui/energy_full.png");
+    private static final ResourceLocation STEVE_SKIN = new ResourceLocation("minecraft", "textures/entity/player/wide/steve.png");
+    *///?}
+
+    /**
+     * A tinted, pressed-in stone button backdrop: a tiled stone texture darkened for
+     * contrast, washed with the category tint, and finished with an inset bevel (dark
+     * top/left, light bottom/right) one pixel in from the edge so the dominance frame
+     * can still ride the outer edge.
+     */
+    static void drawStoneButton(GuiGraphics g, int x0, int y0, int x1, int y1, int tint, boolean hovered) {
+        int h = Math.min(16, y1 - y0);
+        for (int tx = x0; tx < x1; tx += 16) {
+            int w = Math.min(16, x1 - tx);
+            g.blit(STONE, tx, y0, 0, 0, w, h, 16, 16);
+        }
+        g.fill(x0, y0, x1, y1, 0x55000000);                       // darken stone for legibility
+        g.fill(x0, y0, x1, y1, (0x55 << 24) | (tint & 0xFFFFFF)); // category tint wash
+        if (hovered) g.fill(x0, y0, x1, y1, 0x28FFFFFF);          // hover brighten
+        g.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, 0x90000000);       // bevel top (dark)
+        g.fill(x0 + 1, y0 + 1, x0 + 2, y1 - 1, 0x90000000);       // bevel left (dark)
+        g.fill(x0 + 1, y1 - 2, x1 - 1, y1 - 1, 0x55FFFFFF);       // bevel bottom (light)
+        g.fill(x1 - 2, y0 + 1, x1 - 1, y1 - 1, 0x55FFFFFF);       // bevel right (light)
+    }
+
+    /**
+     * Whether this category renders as an icon. Hydration only does so when a thirst mod
+     * is present (its icon comes from that mod, and the gene is otherwise inert).
+     */
+    static boolean hasCategoryIcon(String cat) {
+        switch (cat == null ? "" : cat.toLowerCase(Locale.ROOT)) {
+            case "diet": case "vitality": case "activity": case "appearance": return true;
+            case "hydration": return ThirstBridgeResolver.isActive();
+            default: return false;
+        }
+    }
+
+    /** Draws the {@link #ICON_SIZE}px category icon at (x,y). Only call when {@link #hasCategoryIcon}. */
+    static void drawCategoryIcon(GuiGraphics g, String cat, int x, int y) {
+        switch (cat == null ? "" : cat.toLowerCase(Locale.ROOT)) {
+            case "diet":       foodIcon(g, x, y); break;
+            case "vitality":   heartIcon(g, x, y); break;
+            case "activity":   g.blit(ENERGY_ICON, x, y, 0, 0, 9, 9, 9, 9); break;
+            case "appearance": g.blit(STEVE_SKIN, x, y, 8, 8, 8, 8, 64, 64); break; // default-skin face
+            case "hydration":  thirstIcon(g, x, y); break;
+            default: break;
+        }
+    }
+
+    private static void foodIcon(GuiGraphics g, int x, int y) {
+        //? if >=1.21 {
+        g.blit(FOOD_ICON, x, y, 0, 0, 9, 9, 9, 9);
+        //?} else {
+        /*g.blit(VANILLA_ICONS, x, y, 52, 27, 9, 9, 256, 256);
+        *///?}
+    }
+
+    private static void heartIcon(GuiGraphics g, int x, int y) {
+        //? if >=1.21 {
+        g.blit(HEART_ICON, x, y, 0, 0, 9, 9, 9, 9);
+        //?} else {
+        /*g.blit(VANILLA_ICONS, x, y, 52, 0, 9, 9, 256, 256);
+        *///?}
+    }
+
+    private static void thirstIcon(GuiGraphics g, int x, int y) {
+        ThirstCompatBridge bridge = ThirstBridgeResolver.get();
+        if (bridge == null) return;
+        ThirstCompatBridge.ThirstIconInfo i = bridge.iconInfo(20); // full droplet
+        g.blit(i.texture(), x, y, i.u(), i.v(), 9, 9, i.texW(), i.texH());
+    }
 
     static int categoryTint(String cat) {
         switch (cat == null ? "" : cat.toLowerCase(Locale.ROOT)) {

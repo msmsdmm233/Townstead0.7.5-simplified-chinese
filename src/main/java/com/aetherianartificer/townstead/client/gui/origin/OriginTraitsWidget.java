@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.client.gui.origin;
 
 import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
+import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
 import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
 import net.minecraft.ChatFormatting;
@@ -50,6 +51,8 @@ public class OriginTraitsWidget extends ScrollPane {
         for (OriginCatalogEntry.Inherited in : origin.inheritedGenes()) {
             GeneCatalogEntry gene = OriginCatalogClient.gene(in.geneId());
             if (gene == null) continue;
+            // Hydration genes are inert without a thirst mod (no icon, no effect): hide them.
+            if ("hydration".equalsIgnoreCase(gene.category()) && !ThirstBridgeResolver.isActive()) continue;
             byCategory.computeIfAbsent(gene.category(), k -> new ArrayList<>())
                     .add(new ChipData(gene, in.occurrence()));
             if (!gene.locus().isEmpty()) locusCount.merge(gene.locus(), 1, Integer::sum);
@@ -115,14 +118,23 @@ public class OriginTraitsWidget extends ScrollPane {
                           int borderColor, boolean conflict) {
         int x2 = left + innerW;
         int y2 = cy + CHIP_H;
-        int bg = hovered ? 0xF0242424 : 0xCC151515;
-        g.fill(left, cy, x2, y2, bg);
-        GeneVisuals.drawBorder(g, left, cy, x2, y2, conflict ? 0xFFD05858 : borderColor, gene.isRecessive());
+        int frame = conflict ? 0xFFD05858 : borderColor;
+        GeneVisuals.drawStoneButton(g, left, cy, x2, y2, frame, hovered);
+        GeneVisuals.drawBorder(g, left, cy, x2, y2, frame, gene.isRecessive());
 
         int textY = cy + (CHIP_H - 8) / 2;
+        int contentX = left + 5;
         String cat = gene.category();
-        g.drawString(mc.font, cat, left + 5, textY, GeneVisuals.categoryTint(cat), false);
-        int nameX = left + 5 + mc.font.width(cat) + 6;
+        int nameX;
+        // Categories with an icon (Diet, Vitality, Activity, Appearance, and Hydration when a
+        // thirst mod is loaded) render the icon in place of the category label.
+        if (GeneVisuals.hasCategoryIcon(cat)) {
+            GeneVisuals.drawCategoryIcon(g, cat, contentX, cy + (CHIP_H - GeneVisuals.ICON_SIZE) / 2);
+            nameX = contentX + GeneVisuals.ICON_SIZE + 5;
+        } else {
+            g.drawString(mc.font, cat, contentX, textY, GeneVisuals.categoryTint(cat), false);
+            nameX = contentX + mc.font.width(cat) + 6;
+        }
 
         int valueLeft = renderValue(g, mc, gene, occurrence, x2 - 5, cy);
         int nameMaxW = valueLeft - 4 - nameX;
