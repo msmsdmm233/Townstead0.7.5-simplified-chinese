@@ -47,6 +47,14 @@ public final class TownsteadVillagers {
         return dirty;
     }
 
+    /** Flush one villager's state to its persistent snapshot now (e.g. right after an edit). */
+    public static void flush(VillagerEntityMCA villager) {
+        TownsteadVillager state = STATES.get(villager.getUUID());
+        if (state == null) return;
+        TownsteadVillagerState.saveSnapshot(villager, state);
+        state.clearDirty();
+    }
+
     public static void flushDirtyToEntities(Iterable<? extends VillagerEntityMCA> villagers) {
         for (VillagerEntityMCA villager : villagers) {
             TownsteadVillager state = STATES.get(villager.getUUID());

@@ -22,6 +22,7 @@
     "WalkNodeEvaluatorFenceGateMixin"
   ],
   "client": [
+    "compat.stardewhud.StardewHudDateMixin",
     "compat.stardewhud.StardewHudSeasonMixin",
     "compat.timekeeper.TimekeeperReturnTimeMixin",
     "BlueprintScreenMixin",
@@ -30,6 +31,7 @@
     "LegacyImageButtonMixin",
     "accessor.AbstractDynamicScreenAccessor",
     "accessor.BlueprintScreenAccessor",
+    "accessor.ColorPickerWidgetAccessor",
     "accessor.InteractScreenAccessor",
     "client.FishingHookRendererMixin",
     "client.LivingEntityRendererEmoteMixin",
@@ -37,8 +39,11 @@
     "client.VillagerEntityBaseModelMcaAnimationMixin",
     "client.VillagerEntityModelMcaCopyWearMixin",
     "client.VillagerLayerBendMixin",
+    "client.SkinLayerTintMixin",
     "InteractScreenMixin",
-    "VillagerEditorMixin"
+    "VillagerEditorMixin",
+    "VillagerEditorOriginMixin",
+    "DestinyScreenMixin"
   ],
   "minVersion": "0.8"
 }
