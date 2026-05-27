@@ -9,7 +9,7 @@ import com.aetherianartificer.townstead.hunger.ConsumableTargetClaims;
 import com.aetherianartificer.townstead.hunger.NearbyItemSources;
 import com.aetherianartificer.townstead.hunger.TargetReachabilityCache;
 import com.aetherianartificer.townstead.hunger.VillagerSearchCadence;
-import com.aetherianartificer.townstead.hunger.VillagerEatingManager;
+import com.aetherianartificer.townstead.hunger.VillagerConsumptionManager;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
@@ -62,7 +62,7 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
     protected boolean checkExtraStartConditions(ServerLevel level, VillagerEntityMCA villager) {
         ThirstCompatBridge bridge = ThirstBridgeResolver.get();
         if (bridge == null || !TownsteadConfig.isVillagerThirstEnabled()) return false;
-        if (VillagerEatingManager.isEating(villager) || VillagerDrinkingManager.isDrinking(villager)) return false;
+        if (VillagerConsumptionManager.isConsuming(villager)) return false;
         if (currentScheduleActivity(villager) == Activity.REST) return false;
 
         // Only block when fleeing from a mob — not during environmental panic
@@ -193,7 +193,7 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
         }
 
         if (best.isEmpty() || bestScore <= 0) return false;
-        if (!VillagerDrinkingManager.startDrinking(villager, best)) return false;
+        if (!VillagerConsumptionManager.startConsuming(villager, best)) return false;
         ItemStack remainder = bridge.onDrinkConsumed(best);
         if (remainder.isEmpty()) {
             best.shrink(1);
@@ -274,7 +274,7 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
 
     private void pickUpAndDrink(VillagerEntityMCA villager, ItemEntity itemEntity) {
         ItemStack stack = itemEntity.getItem();
-        if (!VillagerDrinkingManager.startDrinking(villager, stack)) return;
+        if (!VillagerConsumptionManager.startConsuming(villager, stack)) return;
         ThirstCompatBridge bridge = ThirstBridgeResolver.get();
         ItemStack remainder = bridge != null ? bridge.onDrinkConsumed(stack) : ItemStack.EMPTY;
         if (remainder.isEmpty()) {
@@ -292,7 +292,7 @@ public class SeekDrinkTask extends Behavior<VillagerEntityMCA> {
         if (targetContainerSlot == null) return;
         ItemStack extracted = NearbyItemSources.extractOne(level, targetContainerSlot);
         if (extracted.isEmpty()) return;
-        if (!VillagerDrinkingManager.startDrinking(villager, extracted)) {
+        if (!VillagerConsumptionManager.startConsuming(villager, extracted)) {
             villager.getInventory().addItem(extracted);
             return;
         }

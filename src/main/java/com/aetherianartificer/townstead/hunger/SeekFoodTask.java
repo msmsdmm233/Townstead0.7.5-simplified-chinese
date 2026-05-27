@@ -3,7 +3,6 @@ package com.aetherianartificer.townstead.hunger;
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.ai.work.ReachableTargetSelector;
-import com.aetherianartificer.townstead.thirst.VillagerDrinkingManager;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import com.google.common.collect.ImmutableMap;
@@ -61,7 +60,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
     @Override
     protected boolean checkExtraStartConditions(ServerLevel level, VillagerEntityMCA villager) {
         if (!TownsteadConfig.isVillagerHungerEnabled()) return false;
-        if (VillagerEatingManager.isEating(villager) || VillagerDrinkingManager.isDrinking(villager)) return false;
+        if (VillagerConsumptionManager.isConsuming(villager)) return false;
         if (currentScheduleActivity(villager) == Activity.REST) return false;
 
         // Only block when fleeing from a mob — not during environmental panic
@@ -178,7 +177,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
     protected boolean canStillUse(ServerLevel level, VillagerEntityMCA villager, long gameTime) {
         if (targetType == TargetType.NONE) return false;
         if (targetType == TargetType.GROUND_ITEM && (targetItem == null || targetItem.isRemoved())) return false;
-        if (VillagerDrinkingManager.isDrinking(villager)) return false;
+        if (VillagerConsumptionManager.isConsuming(villager)) return false;
         if (villager.getLastHurtByMob() != null) return false;
         if (currentScheduleActivity(villager) == Activity.REST) return false;
         return true;
@@ -228,7 +227,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
 
         if (best.isEmpty()) return false;
 
-        if (!VillagerEatingManager.startEating(villager, best)) return false;
+        if (!VillagerConsumptionManager.startConsuming(villager, best)) return false;
         if (com.aetherianartificer.townstead.TownsteadConfig.DEBUG_VILLAGER_AI.get()) {
             com.aetherianartificer.townstead.Townstead.LOGGER.info(
                     "[SeekFood] villager {} eating inventory item {}",
@@ -430,7 +429,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
 
     private void pickUpAndEat(VillagerEntityMCA villager, ItemEntity itemEntity) {
         ItemStack stack = itemEntity.getItem();
-        if (!VillagerEatingManager.startEating(villager, stack)) return;
+        if (!VillagerConsumptionManager.startConsuming(villager, stack)) return;
         stack.shrink(1);
         if (stack.isEmpty()) {
             itemEntity.discard();
@@ -442,7 +441,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
         if (targetContainerSlot == null) return;
         ItemStack extracted = NearbyItemSources.extractOne(level, targetContainerSlot);
         if (extracted.isEmpty()) return;
-        if (!VillagerEatingManager.startEating(villager, extracted)) {
+        if (!VillagerConsumptionManager.startConsuming(villager, extracted)) {
             villager.getInventory().addItem(extracted);
         }
     }
@@ -462,7 +461,7 @@ public class SeekFoodTask extends Behavior<VillagerEntityMCA> {
 
         for (ItemStack drop : drops) {
             if (!ate && FoodSafety.isSafeToEat(drop)) {
-                if (VillagerEatingManager.startEating(villager, drop)) {
+                if (VillagerConsumptionManager.startConsuming(villager, drop)) {
                     drop.shrink(1);
                     ate = true;
                 }

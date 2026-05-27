@@ -8,8 +8,7 @@ import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
 import com.aetherianartificer.townstead.hunger.FoodSafety;
 import com.aetherianartificer.townstead.hunger.HungerData;
-import com.aetherianartificer.townstead.hunger.VillagerEatingManager;
-import com.aetherianartificer.townstead.thirst.VillagerDrinkingManager;
+import com.aetherianartificer.townstead.hunger.VillagerConsumptionManager;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -61,7 +60,7 @@ public final class HungerVillagerTicker {
 
         TickState state = STATE.computeIfAbsent(self.getId(), id -> new TickState());
         TownsteadVillager.Needs needs = TownsteadVillagers.get(self).needs();
-        boolean hungerChanged = VillagerEatingManager.tickAndFinalize(self, needs);
+        boolean hungerChanged = VillagerConsumptionManager.tickAndFinalize(self, needs);
 
         long dayTime = level.getDayTime();
         if (state.lastDayTime < 0) state.lastDayTime = dayTime;
@@ -130,8 +129,7 @@ public final class HungerVillagerTicker {
                     long gameTime = level.getGameTime();
                     long lastAte = needs.lastAteTime();
                     if ((gameTime - lastAte) >= HungerData.MIN_EAT_INTERVAL
-                            && !VillagerEatingManager.isEating(self)
-                            && !VillagerDrinkingManager.isDrinking(self)) {
+                            && !VillagerConsumptionManager.isConsuming(self)) {
                         hungerChanged |= tryEatFromInventory(self);
                     }
                 }
@@ -210,7 +208,7 @@ public final class HungerVillagerTicker {
         /*FoodProperties props = food.getFoodProperties(null);
         *///?}
         if (props == null) return false;
-        if (!VillagerEatingManager.startEating(self, food)) return false;
+        if (!VillagerConsumptionManager.startConsuming(self, food)) return false;
         food.shrink(1);
         return true;
     }
@@ -222,7 +220,7 @@ public final class HungerVillagerTicker {
             ItemStack stack = inventory.getItem(i);
             // Skip anything harmful (pufferfish, spider eye, rotten flesh, etc.)
             // so the passive-hunger ticker doesn't silently drop puffers into
-            // the void via startEating → shrink(1) → mixin-blocked eat.
+            // the void via startConsuming → shrink(1) → mixin-blocked eat.
             if (!FoodSafety.isSafeNutritiousFood(stack)) continue;
             //? if >=1.21 {
             FoodProperties food = stack.get(DataComponents.FOOD);

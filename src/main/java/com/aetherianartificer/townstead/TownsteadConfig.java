@@ -37,6 +37,7 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.BooleanValue ENABLE_CONTAINER_SOURCING;
     public static final ModConfigSpec.BooleanValue ENABLE_CONTAINER_THIRST_SOURCING;
     public static final ModConfigSpec.BooleanValue ENABLE_CROP_SOURCING;
+    public static final ModConfigSpec.BooleanValue ENABLE_CHORUS_FRUIT_TELEPORT;
     public static final ModConfigSpec.BooleanValue ENABLE_CROP_THIRST_SOURCING;
     public static final ModConfigSpec.BooleanValue ENABLE_VILLAGER_HUNGER;
     public static final ModConfigSpec.BooleanValue ENABLE_VILLAGER_THIRST;
@@ -114,6 +115,7 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_CONTAINER_SOURCING;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CONTAINER_THIRST_SOURCING;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CROP_SOURCING;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_CHORUS_FRUIT_TELEPORT;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CROP_THIRST_SOURCING;
     public static final ForgeConfigSpec.BooleanValue ENABLE_VILLAGER_HUNGER;
     public static final ForgeConfigSpec.BooleanValue ENABLE_VILLAGER_THIRST;
@@ -212,6 +214,10 @@ public final class TownsteadConfig {
                 .translation("townstead.configuration.needs.hunger.enableCropSourcing")
                 .comment("Allow villagers to harvest mature crops for food as an emergency fallback. Disabled by default to avoid broad crop scans.")
                 .define("enableCropSourcing", false);
+        ENABLE_CHORUS_FRUIT_TELEPORT = b
+                .translation("townstead.configuration.needs.hunger.enableChorusFruitTeleport")
+                .comment("Let villagers teleport when they eat chorus fruit, just like players do.")
+                .define("enableChorusFruitTeleport", true);
         b.pop();
         if (ThirstBridgeResolver.anyThirstModLoaded()) {
             b.translation("townstead.configuration.needs.thirst").push("thirst");

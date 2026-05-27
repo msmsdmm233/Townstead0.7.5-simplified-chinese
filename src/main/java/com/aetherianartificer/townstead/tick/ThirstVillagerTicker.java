@@ -9,10 +9,9 @@ import com.aetherianartificer.townstead.compat.ModCompat;
 import com.aetherianartificer.townstead.compat.thirst.ThirstCompatBridge;
 import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import com.aetherianartificer.townstead.hunger.NearbyItemSources;
-import com.aetherianartificer.townstead.hunger.VillagerEatingManager;
+import com.aetherianartificer.townstead.hunger.VillagerConsumptionManager;
 import com.aetherianartificer.townstead.storage.StorageSearchContext;
 import com.aetherianartificer.townstead.thirst.ThirstData;
-import com.aetherianartificer.townstead.thirst.VillagerDrinkingManager;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -104,7 +103,7 @@ public final class ThirstVillagerTicker {
         long dayTimeDelta = Math.max(0, dayTime - state.lastDayTime);
         state.lastDayTime = dayTime;
 
-        boolean thirstChanged = VillagerDrinkingManager.tickAndFinalize(self, needs);
+        boolean thirstChanged = VillagerConsumptionManager.tickAndFinalize(self, needs);
 
         int currentThirstLevel = needs.thirst();
         if (needs.drinkingMode()) {
@@ -161,8 +160,7 @@ public final class ThirstVillagerTicker {
                 if (t < threshold) {
                     long lastDrank = needs.lastDrankTime();
                     if ((gameTime - lastDrank) >= ThirstData.MIN_DRINK_INTERVAL
-                            && !VillagerDrinkingManager.isDrinking(self)
-                            && !VillagerEatingManager.isEating(self)) {
+                            && !VillagerConsumptionManager.isConsuming(self)) {
                         thirstChanged |= tryDrinkFromInventory(self, bridge);
                     }
                 }
@@ -224,7 +222,7 @@ public final class ThirstVillagerTicker {
         if (drinkSlot < 0) return false;
         ItemStack drink = inventory.getItem(drinkSlot);
         if (drink.isEmpty()) return false;
-        if (!VillagerDrinkingManager.startDrinking(self, drink)) return false;
+        if (!VillagerConsumptionManager.startConsuming(self, drink)) return false;
         ItemStack remainder = bridge.onDrinkConsumed(drink);
         if (remainder.isEmpty()) {
             drink.shrink(1);
