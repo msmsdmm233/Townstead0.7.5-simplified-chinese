@@ -31,6 +31,7 @@
     "LegacyImageButtonMixin",
     "accessor.AbstractDynamicScreenAccessor",
     "accessor.BlueprintScreenAccessor",
+    "accessor.ColorPickerWidgetAccessor",
     "accessor.InteractScreenAccessor",
     "client.FishingHookRendererMixin",
     "client.LivingEntityRendererEmoteMixin",

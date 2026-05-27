@@ -6,23 +6,32 @@ import com.aetherianartificer.townstead.origin.gene.GeneType;
 import com.google.gson.JsonObject;
 import net.minecraft.util.GsonHelper;
 
+import java.util.Locale;
+
 /**
- * A race's skin colour as a gradient between two RGB endpoints given in HTML hex
- * ({@code from} → {@code to}); a villager lands at a point along it (the position
- * is the villager's roll, wired in the render phase). Arbitrary colours, so any
- * tone works (warm browns, orc green, undead grey) with no privileged palette.
- * If {@code to} is omitted it defaults to {@code from} (a flat colour).
+ * A race's skin colour as a single {@code tint} (HTML hex) blended over MCA's exact
+ * melanin×hemoglobin villager skin, so the full vanilla skin gradient is preserved and merely
+ * shifted toward the race's palette. {@code blend} picks how:
+ * <ul>
+ *   <li>{@code multiply} (default) — darkens / hue-shifts; <b>white</b> is the identity, so
+ *       Overworlder ({@code tint:#FFFFFF}) renders pixel-exact vanilla and every origin runs
+ *       this same path.</li>
+ *   <li>{@code screen} — lightens / hue-shifts; <b>black</b> is the identity.</li>
+ *   <li>{@code overlay} — darkens below mid-grey, lightens above it; <b>#808080</b> is the
+ *       identity (one tint covers both directions).</li>
+ * </ul>
+ * Legacy {@code from}/{@code to} genes are read by their {@code from}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:skin_tone", "from":"#F0D5B5",
- * "to":"#4A3020" }}</p>
+ * <p>JSON: {@code { "type":"townstead_origins:skin_tone", "tint":"#8A8FA0", "blend":"multiply" }}</p>
  */
 public final class SkinToneGeneType implements GeneType {
 
     public static final String KEY = "townstead_origins:skin_tone";
 
-    public record Instance(int from, int to) implements GeneInstance {
+    /** Blend ordinals (shared with the skin-layer mixin): 0 multiply, 1 screen, 2 overlay. */
+    public record Instance(int tint, int blend) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
-        @Override public GeneDisplay display() { return GeneDisplay.color(from, to); }
+        @Override public GeneDisplay display() { return GeneDisplay.color(tint, blend); }
     }
 
     @Override
@@ -30,9 +39,19 @@ public final class SkinToneGeneType implements GeneType {
 
     @Override
     public GeneInstance parse(JsonObject json) {
-        int from = parseHex(GsonHelper.getAsString(json, "from", ""), 0xE8C6A2);
-        int to = json.has("to") ? parseHex(GsonHelper.getAsString(json, "to", ""), from) : from;
-        return new Instance(from, to);
+        String raw = json.has("tint")
+                ? GsonHelper.getAsString(json, "tint", "")
+                : GsonHelper.getAsString(json, "from", "");   // legacy gradient gene: tint by its 'from'
+        int tint = parseHex(raw, 0xFFFFFF);                   // default white = no tint (exact vanilla)
+        return new Instance(tint, parseBlend(GsonHelper.getAsString(json, "blend", "multiply")));
+    }
+
+    private static int parseBlend(String s) {
+        switch (s.toLowerCase(Locale.ROOT)) {
+            case "screen":  return 1;
+            case "overlay": return 2;
+            default:        return 0; // multiply
+        }
     }
 
     /** Parse {@code #RRGGBB} / {@code RRGGBB} / {@code #RGB}; fall back on anything malformed. */

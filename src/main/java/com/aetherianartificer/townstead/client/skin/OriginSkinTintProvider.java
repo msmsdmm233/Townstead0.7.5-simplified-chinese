@@ -5,16 +5,18 @@ import com.aetherianartificer.townstead.client.origin.OriginClientStore;
 import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
 import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
 import net.conczin.mca.entity.VillagerEntityMCA;
-import net.conczin.mca.entity.ai.Genetics;
 
 import java.util.OptionalInt;
 
 /**
  * Skin tint from a villager's applied origin: finds the origin's COLOR gene
- * ({@code skin_tone}) and lerps its from→to gradient by the villager's melanin
- * roll. All inputs are server-synced (the origin id, the gene's endpoints in the
- * catalog, MCA's melanin), so the colour is identical on every client. Villagers
- * with no applied origin (or no colour gene) keep MCA's native skin.
+ * ({@code skin_tone}) and returns its tint colour, which the skin-layer mixin
+ * MULTIPLIES over MCA's exact melanin×hemoglobin skin — preserving the full vanilla
+ * gradient and shifting it toward the race's palette. A white tint is the identity, so
+ * Overworlder (white) runs the very same path and renders pixel-exact vanilla; nothing
+ * is special-cased. All inputs are server-synced (origin id, the gene's tint in the
+ * catalog), so the colour is identical on every client. Villagers with no applied
+ * origin (or no colour gene) keep MCA's native skin.
  */
 public final class OriginSkinTintProvider implements SkinTintProvider {
 
@@ -27,20 +29,10 @@ public final class OriginSkinTintProvider implements SkinTintProvider {
         for (OriginCatalogEntry.Inherited inherited : origin.inheritedGenes()) {
             GeneCatalogEntry gene = OriginCatalogClient.gene(inherited.geneId());
             if (gene != null && gene.isColor()) {
-                float t = villager.getGenetics().getGene(Genetics.MELANIN);
-                return OptionalInt.of(lerp(gene.colorFrom(), gene.colorTo(), t));
+                // High byte = blend mode (the skin mixin unpacks it); low 24 = the tint RGB.
+                return OptionalInt.of((gene.blendMode() << 24) | (gene.colorFrom() & 0xFFFFFF));
             }
         }
         return OptionalInt.empty();
-    }
-
-    /** Linear RGB interpolation, t clamped to [0,1]. */
-    private static int lerp(int a, int b, float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
-        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
-        return ((int) (ar + (br - ar) * t) << 16)
-                | ((int) (ag + (bg - ag) * t) << 8)
-                | (int) (ab + (bb - ab) * t);
     }
 }

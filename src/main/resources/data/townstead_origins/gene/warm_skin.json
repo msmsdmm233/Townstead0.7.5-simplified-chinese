@@ -5,6 +5,5 @@
   "category": "Appearance",
   "dominance": "dominant",
   "locus": "townstead_origins:skin",
-  "from": "#F0D5B5",
-  "to": "#4A3020"
+  "tint": "#FFFFFF"
 }

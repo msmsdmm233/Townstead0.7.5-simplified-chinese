@@ -48,17 +48,22 @@ public record GeneCatalogEntry(
     /** For ATTACHMENT genes, the attachment id (rides in {@code targetId}). */
     public String attachmentId() { return targetId; }
 
-    /** COLOR gradient endpoints (RGB), parsed from {@code targetId} {@code "rrggbb-rrggbb"}. */
-    public int colorFrom() { return colorPart(0, 0xCFCFCF); }
-    public int colorTo()   { return colorPart(1, 0x4A4A4A); }
+    /**
+     * COLOR tint (RGB), parsed from {@code targetId} {@code "rrggbb-rrggbb"} (both parts equal —
+     * the gene carries one tint colour, multiplied over MCA's exact skin; white = unchanged).
+     */
+    public int colorFrom() { return colorPart(0, 0xFFFFFF); }
+    public int colorTo()   { return colorPart(1, colorFrom()); }
+
+    /** COLOR blend mode (rides in {@code amount}): 0 multiply/darken, 1 screen/lighten, 2 overlay/both. */
+    public int blendMode() { return Math.round(amount); }
 
     private int colorPart(int idx, int fallback) {
         if (targetId == null) return fallback;
-        int dash = targetId.indexOf('-');
-        if (dash < 0) return fallback;
-        String part = idx == 0 ? targetId.substring(0, dash) : targetId.substring(dash + 1);
+        String[] parts = targetId.split("-");
+        if (idx >= parts.length) return fallback;
         try {
-            return Integer.parseInt(part.trim(), 16) & 0xFFFFFF;
+            return Integer.parseInt(parts[idx].trim(), 16) & 0xFFFFFF;
         } catch (NumberFormatException e) {
             return fallback;
         }

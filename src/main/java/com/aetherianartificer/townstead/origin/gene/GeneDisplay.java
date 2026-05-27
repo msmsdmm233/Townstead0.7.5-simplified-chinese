@@ -26,10 +26,15 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
         return new GeneDisplay(Kind.RANGE, Math.min(lo, hi), Math.max(lo, hi), "", 0f);
     }
 
-    /** A skin-tone gradient between two RGB endpoints, packed as {@code "rrggbb-rrggbb"} in {@code targetId}. */
-    public static GeneDisplay color(int from, int to) {
-        String packed = String.format(java.util.Locale.ROOT, "%06x-%06x", from & 0xFFFFFF, to & 0xFFFFFF);
-        return new GeneDisplay(Kind.COLOR, 0f, 1f, packed, 0f);
+    /**
+     * A skin-tone tint colour blended over MCA's exact melanin×hemoglobin skin so the full vanilla
+     * gradient is preserved and shifted toward the race's palette. {@code targetId} packs the tint
+     * as {@code "rrggbb-rrggbb"} (both equal — the swatch is a flat tint); {@code amount} carries
+     * the blend ordinal (0 multiply, 1 screen, 2 overlay).
+     */
+    public static GeneDisplay color(int tint, int blend) {
+        String packed = String.format(java.util.Locale.ROOT, "%06x-%06x", tint & 0xFFFFFF, tint & 0xFFFFFF);
+        return new GeneDisplay(Kind.COLOR, 0f, 1f, packed, blend);
     }
 
     public static GeneDisplay influence(String targetId, float amount) {

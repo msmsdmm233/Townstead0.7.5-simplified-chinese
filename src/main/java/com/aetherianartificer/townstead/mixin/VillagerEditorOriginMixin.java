@@ -2,6 +2,9 @@ package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.client.gui.origin.OriginPicker;
 import com.aetherianartificer.townstead.client.origin.OriginClientStore;
+import com.aetherianartificer.townstead.client.skin.OriginSkinPickerTexture;
+import com.aetherianartificer.townstead.client.skin.SkinTintRegistry;
+import com.aetherianartificer.townstead.mixin.accessor.ColorPickerWidgetAccessor;
 import com.aetherianartificer.townstead.origin.GeneRange;
 import com.aetherianartificer.townstead.origin.Genome;
 import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
@@ -10,9 +13,13 @@ import com.aetherianartificer.townstead.origin.OriginRegistry;
 import com.aetherianartificer.townstead.origin.OriginSetC2SPayload;
 import net.conczin.mca.client.gui.DestinyScreen;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
+import net.conczin.mca.client.gui.widget.ColorPickerWidget;
+import net.conczin.mca.client.gui.widget.HorizontalColorPickerWidget;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -105,6 +112,10 @@ public abstract class VillagerEditorOriginMixin extends Screen {
         OriginClientStore.set(villager.getId(), townstead$baseOriginId);
         townstead$previewDirty = false;
 
+        // On the Body page, repaint MCA's skin color-picker square to the origin's tinted skin
+        // field so the picker is WYSIWYG with the rendered villager.
+        if ("body".equals(page)) townstead$recolorSkinPicker();
+
         if (!"origins".equals(page)) return;
 
         OriginPicker.Widgets ws = OriginPicker.build(
@@ -148,6 +159,9 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     @Unique
     private void townstead$applyOrigin(int target, String originId) {
         townstead$previewDirty = false;            // keep the preview; the revert hooks must not undo it
+        townstead$baseOriginId = originId;         // the applied origin is the new baseline, so page changes
+                                                   // (which reset the dummy to baseline) and the Body picker
+                                                   // both reflect it, not the origin the editor opened with
         townstead$sendOriginSet(target, originId); // sets Life.originId on the real villager
         syncVillagerData();                        // commits the dummy's previewed genes by UUID (WYSIWYG)
     }
@@ -158,6 +172,23 @@ public abstract class VillagerEditorOriginMixin extends Screen {
         OriginGenes.restore(villager, townstead$geneSnapshot);
         OriginClientStore.set(villager.getId(), townstead$baseOriginId);   // back to the real origin's tint
         townstead$previewDirty = false;
+    }
+
+    /** Repaint MCA's Body skin-picker square (the one using villager_skin.png) to this origin's tinted skin. */
+    @Unique
+    private void townstead$recolorSkinPicker() {
+        java.util.OptionalInt tint = SkinTintRegistry.resolve(villager);
+        if (tint.isEmpty()) return;
+        ResourceLocation tex = OriginSkinPickerTexture.forTint(tint.getAsInt());
+        for (GuiEventListener child : children()) {
+            // The Body page has two 2-D pickers (skin + hair) and 1-D HSV sliders (a subclass);
+            // the skin one is the non-subclass ColorPickerWidget still bound to villager_skin.png.
+            if (child instanceof ColorPickerWidget picker
+                    && !(child instanceof HorizontalColorPickerWidget)
+                    && OriginSkinPickerTexture.isSkinPickerTexture(((ColorPickerWidgetAccessor) picker).townstead$getTexture())) {
+                ((ColorPickerWidgetAccessor) picker).townstead$setTexture(tex);
+            }
+        }
     }
 
     @Unique
