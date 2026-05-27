@@ -29,8 +29,12 @@ public final class OriginSkinTintProvider implements SkinTintProvider {
         for (OriginCatalogEntry.Inherited inherited : origin.inheritedGenes()) {
             GeneCatalogEntry gene = OriginCatalogClient.gene(inherited.geneId());
             if (gene != null && gene.isColor()) {
-                // High byte = blend mode (the skin mixin unpacks it); low 24 = the tint RGB.
-                return OptionalInt.of((gene.blendMode() << 24) | (gene.colorFrom() & 0xFFFFFF));
+                int mode = gene.blendMode();
+                // Fold strength into the tint (lerp toward the mode's identity); the blend is linear
+                // in the tint, so this equals applying the blend at partial strength.
+                int eff = SkinBlend.applyStrength(gene.colorFrom(), mode, gene.blendStrength());
+                // High byte = blend mode (the skin mixin unpacks it); low 24 = the effective tint RGB.
+                return OptionalInt.of((mode << 24) | (eff & 0xFFFFFF));
             }
         }
         return OptionalInt.empty();

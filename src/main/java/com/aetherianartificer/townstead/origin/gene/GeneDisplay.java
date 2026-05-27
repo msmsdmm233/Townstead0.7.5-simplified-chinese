@@ -30,11 +30,12 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
      * A skin-tone tint colour blended over MCA's exact melanin×hemoglobin skin so the full vanilla
      * gradient is preserved and shifted toward the race's palette. {@code targetId} packs the tint
      * as {@code "rrggbb-rrggbb"} (both equal — the swatch is a flat tint); {@code amount} carries
-     * the blend ordinal (0 multiply, 1 screen, 2 overlay).
+     * the blend ordinal (0 multiply, 1 screen, 2 overlay); {@code min} carries the blend strength
+     * (0–1, how strongly the tint is applied).
      */
-    public static GeneDisplay color(int tint, int blend) {
+    public static GeneDisplay color(int tint, int blend, float strength) {
         String packed = String.format(java.util.Locale.ROOT, "%06x-%06x", tint & 0xFFFFFF, tint & 0xFFFFFF);
-        return new GeneDisplay(Kind.COLOR, 0f, 1f, packed, blend);
+        return new GeneDisplay(Kind.COLOR, Math.max(0f, Math.min(1f, strength)), 1f, packed, blend);
     }
 
     public static GeneDisplay influence(String targetId, float amount) {

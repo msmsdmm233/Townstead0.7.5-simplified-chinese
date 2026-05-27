@@ -26,4 +26,28 @@ public final class SkinBlend {
         int b = channel(base & 0xFF, tint & 0xFF, mode);
         return (r << 16) | (g << 8) | b;
     }
+
+    /** The no-op tint for a mode: white (multiply), black (screen), mid-grey (overlay). */
+    public static int identity(int mode) {
+        switch (mode) {
+            case 1:  return 0x000000;
+            case 2:  return 0x808080;
+            default: return 0xFFFFFF;
+        }
+    }
+
+    /**
+     * Scale a tint's effect by {@code strength} (0–1). Every blend is linear in the tint channel,
+     * so lerping the tint toward the mode's identity is exactly equivalent to lerping the blended
+     * result toward the base — letting strength be folded into the tint with no change to the blend.
+     */
+    public static int applyStrength(int tint, int mode, float strength) {
+        float s = Math.max(0f, Math.min(1f, strength));
+        if (s >= 1f) return tint & 0xFFFFFF;
+        int id = identity(mode);
+        int r = Math.round(((id >> 16) & 0xFF) + (((tint >> 16) & 0xFF) - ((id >> 16) & 0xFF)) * s);
+        int g = Math.round(((id >> 8) & 0xFF) + (((tint >> 8) & 0xFF) - ((id >> 8) & 0xFF)) * s);
+        int b = Math.round((id & 0xFF) + ((tint & 0xFF) - (id & 0xFF)) * s);
+        return (r << 16) | (g << 8) | b;
+    }
 }

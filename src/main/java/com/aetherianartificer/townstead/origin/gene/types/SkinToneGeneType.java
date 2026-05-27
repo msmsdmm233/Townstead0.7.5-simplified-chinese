@@ -20,18 +20,20 @@ import java.util.Locale;
  *   <li>{@code overlay} — darkens below mid-grey, lightens above it; <b>#808080</b> is the
  *       identity (one tint covers both directions).</li>
  * </ul>
- * Legacy {@code from}/{@code to} genes are read by their {@code from}.
+ * {@code strength} (0–1, default 1) scales how strongly the tint applies. Legacy {@code from}/
+ * {@code to} genes are read by their {@code from}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:skin_tone", "tint":"#8A8FA0", "blend":"multiply" }}</p>
+ * <p>JSON: {@code { "type":"townstead_origins:skin_tone", "tint":"#8A8FA0", "blend":"multiply",
+ * "strength":1.0 }}</p>
  */
 public final class SkinToneGeneType implements GeneType {
 
     public static final String KEY = "townstead_origins:skin_tone";
 
     /** Blend ordinals (shared with the skin-layer mixin): 0 multiply, 1 screen, 2 overlay. */
-    public record Instance(int tint, int blend) implements GeneInstance {
+    public record Instance(int tint, int blend, float strength) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
-        @Override public GeneDisplay display() { return GeneDisplay.color(tint, blend); }
+        @Override public GeneDisplay display() { return GeneDisplay.color(tint, blend, strength); }
     }
 
     @Override
@@ -43,7 +45,9 @@ public final class SkinToneGeneType implements GeneType {
                 ? GsonHelper.getAsString(json, "tint", "")
                 : GsonHelper.getAsString(json, "from", "");   // legacy gradient gene: tint by its 'from'
         int tint = parseHex(raw, 0xFFFFFF);                   // default white = no tint (exact vanilla)
-        return new Instance(tint, parseBlend(GsonHelper.getAsString(json, "blend", "multiply")));
+        int blend = parseBlend(GsonHelper.getAsString(json, "blend", "multiply"));
+        float strength = GsonHelper.getAsFloat(json, "strength", 1.0f);   // how strongly the tint applies (0–1)
+        return new Instance(tint, blend, strength);
     }
 
     private static int parseBlend(String s) {

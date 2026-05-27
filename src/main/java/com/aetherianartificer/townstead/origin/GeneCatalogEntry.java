@@ -58,6 +58,9 @@ public record GeneCatalogEntry(
     /** COLOR blend mode (rides in {@code amount}): 0 multiply/darken, 1 screen/lighten, 2 overlay/both. */
     public int blendMode() { return Math.round(amount); }
 
+    /** COLOR blend strength 0–1 (rides in {@code min}): how strongly the tint is applied. */
+    public float blendStrength() { return Math.max(0f, Math.min(1f, min)); }
+
     private int colorPart(int idx, int fallback) {
         if (targetId == null) return fallback;
         String[] parts = targetId.split("-");
