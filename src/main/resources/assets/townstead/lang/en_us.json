@@ -1047,7 +1047,7 @@
   "townstead.guide.entry.integrations.butchery.page5.body": "$(l)Apprentice$(): specialty raw cuts.$(br2)$(l)Journeyman$(): sausages, minced meats, hides.$(br2)$(l)Expert$(): cooked specialty cuts and organs.$(br2)$(l)Master$(): cooked ham, blood sausage, leg of lamb.",
   "townstead.guide.entry.integrations.starcatcher": "Starcatcher",
   "townstead.guide.entry.integrations.starcatcher.page1.title": "Fishing Rods",
-  "townstead.guide.entry.integrations.starcatcher.page1.body": "Fishermen can use Starcatcher rods as fishing tools. They still use normal fishing loot, so they can catch items that Starcatcher or other mods add to the regular fishing loot table.",
+  "townstead.guide.entry.integrations.starcatcher.page1.body": "Fishermen can equip Starcatcher rods and reel in Starcatcher fish from their registered catch pool, respecting biome, elevation, fluid, and bait restrictions just like a player. They skip the minigame and don't earn golden, perfect, treasure, or tournament rewards. If nothing in the Starcatcher pool is legal at the cast location, the villager falls back to normal vanilla fishing loot.",
   "townstead.guide.entry.integrations.travelers_titles": "Traveler's Titles",
   "townstead.guide.entry.integrations.travelers_titles.page1.title": "Village Titles",
   "townstead.guide.entry.integrations.travelers_titles.page1.body": "When Traveler's Titles is installed, entering a village can show a title based on that village's Community Spirit. The title can also show the village population.",
