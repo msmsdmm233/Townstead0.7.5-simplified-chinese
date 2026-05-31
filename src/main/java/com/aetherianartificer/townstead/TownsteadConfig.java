@@ -104,6 +104,7 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.ConfigValue<String> CALENDAR_TIME_MODE;
     public static final ModConfigSpec.ConfigValue<String> VILLAGER_AGING_MODE;
     public static final ModConfigSpec.DoubleValue AGING_SCALE;
+    public static final ModConfigSpec.BooleanValue DISABLE_VILLAGER_AGING;
     public static final ModConfigSpec.BooleanValue CALENDAR_RANDOMIZE_START;
     public static final ModConfigSpec.IntValue CALENDAR_START_YEAR_MIN;
     public static final ModConfigSpec.IntValue CALENDAR_START_YEAR_MAX;
@@ -185,6 +186,7 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.ConfigValue<String> CALENDAR_TIME_MODE;
     public static final ForgeConfigSpec.ConfigValue<String> VILLAGER_AGING_MODE;
     public static final ForgeConfigSpec.DoubleValue AGING_SCALE;
+    public static final ForgeConfigSpec.BooleanValue DISABLE_VILLAGER_AGING;
     public static final ForgeConfigSpec.BooleanValue CALENDAR_RANDOMIZE_START;
     public static final ForgeConfigSpec.IntValue CALENDAR_START_YEAR_MIN;
     public static final ForgeConfigSpec.IntValue CALENDAR_START_YEAR_MAX;
@@ -561,6 +563,11 @@ public final class TownsteadConfig {
                          "In default aging-mode these are played game-days; in real_clock mode aging tracks",
                          "real-world time instead.")
                 .defineInRange("agingScale", 8.0, 0.01, 100000.0);
+        DISABLE_VILLAGER_AGING = b
+                .translation("townstead.configuration.calendar.disableVillagerAging")
+                .comment("When true, villagers hold their current life stage and apparent age, and the",
+                         "away-time age catch-up is skipped. Animals still grow normally while loaded.")
+                .define("disableVillagerAging", false);
         CALENDAR_RANDOMIZE_START = b
                 .translation("townstead.configuration.calendar.randomizeStart")
                 .comment("APPLIES ONLY TO NEW WORLDS. Editing this on an existing save has no effect.",
@@ -746,6 +753,11 @@ public final class TownsteadConfig {
     /** Game-days per narrative year — the species-neutral aging rate (see agingScale config). */
     public static double getAgingScale() {
         return AGING_SCALE.get();
+    }
+
+    /** True when villagers should never change life stage and away-time age catch-up is suppressed. */
+    public static boolean isVillagerAgingDisabled() {
+        return DISABLE_VILLAGER_AGING.get();
     }
 
     public static boolean isCalendarRandomizeStartEnabled() {

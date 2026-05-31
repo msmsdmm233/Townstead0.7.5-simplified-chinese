@@ -165,6 +165,8 @@
   "townstead.configuration.calendar.villagerAgingMode.tooltip": "How aging couples to real time (same aging rate either way; see Aging Scale). default = aging advances only while playing (RPG-style, default). real_clock = aging tracks real-world time and villagers age while you're away (pairs with Time Mode = real_clock).",
   "townstead.configuration.calendar.agingScale": "Aging Scale (Days / Narrative Year)",
   "townstead.configuration.calendar.agingScale.tooltip": "Game-days per narrative (\"dog-years\") year — the single, species-neutral aging rate. Every villager ages 1 narrative year per this many game-days; longer-lived races author more narrative years and so take proportionally longer. Calendar-independent. Default 8.0 (a 90-year human life ~720 days). Higher = slower aging. Played game-days in default mode; tracks real time in real_clock mode.",
+  "townstead.configuration.calendar.disableVillagerAging": "Villagers Do Not Age",
+  "townstead.configuration.calendar.disableVillagerAging.tooltip": "Villagers stop aging and hold their current life stage. Animals are unaffected.",
   "townstead.calendar.inspector.today": "Today: %s %s, %s",
   "townstead.calendar.inspector.today_seasoned": "Today: %s %s, %s (%s)",
   "townstead.calendar.inspector.born_with_age": "Born %1$s (age %2$s)",
