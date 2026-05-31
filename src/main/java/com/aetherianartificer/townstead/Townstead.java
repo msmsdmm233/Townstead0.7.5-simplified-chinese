@@ -276,6 +276,42 @@ public class Townstead {
     public static final Supplier<Item> CALENDAR_ITEM = ITEMS.register("calendar",
             () -> new BlockItem(CALENDAR_BLOCK.get(), new Item.Properties()));
 
+    // ── Immortality / mortality potions ──
+    // Brewed like vanilla potions (Awkward + Enchanted Golden Apple -> Immortality;
+    // Immortality + Fermented Spider Eye -> Mortality) and thrown as splash potions
+    // at MCA villagers. The marker effect (LifePotionEffect) flips the immortality flag.
+
+    private static final DeferredRegister<net.minecraft.world.effect.MobEffect> MOB_EFFECTS =
+            DeferredRegister.create(net.minecraft.core.registries.Registries.MOB_EFFECT, MOD_ID);
+    private static final DeferredRegister<net.minecraft.world.item.alchemy.Potion> POTIONS =
+            DeferredRegister.create(net.minecraft.core.registries.Registries.POTION, MOD_ID);
+
+    //? if neoforge {
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.effect.MobEffect, net.minecraft.world.effect.MobEffect> IMMORTALITY_EFFECT =
+            MOB_EFFECTS.register("immortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(true, 0xE8C547));
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.effect.MobEffect, net.minecraft.world.effect.MobEffect> MORTALITY_EFFECT =
+            MOB_EFFECTS.register("mortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(false, 0x9A9A9A));
+
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.item.alchemy.Potion, net.minecraft.world.item.alchemy.Potion> IMMORTALITY_POTION =
+            POTIONS.register("immortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_immortality",
+                    new net.minecraft.world.effect.MobEffectInstance(IMMORTALITY_EFFECT, 1)));
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.item.alchemy.Potion, net.minecraft.world.item.alchemy.Potion> MORTALITY_POTION =
+            POTIONS.register("mortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_mortality",
+                    new net.minecraft.world.effect.MobEffectInstance(MORTALITY_EFFECT, 1)));
+    //?} else {
+    /*public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.effect.MobEffect> IMMORTALITY_EFFECT =
+            MOB_EFFECTS.register("immortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(true, 0xE8C547));
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.effect.MobEffect> MORTALITY_EFFECT =
+            MOB_EFFECTS.register("mortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(false, 0x9A9A9A));
+
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.alchemy.Potion> IMMORTALITY_POTION =
+            POTIONS.register("immortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_immortality",
+                    new net.minecraft.world.effect.MobEffectInstance(IMMORTALITY_EFFECT.get(), 1)));
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.alchemy.Potion> MORTALITY_POTION =
+            POTIONS.register("mortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_mortality",
+                    new net.minecraft.world.effect.MobEffectInstance(MORTALITY_EFFECT.get(), 1)));
+    *///?}
+
     public static final Supplier<BlockEntityType<FieldPostBlockEntity>> FIELD_POST_BE =
             BLOCK_ENTITY_TYPES.register("field_post",
                     () -> {
@@ -304,8 +340,41 @@ public class Townstead {
                                     output.accept(variant.get());
                                 }
                                 output.accept(CALENDAR_ITEM.get());
+                                townstead$addLifePotions(output);
                             })
                             .build());
+
+    /** Adds the drinkable + splash variants of both life potions to the Townstead tab. */
+    private static void townstead$addLifePotions(net.minecraft.world.item.CreativeModeTab.Output output) {
+        //? if neoforge {
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION, IMMORTALITY_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.SPLASH_POTION, IMMORTALITY_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION, MORTALITY_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.SPLASH_POTION, MORTALITY_POTION));
+        //?} else {
+        /*output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION), IMMORTALITY_POTION.get()));
+        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SPLASH_POTION), IMMORTALITY_POTION.get()));
+        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION), MORTALITY_POTION.get()));
+        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SPLASH_POTION), MORTALITY_POTION.get()));
+        *///?}
+    }
+
+    //? if forge {
+    /*private static void townstead$registerLifeBrewing() {
+        try {
+            java.lang.reflect.Method addMix = net.minecraftforge.fml.util.ObfuscationReflectionHelper.findMethod(
+                    net.minecraft.world.item.alchemy.PotionBrewing.class, "m_43513_",
+                    net.minecraft.world.item.alchemy.Potion.class, Item.class,
+                    net.minecraft.world.item.alchemy.Potion.class);
+            addMix.invoke(null, net.minecraft.world.item.alchemy.Potions.AWKWARD,
+                    net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE, IMMORTALITY_POTION.get());
+            addMix.invoke(null, IMMORTALITY_POTION.get(),
+                    net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, MORTALITY_POTION.get());
+        } catch (Exception e) {
+            LOGGER.error("Failed to register Townstead potion brewing recipes", e);
+        }
+    }
+    *///?}
 
     //? if neoforge {
     public static final Supplier<MenuType<FieldPostMenu>> FIELD_POST_MENU =
@@ -323,6 +392,8 @@ public class Townstead {
         PROFESSIONS.register(modBus);
         BLOCKS.register(modBus);
         ITEMS.register(modBus);
+        MOB_EFFECTS.register(modBus);
+        POTIONS.register(modBus);
         BLOCK_ENTITY_TYPES.register(modBus);
         MENU_TYPES.register(modBus);
         CREATIVE_MODE_TABS.register(modBus);
@@ -363,6 +434,24 @@ public class Townstead {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent e) -> {
             if (e.getEntity() instanceof VillagerEntityMCA villager && !villager.level().isClientSide) {
                 com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(villager);
+            }
+        });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.brewing.RegisterBrewingRecipesEvent e) -> {
+            net.minecraft.world.item.alchemy.PotionBrewing.Builder b = e.getBuilder();
+            b.addMix(net.minecraft.world.item.alchemy.Potions.AWKWARD,
+                    net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE, IMMORTALITY_POTION);
+            b.addMix(IMMORTALITY_POTION,
+                    net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, MORTALITY_POTION);
+        });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
+            if (e.getTarget() instanceof VillagerEntityMCA villager
+                    && com.aetherianartificer.townstead.item.VillagerPotionFeeding.isFeedable(e.getItemStack())) {
+                e.setCanceled(true);
+                e.setCancellationResult(net.minecraft.world.InteractionResult.sidedSuccess(villager.level().isClientSide));
+                if (!villager.level().isClientSide) {
+                    com.aetherianartificer.townstead.item.VillagerPotionFeeding.feed(
+                            e.getEntity(), villager, e.getItemStack(), e.getHand());
+                }
             }
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
@@ -440,6 +529,8 @@ public class Townstead {
         PROFESSIONS.register(modBus);
         BLOCKS.register(modBus);
         ITEMS.register(modBus);
+        MOB_EFFECTS.register(modBus);
+        POTIONS.register(modBus);
         BLOCK_ENTITY_TYPES.register(modBus);
         MENU_TYPES.register(modBus);
         CREATIVE_MODE_TABS.register(modBus);
@@ -483,6 +574,17 @@ public class Townstead {
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.MobSpawnEvent.FinalizeSpawn e) -> {
             if (e.getEntity() instanceof VillagerEntityMCA villager && !villager.level().isClientSide) {
                 com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(villager);
+            }
+        });
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
+            if (e.getTarget() instanceof VillagerEntityMCA villager
+                    && com.aetherianartificer.townstead.item.VillagerPotionFeeding.isFeedable(e.getItemStack())) {
+                e.setCanceled(true);
+                e.setCancellationResult(net.minecraft.world.InteractionResult.sidedSuccess(villager.level().isClientSide));
+                if (!villager.level().isClientSide) {
+                    com.aetherianartificer.townstead.item.VillagerPotionFeeding.feed(
+                            e.getEntity(), villager, e.getItemStack(), e.getHand());
+                }
             }
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
@@ -612,6 +714,9 @@ public class Townstead {
             }
         });
         event.enqueueWork(RusticDelightThirstCompat::register);
+        //? if forge {
+        /*event.enqueueWork(Townstead::townstead$registerLifeBrewing);
+        *///?}
         event.enqueueWork(() -> {
             com.aetherianartificer.townstead.reaction.backend.ReactionBackends.register(
                     new com.aetherianartificer.townstead.reaction.backend.EmotecraftReactionBackend());
@@ -644,13 +749,17 @@ public class Townstead {
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.ChronotypeGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
-                    new com.aetherianartificer.townstead.origin.gene.types.LifespanGeneType());
+                    new com.aetherianartificer.townstead.origin.gene.types.LifeCycleGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.AttributeGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.SkinToneGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.AttachmentGeneType());
+
+            // Trait effect palette (data-pack traits compose these; see TraitJsonLoader)
+            com.aetherianartificer.townstead.origin.trait.effect.TraitEffectTypes.register(
+                    new com.aetherianartificer.townstead.origin.trait.effect.types.SetImmortalEffectType());
         });
     }
 
@@ -665,6 +774,7 @@ public class Townstead {
         event.addListener(new com.aetherianartificer.townstead.origin.HeritageJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.OriginJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.gene.GeneJsonLoader());
+        event.addListener(new com.aetherianartificer.townstead.origin.trait.TraitJsonLoader());
         com.aetherianartificer.townstead.farming.CropProductResolver.invalidate();
     }
 
@@ -1149,6 +1259,11 @@ public class Townstead {
                 com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload.STREAM_CODEC,
                 this::handleVillagerLifeSync
         );
+        registrar.playToServer(
+                com.aetherianartificer.townstead.calendar.VillagerLifeRequestC2SPayload.TYPE,
+                com.aetherianartificer.townstead.calendar.VillagerLifeRequestC2SPayload.STREAM_CODEC,
+                this::handleVillagerLifeRequest
+        );
         registrar.playToClient(
                 com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload.TYPE,
                 com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload.STREAM_CODEC,
@@ -1209,6 +1324,24 @@ public class Townstead {
         context.enqueueWork(() -> com.aetherianartificer.townstead.calendar.LifeClientStore.setFrom(payload));
     }
 
+    private void handleVillagerLifeRequest(
+            com.aetherianartificer.townstead.calendar.VillagerLifeRequestC2SPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sp)) return;
+            VillagerEntityMCA villager = townstead$findVillager(sp.getServer(), payload.villagerUuid());
+            if (villager == null) return;
+            net.minecraft.server.MinecraftServer server = villager.getServer();
+            if (server != null) {
+                com.aetherianartificer.townstead.calendar.VillagerLifeStamper.ensureStamped(villager, server);
+            }
+            com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload sync = townstead$lifeSync(villager);
+            // Re-key to the editor's preview entity so its client-side lookups match.
+            if (sync != null) PacketDistributor.sendToPlayer(sp, sync.withEntityId(payload.previewEntityId()));
+        });
+    }
+
     private void handleOriginSet(
             com.aetherianartificer.townstead.origin.OriginSetC2SPayload payload,
             IPayloadContext context
@@ -1225,6 +1358,13 @@ public class Townstead {
             if (result.targetId() != com.aetherianartificer.townstead.origin.OriginSetC2SPayload.SELF) {
                 Entity tracked = sp.serverLevel().getEntity(result.targetId());
                 if (tracked != null) PacketDistributor.sendToPlayersTrackingEntity(tracked, sync);
+            } else {
+                // Self-origin change: also re-key by the player's network id so their own
+                // model (sent to themselves) and bystanders' views (tracking sync) re-tint.
+                com.aetherianartificer.townstead.origin.OriginSyncS2CPayload entitySync =
+                        new com.aetherianartificer.townstead.origin.OriginSyncS2CPayload(sp.getId(), result.originId());
+                PacketDistributor.sendToPlayer(sp, entitySync);
+                PacketDistributor.sendToPlayersTrackingEntity(sp, entitySync);
             }
         });
     }
@@ -2053,7 +2193,32 @@ public class Townstead {
 
     private void onStartTracking(PlayerEvent.StartTracking event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+
+        // Tracked player: send their origin keyed by network id so the observer's
+        // skin-tint layer can paint their genetics model. Players don't receive the
+        // villager life/needs syncs that follow.
+        if (event.getTarget() instanceof ServerPlayer trackedPlayer) {
+            com.aetherianartificer.townstead.origin.OriginSyncS2CPayload pSync =
+                    new com.aetherianartificer.townstead.origin.OriginSyncS2CPayload(
+                            trackedPlayer.getId(),
+                            com.aetherianartificer.townstead.origin.PlayerOrigin.getOriginId(trackedPlayer));
+            //? if neoforge {
+            PacketDistributor.sendToPlayer(sp, pSync);
+            //?} else if forge {
+            /*TownsteadNetwork.sendToPlayer(sp, pSync);
+            *///?}
+            return;
+        }
+
         if (!(event.getTarget() instanceof VillagerEntityMCA villager)) return;
+
+        // Make sure stage durations are rolled and a birth is stamped before the
+        // life sync below is built, so the client snapshot is never empty when the
+        // player can reach the villager's editor.
+        net.minecraft.server.MinecraftServer trackingServer = villager.getServer();
+        if (trackingServer != null) {
+            com.aetherianartificer.townstead.calendar.VillagerLifeStamper.ensureStamped(villager, trackingServer);
+        }
 
         //? if neoforge {
         TownsteadVillager state = TownsteadVillagers.get(villager);
@@ -2237,8 +2402,9 @@ public class Townstead {
         if (life == null) return null;
         long birthDay = com.aetherianartificer.townstead.calendar.LifeData.getBirthWorldDay(life);
         boolean stamped = com.aetherianartificer.townstead.calendar.LifeData.isStamped(life);
+        long lifeShift = com.aetherianartificer.townstead.calendar.TownsteadCalendar.lifeEpochShift(server);
         com.aetherianartificer.townstead.calendar.CalendarDate birth =
-                com.aetherianartificer.townstead.calendar.TownsteadCalendar.dateOf(server, birthDay);
+                com.aetherianartificer.townstead.calendar.TownsteadCalendar.dateOf(server, birthDay + lifeShift);
         int ageYears = com.aetherianartificer.townstead.calendar.TownsteadCalendar.ageYears(server, villager);
         com.aetherianartificer.townstead.calendar.CalendarProfile profile =
                 com.aetherianartificer.townstead.calendar.TownsteadCalendar.activeProfile(server);
@@ -2250,10 +2416,130 @@ public class Townstead {
                 ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(
                         birthYearMonths.get(birth.monthIndex() - 1).commonName())
                 : new String[] { "", "" };
+        com.aetherianartificer.townstead.villager.TownsteadVillager.Life lifeState =
+                com.aetherianartificer.townstead.villager.TownsteadVillagers.get(villager).life();
+        // Celebrated birthday (month/day) is decoupled from birthWorldDay/age: if set,
+        // it overrides the age-derived month/day in the display. The year stays the
+        // age-derived one (it's not shown anyway).
+        int birthMonthIndex = birth.monthIndex();
+        int birthDayOfMonth = birth.dayOfMonth();
+        if (lifeState.hasCelebratedBirthday()) {
+            birthMonthIndex = lifeState.birthMonth();
+            birthDayOfMonth = lifeState.birthDay();
+            java.util.List<com.aetherianartificer.townstead.calendar.MonthDef> yMonths =
+                    profile != null ? profile.monthsForYear(birth.year()) : java.util.List.of();
+            if (profile != null && birthMonthIndex >= 1 && birthMonthIndex <= yMonths.size()) {
+                month = com.aetherianartificer.townstead.calendar.ComponentSync.extract(
+                        yMonths.get(birthMonthIndex - 1).commonName());
+            }
+        }
+        boolean isSenior = lifeState.isSenior();
+        int seniorPermil = isSenior
+                ? com.aetherianartificer.townstead.origin.LifeStageProgression.seniorProgressPermil(villager)
+                : 0;
+
+        long today = com.aetherianartificer.townstead.calendar.TownsteadCalendar.lifeDay(server);
+        int bioAgeDays = (int) Math.max(0L, today - birthDay);
+        boolean immortal = lifeState.immortal()
+                || com.aetherianartificer.townstead.origin.trait.TraitEffects.isImmortal(villager);
+
+        net.minecraft.resources.ResourceLocation originId =
+                net.minecraft.resources.ResourceLocation.tryParse(lifeState.originId());
+        if (originId == null) originId = com.aetherianartificer.townstead.origin.OriginRegistry.DEFAULT_ID;
+        com.aetherianartificer.townstead.origin.LifeCycle cycle =
+                com.aetherianartificer.townstead.origin.OriginRegistry.effectiveLifeCycle(originId);
+
+        int[] stageDays;
+        String[] stageKeys;
+        String[] stageFallbacks;
+        float[] stageScales;
+        int[] stageModelAges;
+        float[] stageNarrativeMin;
+        float[] stageNarrativeMax;
+        int currentStageIndex = -1;
+        int seniorStageIndex = -1;
+        float narrativeAge = 0f;
+        // Apparent-years per game-day. When a cycle has no explicit narrative_age,
+        // apparent age derives as bioAgeDays * narrativeRate (the inverse of the
+        // spawn-time aging scale). Synced so the client matches without bands.
+        boolean derivesNarrative = cycle != null && !cycle.isEmpty() && cycle.derivesNarrative();
+        float narrativeRate = derivesNarrative
+                ? 1f / Math.max(0.0001f, com.aetherianartificer.townstead.origin.OriginSpawnHandler.agingScale(server))
+                : 0f;
+        if (cycle != null && !cycle.isEmpty()
+                && lifeState.hasStageDays() && lifeState.stageDaysLength() == cycle.size()) {
+            stageDays = lifeState.stageDays();
+            int n = cycle.size();
+            stageKeys = new String[n];
+            stageFallbacks = new String[n];
+            stageScales = new float[n];
+            stageModelAges = new int[n];
+            stageNarrativeMin = new float[n];
+            stageNarrativeMax = new float[n];
+            for (int i = 0; i < n; i++) {
+                String[] parts = com.aetherianartificer.townstead.calendar.ComponentSync.extract(
+                        cycle.stageAt(i).label());
+                stageKeys[i] = parts[0];
+                stageFallbacks[i] = parts[1];
+                stageScales[i] = cycle.stageAt(i).scale();
+                stageModelAges[i] = com.aetherianartificer.townstead.origin.LifeStageProgression
+                        .representativeMcaAge(cycle.stageAt(i).presentsAs());
+                stageNarrativeMin[i] = cycle.stageAt(i).narrativeStart();
+                stageNarrativeMax[i] = cycle.stageAt(i).narrativeEnd();
+                if (seniorStageIndex < 0
+                        && cycle.stageAt(i).presentsAs() == com.aetherianartificer.townstead.origin.CanonicalStage.SENIOR) {
+                    seniorStageIndex = i;
+                }
+            }
+            if (immortal && !lifeState.currentStageId().isEmpty()) {
+                // Immortal: report the frozen stage, not the calendar-derived one.
+                for (int i = 0; i < cycle.size(); i++) {
+                    if (cycle.stageAt(i).id().equals(lifeState.currentStageId())) {
+                        currentStageIndex = i;
+                        break;
+                    }
+                }
+                if (currentStageIndex >= 0) {
+                    // Immortal frozen: midpoint of the frozen stage's day-span,
+                    // derived; or the authored band midpoint for override cycles.
+                    if (derivesNarrative) {
+                        long before = com.aetherianartificer.townstead.origin.LifeStageResolver
+                                .cumulativeDaysBefore(stageDays, currentStageIndex);
+                        long mid = before + Math.max(1, stageDays[currentStageIndex]) / 2L;
+                        narrativeAge = mid * narrativeRate;
+                    } else {
+                        narrativeAge = cycle.stageAt(currentStageIndex).narrativeAgeAt(0.5f);
+                    }
+                }
+            } else {
+                com.aetherianartificer.townstead.origin.LifeStageResolver.Resolved resolved =
+                        com.aetherianartificer.townstead.origin.LifeStageResolver.resolve(
+                                cycle, stageDays, birthDay, today);
+                if (resolved != null) {
+                    currentStageIndex = resolved.stageIndex();
+                    narrativeAge = derivesNarrative
+                            ? bioAgeDays * narrativeRate
+                            : resolved.stage().narrativeAgeAt(resolved.deltaInStage());
+                }
+            }
+        } else {
+            stageDays = new int[0];
+            stageKeys = new String[0];
+            stageFallbacks = new String[0];
+            stageScales = new float[0];
+            stageModelAges = new int[0];
+            stageNarrativeMin = new float[0];
+            stageNarrativeMax = new float[0];
+        }
+
         return new com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload(
                 villager.getId(),
-                birth.year(), birth.monthIndex(), birth.dayOfMonth(),
-                month[0], month[1], ageYears, stamped
+                birth.year(), birthMonthIndex, birthDayOfMonth,
+                month[0], month[1], ageYears, stamped,
+                isSenior, seniorPermil,
+                bioAgeDays, immortal, currentStageIndex,
+                stageDays, stageKeys, stageFallbacks, narrativeAge, stageScales, stageModelAges,
+                stageNarrativeMin, stageNarrativeMax, narrativeRate, seniorStageIndex
         );
     }
 
@@ -2297,17 +2583,23 @@ public class Townstead {
                     com.aetherianartificer.townstead.origin.OriginCatalog.build();
             com.aetherianartificer.townstead.origin.OriginCatalogSyncPayload catalog =
                     new com.aetherianartificer.townstead.origin.OriginCatalogSyncPayload(
-                            originSnap.origins(), originSnap.genes());
+                            originSnap.origins(), originSnap.genes(), originSnap.traits());
+            String selfOriginId = com.aetherianartificer.townstead.origin.PlayerOrigin.getOriginId(sp);
             com.aetherianartificer.townstead.origin.OriginSyncS2CPayload self =
                     new com.aetherianartificer.townstead.origin.OriginSyncS2CPayload(
-                            com.aetherianartificer.townstead.origin.OriginSetC2SPayload.SELF,
-                            com.aetherianartificer.townstead.origin.PlayerOrigin.getOriginId(sp));
+                            com.aetherianartificer.townstead.origin.OriginSetC2SPayload.SELF, selfOriginId);
+            // Also keyed by the player's network id so the skin-tint layer can paint their
+            // own genetics model (the SELF entry is only used by the editor's picker).
+            com.aetherianartificer.townstead.origin.OriginSyncS2CPayload selfEntity =
+                    new com.aetherianartificer.townstead.origin.OriginSyncS2CPayload(sp.getId(), selfOriginId);
             //? if neoforge {
             PacketDistributor.sendToPlayer(sp, catalog);
             PacketDistributor.sendToPlayer(sp, self);
+            PacketDistributor.sendToPlayer(sp, selfEntity);
             //?} else if forge {
             /*TownsteadNetwork.sendToPlayer(sp, catalog);
             TownsteadNetwork.sendToPlayer(sp, self);
+            TownsteadNetwork.sendToPlayer(sp, selfEntity);
             *///?}
         } catch (Exception ex) {
             LOGGER.error("Failed to send origin data to {}", sp.getName().getString(), ex);
