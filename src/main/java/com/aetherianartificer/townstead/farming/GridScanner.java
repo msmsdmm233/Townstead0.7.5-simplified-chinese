@@ -210,35 +210,45 @@ public final class GridScanner {
             if (entity instanceof net.minecraft.world.entity.npc.AbstractVillager villager) {
                 net.minecraft.world.SimpleContainer inv = villager.getInventory();
                 for (int i = 0; i < inv.getContainerSize(); i++) {
-                    ItemStack stack = inv.getItem(i);
-                    if (!stack.isEmpty() && com.aetherianartificer.townstead.block.CropDetection.isPlantableSeed(stack.getItem())) {
-                        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-                        counts.merge(id, stack.getCount(), Integer::sum);
-                    }
+                    countSeed(inv.getItem(i), counts);
                 }
             }
         }
 
         // Scan containers (chests, barrels, etc.) within the radius
+        com.aetherianartificer.townstead.storage.StorageSearchContext context =
+                new com.aetherianartificer.townstead.storage.StorageSearchContext(level);
         for (int bx = minX; bx <= maxX; bx++) {
             for (int bz = minZ; bz <= maxZ; bz++) {
                 for (int by = minY; by <= maxY; by++) {
                     BlockPos containerPos = new BlockPos(bx, by, bz);
-                    net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(containerPos);
+                    net.minecraft.world.level.block.entity.BlockEntity be = context.getBlockEntity(containerPos);
+                    if (be == null) continue;
                     if (be instanceof net.minecraft.world.Container container) {
                         for (int i = 0; i < container.getContainerSize(); i++) {
-                            ItemStack stack = container.getItem(i);
-                            if (!stack.isEmpty() && com.aetherianartificer.townstead.block.CropDetection.isPlantableSeed(stack.getItem())) {
-                                String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-                                counts.merge(id, stack.getCount(), Integer::sum);
-                            }
+                            countSeed(container.getItem(i), counts);
                         }
+                    } else {
+                        // Handler-only storage (item-handler barrels, drawers, etc.) isn't a vanilla
+                        // Container; read it through the item-handler capability so its seeds count too.
+                        context.forEachUniqueItemHandler(containerPos, (side, handler) -> {
+                            for (int i = 0; i < handler.getSlots(); i++) {
+                                countSeed(handler.getStackInSlot(i), counts);
+                            }
+                        });
                     }
                 }
             }
         }
 
         return counts;
+    }
+
+    private static void countSeed(ItemStack stack, Map<String, Integer> counts) {
+        if (stack.isEmpty()) return;
+        if (!com.aetherianartificer.townstead.block.CropDetection.isPlantableSeed(stack.getItem())) return;
+        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        counts.merge(id, stack.getCount(), Integer::sum);
     }
 
     /**
