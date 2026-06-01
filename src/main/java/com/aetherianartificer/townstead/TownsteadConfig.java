@@ -48,7 +48,6 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.BooleanValue ENABLE_FARM_ASSIST;
     public static final ModConfigSpec.BooleanValue ENABLE_WORK_SUPPLY_AUTOMATION;
     public static final ModConfigSpec.BooleanValue ENABLE_HARVEST_OUTPUT_STORAGE;
-    public static final ModConfigSpec.BooleanValue ENABLE_FARMER_STABILITY_V2;
     public static final ModConfigSpec.IntValue FARMER_FARM_RADIUS;
     public static final ModConfigSpec.IntValue FARMER_CELL_COOLDOWN_TICKS;
     public static final ModConfigSpec.IntValue FARMER_PATHFAIL_MAX_RETRIES;
@@ -125,7 +124,6 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_FARM_ASSIST;
     public static final ForgeConfigSpec.BooleanValue ENABLE_WORK_SUPPLY_AUTOMATION;
     public static final ForgeConfigSpec.BooleanValue ENABLE_HARVEST_OUTPUT_STORAGE;
-    public static final ForgeConfigSpec.BooleanValue ENABLE_FARMER_STABILITY_V2;
     public static final ForgeConfigSpec.IntValue FARMER_FARM_RADIUS;
     public static final ForgeConfigSpec.IntValue FARMER_CELL_COOLDOWN_TICKS;
     public static final ForgeConfigSpec.IntValue FARMER_PATHFAIL_MAX_RETRIES;
@@ -293,10 +291,6 @@ public final class TownsteadConfig {
                 .translation("townstead.configuration.farming.enableFarmAssist")
                 .comment("Enable lightweight farming assist: anti-trample and idle unstuck nudges for harvest chore.")
                 .define("enableFarmAssist", true);
-        ENABLE_FARMER_STABILITY_V2 = b
-                .translation("townstead.configuration.farming.enableFarmerStabilityV2")
-                .comment("Enable Townstead farmer stabilization (anti-thrash, retries, blocked states).")
-                .define("enableFarmerStabilityV2", true);
         FARMER_FARM_RADIUS = b
                 .translation("townstead.configuration.farming.farmerFarmRadius")
                 .comment("Maximum horizontal farm radius around anchor used by farmer AI.")

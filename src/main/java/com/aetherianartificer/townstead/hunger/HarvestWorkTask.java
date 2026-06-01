@@ -1601,15 +1601,15 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
     }
 
     private int townstead$cellCooldownTicks() {
-        return TownsteadConfig.ENABLE_FARMER_STABILITY_V2.get() ? TownsteadConfig.FARMER_CELL_COOLDOWN_TICKS.get() : 0;
+        return TownsteadConfig.FARMER_CELL_COOLDOWN_TICKS.get();
     }
 
     private int townstead$pathfailMaxRetries() {
-        return TownsteadConfig.ENABLE_FARMER_STABILITY_V2.get() ? TownsteadConfig.FARMER_PATHFAIL_MAX_RETRIES.get() : 10;
+        return TownsteadConfig.FARMER_PATHFAIL_MAX_RETRIES.get();
     }
 
     private int townstead$idleBackoffTicks(VillagerEntityMCA villager) {
-        int base = TownsteadConfig.ENABLE_FARMER_STABILITY_V2.get() ? TownsteadConfig.FARMER_IDLE_BACKOFF_TICKS.get() : 20;
+        int base = TownsteadConfig.FARMER_IDLE_BACKOFF_TICKS.get();
         return townstead$scaleInt(base, townstead$profile(villager).idleBackoffScale(), 10, 200);
     }
 

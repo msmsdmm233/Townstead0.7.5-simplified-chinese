@@ -57,8 +57,6 @@
   "townstead.configuration.farming.tooltip": "Controls farmer villager AI behavior and farm parameters.",
   "townstead.configuration.farming.enableFarmAssist": "Enable Farm Assist",
   "townstead.configuration.farming.enableFarmAssist.tooltip": "Adds anti-trample and idle unstuck nudges for harvest chore villagers.",
-  "townstead.configuration.farming.enableFarmerStabilityV2": "Enable Farmer Stability V2",
-  "townstead.configuration.farming.enableFarmerStabilityV2.tooltip": "Adds anti-thrash guards, retries, and blocked states to farmer AI.",
   "townstead.configuration.farming.farmerFarmRadius": "Farmer Farm Radius",
   "townstead.configuration.farming.farmerFarmRadius.tooltip": "Max horizontal working radius around the farm anchor.",
   "townstead.configuration.farming.farmerCellCooldownTicks": "Farmer Cell Cooldown Ticks",
