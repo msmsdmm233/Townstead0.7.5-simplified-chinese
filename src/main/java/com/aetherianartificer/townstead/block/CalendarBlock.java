@@ -119,7 +119,10 @@ public class CalendarBlock extends Block implements SimpleWaterloggedBlock, Enti
             default -> state.getValue(FACING).getOpposite();
         };
         BlockPos supportPos = pos.relative(supportSide);
-        return !level.getBlockState(supportPos).isAir();
+        // Require a sturdy face to hang on, like vanilla face-attached blocks —
+        // not just "any non-air block". Keeps calendars off torches, fences,
+        // flowers, water, and other calendars.
+        return level.getBlockState(supportPos).isFaceSturdy(level, supportPos, supportSide.getOpposite());
     }
 
     @Override
@@ -128,7 +131,13 @@ public class CalendarBlock extends Block implements SimpleWaterloggedBlock, Enti
         if (state.getValue(WATERLOGGED)) {
             level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
         }
-        if (!canSurvive(state, level, pos)) return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        if (!canSurvive(state, level, pos)) {
+            // Leave water behind when a waterlogged calendar pops off, instead
+            // of replacing the source with air.
+            return state.getValue(WATERLOGGED)
+                    ? net.minecraft.world.level.block.Blocks.WATER.defaultBlockState()
+                    : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        }
         return state;
     }
 
