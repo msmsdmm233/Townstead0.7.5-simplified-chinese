@@ -76,7 +76,6 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     // browsed origin can't leak into another tab or get saved by MCA's Done.
     @Inject(method = "setPage", remap = false, at = @At("HEAD"))
     private void townstead$revertOnPageChange(String page, CallbackInfo ci) {
-        if ((Object) this instanceof DestinyScreen) return;
         townstead$revertPreview();
     }
 
@@ -84,14 +83,13 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     // clears the dirty flag before calling this, so the previewed genes survive.
     @Inject(method = "syncVillagerData", remap = false, at = @At("HEAD"))
     private void townstead$revertOnSync(CallbackInfo ci) {
-        if ((Object) this instanceof DestinyScreen) return;
         townstead$revertPreview();
     }
 
+    // Runs for the Destiny screen too: it routes its real pages through super.setPage,
+    // so this fires there and its self-edit (SELF) path tints/previews the player's dummy.
     @Inject(method = "setPage", remap = false, at = @At("TAIL"))
     private void townstead$onSetPage(String page, CallbackInfo ci) {
-        if ((Object) this instanceof DestinyScreen) return;
-
         // Prime once, on the first page shown. MCA draws the preview villager on EVERY page (it's
         // the screen's left-side model, not page-specific), so the dummy's origin tint must be set
         // up the moment the editor opens, not only when the Origins tab is built — otherwise the
