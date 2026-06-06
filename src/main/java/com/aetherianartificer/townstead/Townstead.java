@@ -431,11 +431,6 @@ public class Townstead {
                 }
             }
         });
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent e) -> {
-            if (e.getEntity() instanceof VillagerEntityMCA villager && !villager.level().isClientSide) {
-                com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(villager);
-            }
-        });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.brewing.RegisterBrewingRecipesEvent e) -> {
             net.minecraft.world.item.alchemy.PotionBrewing.Builder b = e.getBuilder();
             b.addMix(net.minecraft.world.item.alchemy.Potions.AWKWARD,
@@ -571,11 +566,6 @@ public class Townstead {
                 if (e.getEntity() instanceof VillagerEntityMCA villager) {
                     com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
                 }
-            }
-        });
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.MobSpawnEvent.FinalizeSpawn e) -> {
-            if (e.getEntity() instanceof VillagerEntityMCA villager && !villager.level().isClientSide) {
-                com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(villager);
             }
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
