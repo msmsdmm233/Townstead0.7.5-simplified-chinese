@@ -300,7 +300,11 @@ public final class NearbyStorageIndex {
         }
 
         searchContext.forEachUniqueItemHandler(immutablePos, (side, handler) -> {
-            for (int i = 0; i < handler.getSlots(); i++) {
+            int slotCount = handler.getSlots();
+            for (int i = 0; i < slotCount; i++) {
+                if (i >= handler.getSlots()) {
+                    break;
+                }
                 ItemStack stack = handler.getStackInSlot(i);
                 if (stack.isEmpty()) continue;
                 allSlots.add(new SlotView(immutablePos, null, true, i, side, stack.copy()));
