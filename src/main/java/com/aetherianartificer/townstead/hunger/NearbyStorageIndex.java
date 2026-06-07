@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -31,6 +32,7 @@ public final class NearbyStorageIndex {
     private static final long SNAPSHOT_TTL_TICKS = 10L;
     private static final int REFRESH_BUDGET_PER_TICK = 4;
     private static final Map<SnapshotKey, Snapshot> SNAPSHOTS = new ConcurrentHashMap<>();
+    private static final Set<String> WARNED_BROKEN_HANDLERS = ConcurrentHashMap.newKeySet();
 
     private NearbyStorageIndex() {}
 
@@ -306,12 +308,14 @@ public final class NearbyStorageIndex {
                 try {
                     stack = handler.getStackInSlot(i);
                 } catch (IndexOutOfBoundsException e) {
-                    Townstead.LOGGER.warn(
-                            "Broken IItemHandler {} at {}",
-                            handler.getClass().getName(),
-                            immutablePos,
-                            e
-                    );
+                    if (WARNED_BROKEN_HANDLERS.add(handler.getClass().getName())) {
+                        Townstead.LOGGER.warn(
+                                "Broken IItemHandler {} at {}",
+                                handler.getClass().getName(),
+                                immutablePos,
+                                e
+                        );
+                    }
                     break;
                 }
                 if (stack.isEmpty()) continue;
