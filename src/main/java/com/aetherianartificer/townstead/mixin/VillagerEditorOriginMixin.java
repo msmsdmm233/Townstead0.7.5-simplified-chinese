@@ -76,7 +76,6 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     // browsed origin can't leak into another tab or get saved by MCA's Done.
     @Inject(method = "setPage", remap = false, at = @At("HEAD"))
     private void townstead$revertOnPageChange(String page, CallbackInfo ci) {
-        if ((Object) this instanceof DestinyScreen) return;
         townstead$revertPreview();
     }
 
@@ -84,14 +83,13 @@ public abstract class VillagerEditorOriginMixin extends Screen {
     // clears the dirty flag before calling this, so the previewed genes survive.
     @Inject(method = "syncVillagerData", remap = false, at = @At("HEAD"))
     private void townstead$revertOnSync(CallbackInfo ci) {
-        if ((Object) this instanceof DestinyScreen) return;
         townstead$revertPreview();
     }
 
+    // Runs for the Destiny screen too: it routes its real pages through super.setPage,
+    // so this fires there and its self-edit (SELF) path tints/previews the player's dummy.
     @Inject(method = "setPage", remap = false, at = @At("TAIL"))
     private void townstead$onSetPage(String page, CallbackInfo ci) {
-        if ((Object) this instanceof DestinyScreen) return;
-
         // Prime once, on the first page shown. MCA draws the preview villager on EVERY page (it's
         // the screen's left-side model, not page-specific), so the dummy's origin tint must be set
         // up the moment the editor opens, not only when the Origins tab is built — otherwise the
@@ -150,6 +148,12 @@ public abstract class VillagerEditorOriginMixin extends Screen {
         for (OriginCatalogEntry.GeneRangeView r : entry.geneRanges()) {
             ranges.put(r.key(), new GeneRange(r.min(), r.max()));
         }
+        // Match spawn: roll a fresh random villager first (MCA's own genome roll covers the
+        // floats this origin doesn't constrain — base skin melanin/hemoglobin, hair, face,
+        // voice), then constrain the genes the origin defines to its ranges. So the preview is
+        // a representative member, not the opening skin re-tinted in place. A race can still pin
+        // any of these by declaring a body-metric gene for it (apply runs after, so it wins).
+        villager.getGenetics().randomize();
         OriginGenes.apply(villager, ranges, villager.getRandom());
         OriginClientStore.set(villager.getId(), entry.id());   // so the skin-tint layer paints the preview
         townstead$previewDirty = true;
@@ -199,7 +203,18 @@ public abstract class VillagerEditorOriginMixin extends Screen {
                 if (uuid.equals(entity.getUUID())) return entity.getId();
             }
         }
-        return villager.getId(); // fallback (the dummy) — won't resolve, but better than crashing
+        // The dummy's id is a client-assigned id that, sent to the server, could resolve
+        // to an unrelated entity. Return an unresolvable sentinel so the server no-ops
+        // instead of re-rolling the wrong villager.
+        return OriginSetC2SPayload.NONE;
+    }
+
+    // Drop this editor's throwaway dummy from the tint cache when the screen goes away,
+    // so its origin tint can't bleed onto a real entity sharing its client-side id.
+    @Override
+    public void removed() {
+        super.removed();
+        OriginClientStore.remove(villager.getId());
     }
 
     @Unique

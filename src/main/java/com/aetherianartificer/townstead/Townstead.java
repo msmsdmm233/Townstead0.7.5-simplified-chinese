@@ -431,11 +431,6 @@ public class Townstead {
                 }
             }
         });
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent e) -> {
-            if (e.getEntity() instanceof VillagerEntityMCA villager && !villager.level().isClientSide) {
-                com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(villager);
-            }
-        });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.brewing.RegisterBrewingRecipesEvent e) -> {
             net.minecraft.world.item.alchemy.PotionBrewing.Builder b = e.getBuilder();
             b.addMix(net.minecraft.world.item.alchemy.Potions.AWKWARD,
@@ -472,7 +467,7 @@ public class Townstead {
             if (e.getEntity() instanceof ServerPlayer sp) {
                 townstead$sendShiftTemplateSync(sp);
                 townstead$sendWeekPlanSync(sp);
-                PacketDistributor.sendToPlayer(sp, townstead$calendarSync(sp.serverLevel().getServer()));
+                PacketDistributor.sendToPlayer(sp, townstead$calendarSync(sp));
                 PacketDistributor.sendToPlayer(sp,
                         com.aetherianartificer.townstead.calendar.CalendarStampServer.snapshotFor(sp.serverLevel().getServer(), sp));
             }
@@ -480,8 +475,12 @@ public class Townstead {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.OnDatapackSyncEvent e) -> {
             if (e.getPlayer() != null) {
                 townstead$sendOriginData(e.getPlayer());
+                PacketDistributor.sendToPlayer(e.getPlayer(), townstead$calendarSync(e.getPlayer()));
             } else {
-                e.getPlayerList().getPlayers().forEach(Townstead::townstead$sendOriginData);
+                e.getPlayerList().getPlayers().forEach(sp -> {
+                    townstead$sendOriginData(sp);
+                    PacketDistributor.sendToPlayer(sp, townstead$calendarSync(sp));
+                });
             }
         });
         ShiftTemplateRegistry.setChangeListener(Townstead::townstead$broadcastShiftTemplateSync);
@@ -516,8 +515,10 @@ public class Townstead {
         try {
             Class.forName("net.minecraft.client.Minecraft");
             NeoForge.EVENT_BUS.addListener(
-                    (net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) ->
-                            com.aetherianartificer.townstead.client.animation.emote.EmotePlaybackRegistry.clear());
+                    (net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) -> {
+                        com.aetherianartificer.townstead.client.animation.emote.EmotePlaybackRegistry.clear();
+                        com.aetherianartificer.townstead.client.origin.OriginClientStore.clear();
+                    });
         } catch (Exception ignored) {
             // Dedicated server: no client-side playback registry to clear.
         }
@@ -571,11 +572,6 @@ public class Townstead {
                 }
             }
         });
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.MobSpawnEvent.FinalizeSpawn e) -> {
-            if (e.getEntity() instanceof VillagerEntityMCA villager && !villager.level().isClientSide) {
-                com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(villager);
-            }
-        });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
             if (e.getTarget() instanceof VillagerEntityMCA villager
                     && com.aetherianartificer.townstead.item.VillagerPotionFeeding.isFeedable(e.getItemStack())) {
@@ -605,7 +601,7 @@ public class Townstead {
             if (e.getEntity() instanceof ServerPlayer sp) {
                 TownsteadNetwork.sendShiftTemplateSync(sp);
                 TownsteadNetwork.sendWeekPlanSync(sp);
-                TownsteadNetwork.sendToPlayer(sp, townstead$calendarSync(sp.serverLevel().getServer()));
+                TownsteadNetwork.sendToPlayer(sp, townstead$calendarSync(sp));
                 TownsteadNetwork.sendToPlayer(sp,
                         com.aetherianartificer.townstead.calendar.CalendarStampServer.snapshotFor(sp.serverLevel().getServer(), sp));
             }
@@ -613,8 +609,12 @@ public class Townstead {
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.OnDatapackSyncEvent e) -> {
             if (e.getPlayer() != null) {
                 townstead$sendOriginData(e.getPlayer());
+                TownsteadNetwork.sendToPlayer(e.getPlayer(), townstead$calendarSync(e.getPlayer()));
             } else {
-                e.getPlayerList().getPlayers().forEach(Townstead::townstead$sendOriginData);
+                e.getPlayerList().getPlayers().forEach(sp -> {
+                    townstead$sendOriginData(sp);
+                    TownsteadNetwork.sendToPlayer(sp, townstead$calendarSync(sp));
+                });
             }
         });
         ShiftTemplateRegistry.setChangeListener(TownsteadNetwork::broadcastShiftTemplateSync);
@@ -643,8 +643,10 @@ public class Townstead {
         try {
             Class.forName("net.minecraft.client.Minecraft");
             MinecraftForge.EVENT_BUS.addListener(
-                    (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) ->
-                            com.aetherianartificer.townstead.client.animation.emote.EmotePlaybackRegistry.clear());
+                    (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) -> {
+                        com.aetherianartificer.townstead.client.animation.emote.EmotePlaybackRegistry.clear();
+                        com.aetherianartificer.townstead.client.origin.OriginClientStore.clear();
+                    });
         } catch (Exception ignored) {
             // Dedicated server: no client-side playback registry to clear.
         }
@@ -2343,7 +2345,9 @@ public class Townstead {
         );
     }
 
-    public static com.aetherianartificer.townstead.calendar.CalendarSyncPayload townstead$calendarSync(MinecraftServer server) {
+    public static com.aetherianartificer.townstead.calendar.CalendarSyncPayload townstead$calendarSync(ServerPlayer player) {
+        MinecraftServer server = player.serverLevel().getServer();
+        String locale = townstead$playerLocale(player);
         com.aetherianartificer.townstead.calendar.WorldCalendarSavedData data =
                 com.aetherianartificer.townstead.calendar.WorldCalendarSavedData.get(server);
         com.aetherianartificer.townstead.calendar.CalendarProfile profile =
@@ -2356,10 +2360,10 @@ public class Townstead {
                 && today.monthIndex() >= 1
                 && today.monthIndex() <= todayYearMonths.size())
                 ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(
-                        todayYearMonths.get(today.monthIndex() - 1).commonName())
+                        todayYearMonths.get(today.monthIndex() - 1).commonName(), locale)
                 : new String[] { "", "" };
         String[] prof = profile != null
-                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(profile.displayName())
+                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(profile.displayName(), locale)
                 : new String[] { "", "" };
         String seasonKey = today.season() != null ? today.season().translationKey() : "";
 
@@ -2368,14 +2372,14 @@ public class Townstead {
         int dpw = profile != null ? profile.daysPerWeek() : 7;
         int epoch = data.epochYearOffset();
         String[] suffix = (profile != null && profile.yearSuffix() != null)
-                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(profile.yearSuffix())
+                ? com.aetherianartificer.townstead.calendar.ComponentSync.extract(profile.yearSuffix(), locale)
                 : new String[] { "", "" };
         java.util.List<String> monthKeys = new java.util.ArrayList<>();
         java.util.List<String> monthFallbacks = new java.util.ArrayList<>();
         java.util.List<Integer> monthDays = new java.util.ArrayList<>();
         if (profile != null) {
             for (com.aetherianartificer.townstead.calendar.MonthDef m : profile.months()) {
-                String[] mk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(m.commonName());
+                String[] mk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(m.commonName(), locale);
                 monthKeys.add(mk[0]);
                 monthFallbacks.add(mk[1]);
                 monthDays.add(m.days());
@@ -2388,8 +2392,8 @@ public class Townstead {
         java.util.List<String> wdShortFallbacks = new java.util.ArrayList<>();
         if (profile != null && profile.weekdays() != null) {
             for (com.aetherianartificer.townstead.calendar.WeekdayDef w : profile.weekdays()) {
-                String[] lk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(w.longName());
-                String[] sk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(w.shortName());
+                String[] lk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(w.longName(), locale);
+                String[] sk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(w.shortName(), locale);
                 wdLongKeys.add(lk[0]);
                 wdLongFallbacks.add(lk[1]);
                 wdShortKeys.add(sk[0]);
@@ -2404,7 +2408,7 @@ public class Townstead {
         java.util.List<Integer> eraDirections = new java.util.ArrayList<>();
         if (profile != null && profile.eras() != null) {
             for (com.aetherianartificer.townstead.calendar.Era era : profile.eras()) {
-                String[] nk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(era.name());
+                String[] nk = com.aetherianartificer.townstead.calendar.ComponentSync.extract(era.name(), locale);
                 eraNameKeys.add(nk[0]);
                 eraNameFallbacks.add(nk[1]);
                 eraStartYears.add(era.startYear());
@@ -2582,13 +2586,25 @@ public class Townstead {
 
     public static void townstead$broadcastCalendarSync(MinecraftServer server) {
         if (server == null) return;
-        com.aetherianartificer.townstead.calendar.CalendarSyncPayload payload = townstead$calendarSync(server);
-        //? if neoforge {
         for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
-            PacketDistributor.sendToPlayer(sp, payload);
+            townstead$sendCalendarSync(sp);
         }
+    }
+
+    public static void townstead$sendCalendarSync(ServerPlayer player) {
+        if (player == null) return;
+        //? if neoforge {
+        PacketDistributor.sendToPlayer(player, townstead$calendarSync(player));
         //?} else if forge {
-        /*TownsteadNetwork.sendToAll(payload);
+        /*TownsteadNetwork.sendToPlayer(player, townstead$calendarSync(player));
+        *///?}
+    }
+
+    private static String townstead$playerLocale(ServerPlayer player) {
+        //? if >=1.21 {
+        return player.clientInformation().language();
+        //?} else {
+        /*return player.getLanguage();
         *///?}
     }
 

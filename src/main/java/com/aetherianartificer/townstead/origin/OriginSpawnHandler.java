@@ -26,7 +26,13 @@ public final class OriginSpawnHandler {
 
     private OriginSpawnHandler() {}
 
-    /** Choose the villager's origin, stamp the id, and constrain genes into its ranges. */
+    /**
+     * Choose the villager's origin, stamp the id, and roll its genes within the origin's ranges.
+     * Driven by {@code VillagerFinalizeSpawnMixin} at the TAIL of MCA's {@code finalizeSpawn} —
+     * after MCA's {@code initialize()} re-randomizes genetics/traits (so our writes aren't
+     * clobbered) and before the villager's first tick (so {@code backfillIfMissing} can't stamp
+     * the default origin first).
+     */
     public static void onTrueSpawn(VillagerEntityMCA villager) {
         TownsteadVillager state = TownsteadVillagers.get(villager);
 
@@ -49,7 +55,7 @@ public final class OriginSpawnHandler {
         if (selection.isMixed()) {
             List<OriginSelector.Weighted> mix = selection.mix();
             Heredity.seedMixedFounder(state.life(), mix, villager.getRandom());
-            OriginGenes.clamp(villager, blendBodyMetrics(mix));
+            OriginGenes.apply(villager, blendBodyMetrics(mix), villager.getRandom());
             rollBlendedTraitGenes(villager, mix);
             BlendedCycle blended = blendCycle(mix);
             if (blended != null) {
@@ -63,7 +69,13 @@ public final class OriginSpawnHandler {
 
         ResourceLocation originId = selection.single() != null ? selection.single() : OriginRegistry.DEFAULT_ID;
         state.life().setOrigin(originId.toString());
-        OriginGenes.clamp(villager, OriginGenes.resolveBodyMetrics(OriginRegistry.effectiveInheritedGenes(originId)));
+        // Founder: re-roll within the origin's ranges (not clamp). MCA's centeredRandom roll sits at
+        // ~0.5, so clamping a range that doesn't straddle 0.5 pins every villager at the nearer bound
+        // (all dwarves at their max size, all elves at their min) — re-rolling distributes them across
+        // the range and matches the editor preview (MCA randomize → apply). Children keep their parent
+        // blend (early return above); only parentless founders roll here.
+        OriginGenes.apply(villager, OriginGenes.resolveBodyMetrics(OriginRegistry.effectiveInheritedGenes(originId)),
+                villager.getRandom());
         rollTraitGenes(villager, state, originId);
         Heredity.seedFounder(state.life(), originId, villager.getRandom());
         rollAndStoreStageDays(villager, state, originId);
