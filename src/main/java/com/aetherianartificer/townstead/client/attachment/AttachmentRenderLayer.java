@@ -1,0 +1,127 @@
+package com.aetherianartificer.townstead.client.attachment;
+
+import com.aetherianartificer.townstead.client.animation.AnimationTargetMap;
+import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
+import com.aetherianartificer.townstead.client.origin.OriginClientStore;
+import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
+import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
+import com.aetherianartificer.townstead.origin.attachment.AttachmentDef;
+import com.aetherianartificer.townstead.origin.attachment.AttachmentSlotDef;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Renders an entity's expressed cosmetic attachments (tails, ears, tusks). Resolves
+ * each {@code attachment} gene the individual expresses (per-entity from the synced
+ * expressed set, falling back to the origin-typical grant list) to a synced
+ * {@link AttachmentDef}, anchors its baked geometry to the named model bone via
+ * {@link ModelPart#translateAndRotate} so it follows the live pose, then applies the
+ * definition's offset/rotation/scale and tint. Geometry and texture come from
+ * {@code AttachmentClient} (datapack-synced + cached), so no resource pack is needed.
+ */
+public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidModel<T>> extends RenderLayer<T, M> {
+
+    public AttachmentRenderLayer(RenderLayerParent<T, M> parent) {
+        super(parent);
+    }
+
+    @Override
+    public void render(PoseStack pose, MultiBufferSource buffers, int light, T entity,
+                       float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
+                       float netHeadYaw, float headPitch) {
+        if (entity.isInvisible()) return;
+        List<AttachmentDef> attachments = resolve(entity);
+        if (attachments.isEmpty()) return;
+
+        AnimationTargetMap<T> bones = AnimationTargetMap.forMcaModel(getParentModel());
+        for (AttachmentDef def : attachments) {
+            ModelPart geometry = AttachmentClient.geometry(def.geoSha1());
+            ResourceLocation texture = AttachmentClient.texture(def.textureSha1());
+            if (geometry == null || texture == null) continue;
+            ModelPart bone = bones.resolve(anchorBone(def)).orElse(null);
+            if (bone == null) continue;
+
+            float[] offset = anchorOffset(def);
+            pose.pushPose();
+            bone.translateAndRotate(pose);
+            pose.translate(offset[0] / 16f, offset[1] / 16f, offset[2] / 16f);
+            float[] rotation = def.rotation();
+            if (rotation[2] != 0f) pose.mulPose(Axis.ZP.rotationDegrees(rotation[2]));
+            if (rotation[1] != 0f) pose.mulPose(Axis.YP.rotationDegrees(rotation[1]));
+            if (rotation[0] != 0f) pose.mulPose(Axis.XP.rotationDegrees(rotation[0]));
+            if (def.scale() != 1f) pose.scale(def.scale(), def.scale(), def.scale());
+
+            VertexConsumer buffer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
+            renderPart(geometry, pose, buffer, light, def.tint());
+            pose.popPose();
+        }
+    }
+
+    private static String anchorBone(AttachmentDef def) {
+        if (def.slot() != null) {
+            AttachmentSlotDef slot = AttachmentClient.slot(def.slot());
+            if (slot != null) return slot.bone();
+        }
+        return def.bone();
+    }
+
+    private static float[] anchorOffset(AttachmentDef def) {
+        float[] base = {0, 0, 0};
+        if (def.slot() != null) {
+            AttachmentSlotDef slot = AttachmentClient.slot(def.slot());
+            if (slot != null) base = slot.offset();
+        }
+        return new float[]{base[0] + def.offset()[0], base[1] + def.offset()[1], base[2] + def.offset()[2]};
+    }
+
+    private static void renderPart(ModelPart part, PoseStack pose, VertexConsumer buffer, int light, int tint) {
+        int color = 0xFF000000 | tint;
+        //? if neoforge {
+        part.render(pose, buffer, light, OverlayTexture.NO_OVERLAY, color);
+        //?} else {
+        /*float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        float a = ((color >> 24) & 0xFF) / 255f;
+        part.render(pose, buffer, light, OverlayTexture.NO_OVERLAY, r, g, b, a);
+        *///?}
+    }
+
+    /** The attachment defs the entity expresses (per-entity set first, origin grant list as fallback). */
+    private static List<AttachmentDef> resolve(LivingEntity entity) {
+        List<AttachmentDef> out = new ArrayList<>();
+        int id = entity.getId();
+        Set<String> expressed = OriginClientStore.expressedGenes(id);
+        if (!expressed.isEmpty()) {
+            for (String geneId : expressed) collect(geneId, out);
+            return out;
+        }
+        String originId = OriginClientStore.get(id);
+        if (originId.isEmpty()) return out;
+        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        if (origin == null) return out;
+        for (OriginCatalogEntry.Inherited inherited : origin.inheritedGenes()) collect(inherited.geneId(), out);
+        return out;
+    }
+
+    private static void collect(String geneId, List<AttachmentDef> out) {
+        GeneCatalogEntry gene = OriginCatalogClient.gene(geneId);
+        if (gene == null || !gene.isAttachment()) return;
+        AttachmentDef def = AttachmentClient.def(gene.attachmentId());
+        if (def != null) out.add(def);
+    }
+}

@@ -26,7 +26,16 @@
     "PregnancyInheritanceMixin",
     "VillagerHungerMixin",
     "VillagerServerTickMixin",
-    "WalkNodeEvaluatorFenceGateMixin"
+    "WalkNodeEvaluatorFenceGateMixin",
+    "PlayerElytraGeneMixin",
+    "LivingEntityElytraKeepMixin",
+    "InventoryKeepInventoryMixin",
+    "LivingEntityWalkOnFluidMixin",
+    "LivingEntityPhasingMixin",
+    "EntityFluidPushMixin",
+    "EntityCollisionPreventMixin",
+    "EntityGroundedMixin",
+    "FoodDataNaturalRegenMixin"
   ],
   "client": [
     "compat.stardewhud.StardewHudDateMixin",
@@ -50,11 +59,15 @@
     "client.VillagerEntityModelMcaCopyWearMixin",
     "client.VillagerLayerBendMixin",
     "client.SkinLayerTintMixin",
+    "client.VillagerAttachmentLayerMixin",
+    "client.PlayerAttachmentLayerMixin",
     "InteractScreenMixin",
     "VillagerEditorMixin",
     "VillagerEditorOriginMixin",
     "VillagerScaleRendererMixin",
-    "DestinyScreenMixin"
+    "DestinyScreenMixin",
+    "LivingEntityMobTypeMixin",
+    "LivingEntityInvertedHealMixin"
   ],
   "minVersion": "0.8"
 }

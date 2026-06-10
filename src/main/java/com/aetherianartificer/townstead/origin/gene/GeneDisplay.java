@@ -19,7 +19,7 @@ package com.aetherianartificer.townstead.origin.gene;
  */
 public record GeneDisplay(Kind kind, float min, float max, String targetId, float amount) {
 
-    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS }
+    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY }
 
     public static final GeneDisplay PRESENCE = new GeneDisplay(Kind.BOOLEAN, 0f, 1f, "", 0f);
 
@@ -69,6 +69,35 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
             }
         }
         return new GeneDisplay(Kind.PROPORTIONS, 0f, 1f, packed.toString(), 0f);
+    }
+
+    /**
+     * Model-part groups this gene hides ({@code head}/{@code body}/{@code arms}/{@code legs}),
+     * packed into {@code targetId} as {@code "head;arms"}. The render mixin zeroes those parts'
+     * scale; a presence chip in the picker.
+     */
+    public static GeneDisplay hideFeature(java.util.List<String> parts) {
+        String packed = parts == null ? "" : String.join(";", parts);
+        return new GeneDisplay(Kind.HIDE_FEATURE, 0f, 1f, packed, 0f);
+    }
+
+    /**
+     * An innate ability; {@code targetId} carries the ability key (e.g. {@code night_vision}),
+     * {@code amount} the mode ordinal (0 passive, 1 toggle), {@code min} the key slot. Synced so
+     * the client can resolve a player's movement abilities for local physics prediction; a presence
+     * chip in the picker.
+     */
+    public static GeneDisplay ability(String abilityKey, int modeOrdinal, int slot) {
+        return new GeneDisplay(Kind.ABILITY, slot, 1f, abilityKey == null ? "" : abilityKey, modeOrdinal);
+    }
+
+    /**
+     * A full-screen HUD overlay texture (e.g. a racial vignette). {@code targetId} carries
+     * the texture id; {@code min} the draw alpha (0–1). Synced so the client can blit it for
+     * a player whose origin expresses it; a presence chip in the picker.
+     */
+    public static GeneDisplay overlay(String texture, float alpha) {
+        return new GeneDisplay(Kind.OVERLAY, Math.max(0f, Math.min(1f, alpha)), 1f, texture == null ? "" : texture, 0f);
     }
 
     private static float clamp01(float v) {

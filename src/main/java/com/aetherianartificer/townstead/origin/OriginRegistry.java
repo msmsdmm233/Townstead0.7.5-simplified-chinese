@@ -116,7 +116,11 @@ public final class OriginRegistry {
     @Nullable
     public static ResourceLocation effectiveSpecies(@Nullable ResourceLocation id) {
         Origin origin = resolveOrDefault(id);
-        if (origin == null) return null;
+        return origin == null ? null : speciesOf(origin);
+    }
+
+    @Nullable
+    private static ResourceLocation speciesOf(Origin origin) {
         if (origin.species() != null) return origin.species();
         if (origin.ancestry() != null) {
             Ancestry ancestry = AncestryRegistry.byId(origin.ancestry());
@@ -141,13 +145,18 @@ public final class OriginRegistry {
     }
 
     /**
-     * Compose the genome bottom-up: ancestry (or, for a lineage-based origin,
-     * the union of the lineage's ancestries then its overrides) → the origin's
-     * own overrides. Per-gene entries replace; tag lists union. Missing refs are
-     * skipped (they leave the base un-narrowed).
+     * Compose the genome bottom-up: species → ancestry (or, for a lineage-based
+     * origin, the union of the lineage's ancestries then its overrides) → the
+     * origin's own overrides. Per-gene entries replace; tag lists union. Missing
+     * refs are skipped (they leave the base un-narrowed).
      */
     public static Genome effectiveGenome(Origin origin) {
         Genome base = Genome.EMPTY;
+        ResourceLocation speciesId = speciesOf(origin);
+        if (speciesId != null) {
+            Species species = SpeciesRegistry.byId(speciesId);
+            if (species != null) base = base.mergedWith(species.genome());
+        }
         Lineage lineage = origin.lineage() != null ? LineageRegistry.byId(origin.lineage()) : null;
         if (lineage != null) {
             for (ResourceLocation ancestryId : lineage.ancestries()) {
@@ -160,7 +169,7 @@ public final class OriginRegistry {
             // failed to load — degrade to the declared ancestry rather than a blank
             // genome (a Dark Elf becomes a plain Elf, not a featureless villager).
             Ancestry ancestry = AncestryRegistry.byId(origin.ancestry());
-            if (ancestry != null) base = ancestry.genome();
+            if (ancestry != null) base = base.mergedWith(ancestry.genome());
         }
         return base.mergedWith(origin.genome());
     }

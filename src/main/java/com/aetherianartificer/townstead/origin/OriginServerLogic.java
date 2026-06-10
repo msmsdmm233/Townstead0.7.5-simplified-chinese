@@ -42,6 +42,7 @@ public final class OriginServerLogic {
             ResourceLocation id = resolveKnown(originId);
             if (id == null) return null;
             PlayerOrigin.setOriginId(sp, id.toString());
+            StartingEquipment.grant(sp);
             return new Result(OriginSetC2SPayload.SELF, id.toString());
         }
 

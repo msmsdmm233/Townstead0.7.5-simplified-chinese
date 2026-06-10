@@ -92,6 +92,49 @@ public record GeneCatalogEntry(
     /** For ATTACHMENT genes, the attachment id (rides in {@code targetId}). */
     public String attachmentId() { return targetId; }
 
+    public boolean isHideFeature() {
+        return displayKind == GeneDisplay.Kind.HIDE_FEATURE.ordinal();
+    }
+
+    /** True when this gene grants an innate ability (ability key rides in {@code targetId}). */
+    public boolean isAbility() {
+        return displayKind == GeneDisplay.Kind.ABILITY.ordinal();
+    }
+
+    /** For ABILITY genes, the granted ability key (e.g. {@code night_vision}); empty otherwise. */
+    public String abilityKey() {
+        return isAbility() && targetId != null ? targetId : "";
+    }
+
+    /** For ABILITY genes, whether it is toggle-mode (rides in {@code amount}); false = always-on passive. */
+    public boolean abilityToggle() {
+        return isAbility() && Math.round(amount) == 1;
+    }
+
+    /** True when this gene draws a full-screen HUD overlay (texture rides in {@code targetId}). */
+    public boolean isOverlay() {
+        return displayKind == GeneDisplay.Kind.OVERLAY.ordinal();
+    }
+
+    /** For OVERLAY genes, the texture id to blit full-screen; empty otherwise. */
+    public String overlayTexture() {
+        return isOverlay() && targetId != null ? targetId : "";
+    }
+
+    /** For OVERLAY genes, the draw alpha 0–1 (rides in {@code min}). */
+    public float overlayAlpha() {
+        return isOverlay() ? Math.max(0f, Math.min(1f, min)) : 1f;
+    }
+
+    /** Whether a HIDE_FEATURE gene hides the given part group ({@code head}/{@code body}/{@code arms}/{@code legs}). */
+    public boolean hidesPart(String group) {
+        if (targetId == null || targetId.isEmpty()) return false;
+        for (String entry : targetId.split(";")) {
+            if (entry.equals(group)) return true;
+        }
+        return false;
+    }
+
     /**
      * COLOR tint (RGB), parsed from {@code targetId} {@code "rrggbb-rrggbb"} (both parts equal —
      * the gene carries one tint colour, multiplied over MCA's exact skin; white = unchanged).

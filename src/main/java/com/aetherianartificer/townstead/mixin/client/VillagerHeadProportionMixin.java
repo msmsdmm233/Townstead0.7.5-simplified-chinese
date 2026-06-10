@@ -74,6 +74,10 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
         townstead$scalePart(model.rightLeg, proportions, "legs", xz0, y0);
         townstead$scalePart(model.leftLeg, proportions, "legs", xz0, y0);
         townstead$scalePart(model.body, proportions, "body", xz0, y0);
+
+        // Hidden features (prevent_feature_render): zero the listed groups after proportions.
+        com.aetherianartificer.townstead.client.origin.HideFeatures.hide(
+                model, com.aetherianartificer.townstead.client.origin.HideFeatures.hiddenGroups(entity));
     }
 
     /**

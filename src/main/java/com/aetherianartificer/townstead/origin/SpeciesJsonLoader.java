@@ -39,7 +39,8 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
                 Component displayName = DataPackLang.parseComponent(obj.get("display_name"), file.toString(), lang);
                 String shape = GsonHelper.getAsString(obj, "shape", "humanoid");
                 float admixture = Math.max(0f, Math.min(1f, GsonHelper.getAsFloat(obj, "admixture_chance", 0f)));
-                parsed.put(file, new Species(file, displayName, shape, admixture));
+                Genome genome = OriginJsonParsing.genes(obj, file.toString(), LOGGER);
+                parsed.put(file, new Species(file, displayName, shape, admixture, genome));
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse species {}: {}", file, ex.getMessage());
             }
