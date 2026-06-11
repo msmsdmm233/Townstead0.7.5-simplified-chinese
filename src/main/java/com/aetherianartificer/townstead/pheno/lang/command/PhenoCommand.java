@@ -10,6 +10,7 @@ import com.aetherianartificer.townstead.pheno.lang.PhenoDiagnostics;
 import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostic;
 import com.aetherianartificer.townstead.pheno.lang.compile.Severity;
 import com.aetherianartificer.townstead.pheno.lang.normalize.PhenoNormalizer;
+import com.aetherianartificer.townstead.pheno.lang.schema.SchemaGen;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -33,6 +34,8 @@ import net.minecraft.world.entity.LivingEntity;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -60,7 +63,35 @@ public final class PhenoCommand {
                 .then(Commands.literal("expand")
                         .then(Commands.argument("gene", StringArgumentType.string())
                                 .suggests(SUGGEST_GENES)
-                                .executes(c -> expand(c.getSource(), StringArgumentType.getString(c, "gene"))))));
+                                .executes(c -> expand(c.getSource(), StringArgumentType.getString(c, "gene")))))
+                .then(Commands.literal("dump").executes(c -> dump(c.getSource()))));
+    }
+
+    private static int dump(CommandSourceStack source) {
+        try {
+            Path dir = phenoDir(source);
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve("types-manifest.json"),
+                    PRETTY.toJson(SchemaGen.manifest()), StandardCharsets.UTF_8);
+            Files.writeString(dir.resolve("reference.md"), SchemaGen.markdown(), StandardCharsets.UTF_8);
+            Files.writeString(dir.resolve("gene.schema.json"),
+                    PRETTY.toJson(SchemaGen.jsonSchema()), StandardCharsets.UTF_8);
+            source.sendSuccess(() -> Component.literal("Pheno: wrote types-manifest.json, reference.md, "
+                    + "gene.schema.json to " + dir).withStyle(ChatFormatting.GREEN), false);
+            return 1;
+        } catch (Exception ex) {
+            source.sendFailure(Component.literal("Pheno dump failed: " + ex.getMessage()));
+            return 0;
+        }
+    }
+
+    private static Path phenoDir(CommandSourceStack source) {
+        //? if >=1.21 {
+        Path base = source.getServer().getServerDirectory();
+        //?} else {
+        /*Path base = source.getServer().getServerDirectory().toPath();
+        *///?}
+        return base.resolve("pheno");
     }
 
     private static final SuggestionProvider<CommandSourceStack> SUGGEST_GENES = (c, b) ->
