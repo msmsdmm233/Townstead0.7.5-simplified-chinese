@@ -1064,6 +1064,9 @@ public class Townstead {
             // The genetics source feeding the shared Power facade (professions will add another later)
             com.aetherianartificer.townstead.pheno.power.Powers.register(
                     new com.aetherianartificer.townstead.origin.GenePowerSource());
+            // Read-side genetics feed for the capability layer (provenance for /pheno explain)
+            com.aetherianartificer.townstead.pheno.capability.Capabilities.register(
+                    new com.aetherianartificer.townstead.origin.capability.GeneCapabilitySource());
 
             // Trait effect palette (data-pack traits compose these; see TraitJsonLoader)
             com.aetherianartificer.townstead.origin.trait.effect.TraitEffectTypes.register(

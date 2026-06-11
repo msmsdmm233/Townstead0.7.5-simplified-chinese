@@ -1,16 +1,26 @@
 package com.aetherianartificer.townstead.pheno.lang.command;
 
+import com.aetherianartificer.townstead.pheno.capability.Capabilities;
+import com.aetherianartificer.townstead.pheno.capability.CapabilityContribution;
+import com.aetherianartificer.townstead.pheno.capability.CapabilityView;
+import com.aetherianartificer.townstead.pheno.capability.Resolved;
+import com.aetherianartificer.townstead.pheno.capability.ValueKind;
 import com.aetherianartificer.townstead.pheno.lang.PhenoDiagnostics;
 import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostic;
 import com.aetherianartificer.townstead.pheno.lang.compile.Severity;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * {@code /pheno} authoring commands (op level 2). {@code /pheno validate} reports the
@@ -27,7 +37,49 @@ public final class PhenoCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx) {
         dispatcher.register(Commands.literal("pheno")
                 .requires(s -> s.hasPermission(2))
-                .then(Commands.literal("validate").executes(c -> validate(c.getSource()))));
+                .then(Commands.literal("validate").executes(c -> validate(c.getSource())))
+                .then(Commands.literal("explain")
+                        .then(Commands.argument("target", EntityArgument.entity())
+                                .executes(c -> explain(c.getSource(), EntityArgument.getEntity(c, "target"))))));
+    }
+
+    private static int explain(CommandSourceStack source, Entity target) throws CommandSyntaxException {
+        if (!(target instanceof LivingEntity living)) {
+            source.sendFailure(Component.literal("Pheno explain: target is not a living entity."));
+            return 0;
+        }
+        CapabilityView view = Capabilities.resolve(living);
+        if (view.map().isEmpty()) {
+            source.sendSuccess(() -> Component.literal("Pheno: " + target.getName().getString()
+                    + " contributes no capabilities.").withStyle(ChatFormatting.GRAY), false);
+            return 1;
+        }
+        source.sendSuccess(() -> Component.literal("Capabilities of " + target.getName().getString() + ":")
+                .withStyle(ChatFormatting.GOLD), false);
+        for (Resolved r : view.map().values()) {
+            String value = r.key().kind() == ValueKind.FLAG
+                    ? (r.flag() ? "on" : "off")
+                    : String.format(Locale.ROOT, "%.3f", r.number());
+            source.sendSuccess(() -> Component.literal("  " + r.key().id() + " = ")
+                    .withStyle(ChatFormatting.AQUA)
+                    .append(Component.literal(value).withStyle(ChatFormatting.WHITE)), false);
+            for (CapabilityContribution c : r.applied()) {
+                source.sendSuccess(() -> Component.literal("      + " + contribution(c))
+                        .withStyle(ChatFormatting.GREEN), false);
+            }
+            for (CapabilityContribution c : r.ignored()) {
+                String why = c.active() ? "overridden" : "inactive";
+                source.sendSuccess(() -> Component.literal("      - " + contribution(c) + " (" + why + ")")
+                        .withStyle(ChatFormatting.DARK_GRAY), false);
+            }
+        }
+        return 1;
+    }
+
+    private static String contribution(CapabilityContribution c) {
+        String op = c.op().name().toLowerCase(Locale.ROOT);
+        String val = c.key().kind() == ValueKind.FLAG ? "" : " " + String.format(Locale.ROOT, "%.3f", c.value());
+        return c.provenance().render() + "  [" + op + val + "]";
     }
 
     private static int validate(CommandSourceStack source) {
