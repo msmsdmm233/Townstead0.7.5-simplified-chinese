@@ -21,7 +21,7 @@ public final class PhenoSchemas {
                 .doc("Runs an action when a life-cycle event fires (attack, hurt, kill, land, ...).")
                 .field(required("trigger", PhenoType.STRING).doc("Event: when_attack, when_hurt, when_kill, ..."))
                 .field(of("target", PhenoType.STRING).doc("self or other (the counterpart entity)."))
-                .field(of("action", PhenoType.ACTION))
+                .field(required("action", PhenoType.ACTION))
                 .field(of("condition", PhenoType.CONDITION))
                 .primaryChild("action").build());
 
@@ -45,7 +45,7 @@ public final class PhenoSchemas {
         NodeSchemas.register(NodeSchema.of("townstead_origins:attribute", NodeDomain.GENE)
                 .doc("Adds a vanilla attribute modifier, optionally gated by a condition.")
                 .field(required("attribute", PhenoType.ID))
-                .field(required("amount", PhenoType.FLOAT))
+                .field(of("amount", PhenoType.FLOAT))
                 .field(of("operation", PhenoType.STRING))
                 .field(of("condition", PhenoType.CONDITION)).build());
 
@@ -57,8 +57,9 @@ public final class PhenoSchemas {
                 .field(of("condition", PhenoType.CONDITION)).build());
 
         NodeSchemas.register(NodeSchema.of("townstead_origins:damage_modifier", NodeDomain.GENE)
-                .doc("Scales incoming damage of a tag/type; 0 is immunity.")
-                .field(required("modifier", PhenoType.FLOAT))
+                .doc("Scales incoming damage of a tag/type; 0 is immunity. Needs one of "
+                        + "damage_tag/damage_type/damage_condition.")
+                .field(of("modifier", PhenoType.FLOAT))
                 .field(of("damage_tag", PhenoType.TAG_OR_ID))
                 .field(of("damage_type", PhenoType.ID))
                 .field(of("condition", PhenoType.CONDITION)).build());

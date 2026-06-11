@@ -9,9 +9,9 @@ import org.jetbrains.annotations.Nullable;
  * recorded but excluded from the resolved value, so {@code /pheno explain} can still show it).
  *
  * <p>{@code exclusivityGroup}: at most one active contribution in the group applies (the rest
- * are mutually-exclusive alternatives). {@code stackingGroup}: contributions in the group do
- * not stack (only the strongest applies). Both keep the highest priority; ties break on the
- * provenance source id for determinism.
+ * are mutually-exclusive alternatives, highest priority wins, ties break on the provenance
+ * source id). {@code stackingGroup}: a label for contributions that combine together through
+ * the normal fold; it does not collapse them (a per-group stack cap is a planned addition).
  */
 public record CapabilityContribution(
         CapabilityKey key,

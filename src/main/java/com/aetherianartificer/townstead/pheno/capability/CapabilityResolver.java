@@ -10,9 +10,10 @@ import java.util.Map;
 /**
  * Folds a flat list of {@link CapabilityContribution}s into a {@link CapabilityView} with
  * deterministic conflict resolution. Per key: inactive contributions are set aside; within each
- * exclusivity/stacking group only the highest-priority contribution survives (ties break on the
- * provenance id); an active DENY dominates and forces the off/identity value; otherwise the
- * numeric fold runs REPLACE, then ADD, then MULTIPLY, then OR, then MIN, then MAX.
+ * exclusivity group only the highest-priority contribution survives (ties break on the
+ * provenance id) while stacking-group members all combine; an active DENY dominates and forces
+ * the off/identity value; otherwise the numeric fold runs REPLACE, then ADD, then MULTIPLY,
+ * then OR, then MIN, then MAX.
  *
  * <p>This is a best-effort effective value for querying and explaining. While appliers migrate
  * onto the layer, the legacy appliers remain the behavioral source of truth for their effect.
@@ -43,26 +44,28 @@ public final class CapabilityResolver {
             else ignored.add(c);
         }
 
-        // Collapse exclusivity / stacking groups to their highest-priority member.
-        Map<String, CapabilityContribution> groupWinner = new LinkedHashMap<>();
+        // Collapse each exclusivity group to its highest-priority member (mutually exclusive
+        // alternatives, only one applies). Stacking-group members are not collapsed: they all
+        // combine through the fold below (a per-group stack cap is a future addition).
+        Map<String, CapabilityContribution> exclusiveWinner = new LinkedHashMap<>();
         List<CapabilityContribution> candidates = new ArrayList<>();
         for (CapabilityContribution c : active) {
-            String group = groupId(c);
+            String group = exclusivityKey(c);
             if (group == null) {
                 candidates.add(c);
                 continue;
             }
-            CapabilityContribution prev = groupWinner.get(group);
+            CapabilityContribution prev = exclusiveWinner.get(group);
             if (prev == null) {
-                groupWinner.put(group, c);
+                exclusiveWinner.put(group, c);
             } else if (better(c, prev)) {
                 ignored.add(prev);
-                groupWinner.put(group, c);
+                exclusiveWinner.put(group, c);
             } else {
                 ignored.add(c);
             }
         }
-        candidates.addAll(groupWinner.values());
+        candidates.addAll(exclusiveWinner.values());
 
         // An active DENY forces the capability off / to identity.
         boolean denied = false;
@@ -116,10 +119,8 @@ public final class CapabilityResolver {
     }
 
     @Nullable
-    private static String groupId(CapabilityContribution c) {
-        if (c.exclusivityGroup() != null) return "x:" + c.exclusivityGroup();
-        if (c.stackingGroup() != null) return "s:" + c.stackingGroup();
-        return null;
+    private static String exclusivityKey(CapabilityContribution c) {
+        return c.exclusivityGroup() != null ? "x:" + c.exclusivityGroup() : null;
     }
 
     private static boolean better(CapabilityContribution a, CapabilityContribution b) {

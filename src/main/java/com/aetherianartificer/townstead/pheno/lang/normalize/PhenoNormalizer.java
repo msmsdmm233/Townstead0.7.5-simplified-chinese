@@ -15,6 +15,8 @@ import net.minecraft.util.GsonHelper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 /**
  * Lowers v2 authoring sugar into the canonical JSON the existing parsers already understand,
@@ -201,15 +203,22 @@ public final class PhenoNormalizer {
         return wrap("block_action", "block_action", offset);
     }
 
+    /**
+     * Convert a unit string to its canonical number. A malformed value is returned unchanged
+     * (never coerced to 0): the validator then reports it against the field's type, so a typo
+     * like {@code "tomorrowish"} surfaces as an error rather than silently becoming no cooldown.
+     */
     private static JsonPrimitive normalizeUnit(FieldSchema field, JsonPrimitive value) {
         if (value.isNumber()) return value;
         String raw = value.getAsString().trim().toLowerCase(Locale.ROOT);
         switch (field.type()) {
             case DURATION:
-                return new JsonPrimitive(parseDurationTicks(raw));
+                OptionalInt ticks = parseDurationTicks(raw);
+                return ticks.isPresent() ? new JsonPrimitive(ticks.getAsInt()) : value;
             case PERCENT:
                 if (raw.endsWith("%")) {
-                    return new JsonPrimitive(parseDouble(raw.substring(0, raw.length() - 1)) / 100d);
+                    OptionalDouble percent = parseDoubleOpt(raw.substring(0, raw.length() - 1));
+                    return percent.isPresent() ? new JsonPrimitive(percent.getAsDouble() / 100d) : value;
                 }
                 return value;
             default:
@@ -217,18 +226,22 @@ public final class PhenoNormalizer {
         }
     }
 
-    private static int parseDurationTicks(String raw) {
-        try {
-            if (raw.endsWith("ms")) return (int) Math.round(parseDouble(raw.substring(0, raw.length() - 2)) / 50d);
-            if (raw.endsWith("s")) return (int) Math.round(parseDouble(raw.substring(0, raw.length() - 1)) * 20d);
-            if (raw.endsWith("t")) return (int) Math.round(parseDouble(raw.substring(0, raw.length() - 1)));
-            return (int) Math.round(parseDouble(raw));
-        } catch (NumberFormatException ex) {
-            return 0;
-        }
+    private static OptionalInt parseDurationTicks(String raw) {
+        String body;
+        double scale;
+        if (raw.endsWith("ms")) { body = raw.substring(0, raw.length() - 2); scale = 1d / 50d; }
+        else if (raw.endsWith("s")) { body = raw.substring(0, raw.length() - 1); scale = 20d; }
+        else if (raw.endsWith("t")) { body = raw.substring(0, raw.length() - 1); scale = 1d; }
+        else { body = raw; scale = 1d; }
+        OptionalDouble parsed = parseDoubleOpt(body);
+        return parsed.isPresent() ? OptionalInt.of((int) Math.round(parsed.getAsDouble() * scale)) : OptionalInt.empty();
     }
 
-    private static double parseDouble(String s) {
-        return Double.parseDouble(s.trim());
+    private static OptionalDouble parseDoubleOpt(String s) {
+        try {
+            return OptionalDouble.of(Double.parseDouble(s.trim()));
+        } catch (NumberFormatException ex) {
+            return OptionalDouble.empty();
+        }
     }
 }

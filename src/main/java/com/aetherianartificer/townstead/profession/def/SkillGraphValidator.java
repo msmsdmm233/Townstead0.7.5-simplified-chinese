@@ -4,6 +4,7 @@ import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostics;
 import com.aetherianartificer.townstead.pheno.lang.compile.JsonPath;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -75,37 +76,45 @@ public final class SkillGraphValidator {
         }
     }
 
-    /** Skills that participate in a prerequisite cycle, via DFS three-colouring over requires edges. */
+    /**
+     * Skills that actually lie on a prerequisite cycle. DFS three-colouring over requires edges,
+     * keeping the current path: a back-edge to a grey node marks only the path segment from that
+     * grey node to the current node, so a skill that merely leads into a cycle (A -&gt; B -&gt; C
+     * -&gt; B) is not falsely reported.
+     */
     private static Set<ResourceLocation> findCycles(Map<ResourceLocation, SkillDef> skills) {
         Map<ResourceLocation, Integer> colour = new HashMap<>();   // 0 white, 1 grey, 2 black
         Set<ResourceLocation> inCycle = new HashSet<>();
+        List<ResourceLocation> path = new ArrayList<>();
         for (ResourceLocation id : skills.keySet()) {
             if (colour.getOrDefault(id, 0) == 0) {
-                visit(id, skills, colour, inCycle);
+                visit(id, skills, colour, path, inCycle);
             }
         }
         return inCycle;
     }
 
-    private static boolean visit(ResourceLocation id, Map<ResourceLocation, SkillDef> skills,
-                                 Map<ResourceLocation, Integer> colour, Set<ResourceLocation> inCycle) {
+    private static void visit(ResourceLocation id, Map<ResourceLocation, SkillDef> skills,
+                              Map<ResourceLocation, Integer> colour, List<ResourceLocation> path,
+                              Set<ResourceLocation> inCycle) {
         colour.put(id, 1);
-        boolean onCycle = false;
+        path.add(id);
         SkillDef skill = skills.get(id);
         List<ResourceLocation> deps = skill == null ? List.of() : skill.requires();
         for (ResourceLocation dep : deps) {
             if (!skills.containsKey(dep)) continue;
             int c = colour.getOrDefault(dep, 0);
             if (c == 1) {
-                inCycle.add(dep);
-                inCycle.add(id);
-                onCycle = true;
-            } else if (c == 0 && visit(dep, skills, colour, inCycle)) {
-                inCycle.add(id);
-                onCycle = true;
+                // Back-edge: dep is on the current path. Everything from dep to here is a cycle.
+                int from = path.indexOf(dep);
+                for (int k = from; k < path.size(); k++) {
+                    inCycle.add(path.get(k));
+                }
+            } else if (c == 0) {
+                visit(dep, skills, colour, path, inCycle);
             }
         }
         colour.put(id, 2);
-        return onCycle;
+        path.remove(path.size() - 1);
     }
 }
