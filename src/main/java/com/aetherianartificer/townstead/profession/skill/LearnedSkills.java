@@ -1,5 +1,8 @@
 package com.aetherianartificer.townstead.profession.skill;
 
+import com.aetherianartificer.townstead.profession.def.ProfessionDef;
+import com.aetherianartificer.townstead.profession.def.ProfessionDefs;
+import com.aetherianartificer.townstead.profession.def.RetrainingPolicy;
 import com.aetherianartificer.townstead.profession.def.SkillDef;
 import com.aetherianartificer.townstead.profession.def.SkillDefs;
 import net.minecraft.resources.ResourceLocation;
@@ -15,10 +18,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Per-entity set of learned skills, the runtime state professions grant capabilities from.
- * Enforces prerequisites and exclusivity on learn. State is transient for now (in memory,
- * keyed by entity UUID); durable persistence and work-event-driven mastery are the next
- * Townstead-integration step. Mirrors the transient per-entity stores already used for
- * ability toggles and stacking effects.
+ * {@link #learn} enforces the declared model that is checkable from the skill graph today
+ * (prerequisites and exclusivity); tier, point cost, unlock model, and XP gating are enforced
+ * once per-entity progression state exists (deferred Townstead integration) and are noted on
+ * each method. {@link #forget} respects the profession's retraining policy and cascades, so
+ * dropping a prerequisite also drops everything that depended on it. {@link #forceLearn} and
+ * {@link #forceForget} are explicit admin bypasses.
+ *
+ * <p>State is transient (in memory, keyed by entity UUID); durable persistence is part of the
+ * deferred progression work. Mirrors the transient per-entity stores already used for ability
+ * toggles and stacking effects.
  */
 public final class LearnedSkills {
 
@@ -36,29 +45,76 @@ public final class LearnedSkills {
         return set != null && set.contains(skill);
     }
 
-    /** Learn a skill if its prerequisites are met and it is not blocked by exclusivity. */
+    /**
+     * Learn a skill, enforcing prerequisites and exclusivity. Tier / points / unlock model / XP
+     * gating is deferred until per-entity progression state exists; use {@link #forceLearn} to
+     * bypass for admin setup.
+     */
     public static Result learn(LivingEntity entity, ResourceLocation skillId) {
         SkillDef skill = SkillDefs.byId(skillId);
         if (skill == null) return Result.fail("unknown skill '" + skillId + "'");
         Set<ResourceLocation> set = STATE.computeIfAbsent(entity.getUUID(), u -> new LinkedHashSet<>());
         if (set.contains(skillId)) return Result.fail("already learned");
-
         for (ResourceLocation req : skill.requires()) {
             if (!set.contains(req)) return Result.fail("missing prerequisite '" + req + "'");
         }
         ResourceLocation conflict = exclusivityConflict(skill, set);
         if (conflict != null) return Result.fail("excluded by learned skill '" + conflict + "'");
-
         set.add(skillId);
         return Result.success();
     }
 
-    public static boolean forget(LivingEntity entity, ResourceLocation skillId) {
-        Set<ResourceLocation> set = STATE.get(entity.getUUID());
-        return set != null && set.remove(skillId);
+    /** Admin bypass: record a learned skill without prerequisite or exclusivity checks. */
+    public static Result forceLearn(LivingEntity entity, ResourceLocation skillId) {
+        if (SkillDefs.byId(skillId) == null) return Result.fail("unknown skill '" + skillId + "'");
+        STATE.computeIfAbsent(entity.getUUID(), u -> new LinkedHashSet<>()).add(skillId);
+        return Result.success();
     }
 
-    /** A learned skill that mutually excludes the candidate, or null if none. */
+    /**
+     * Forget a skill, honoring the profession's retraining policy and cascading to every learned
+     * skill that (transitively) required it, so the learned set never becomes graph-invalid.
+     */
+    public static ForgetResult forget(LivingEntity entity, ResourceLocation skillId) {
+        Set<ResourceLocation> set = STATE.get(entity.getUUID());
+        if (set == null || !set.contains(skillId)) return ForgetResult.fail("not learned");
+        SkillDef skill = SkillDefs.byId(skillId);
+        if (skill != null) {
+            ProfessionDef profession = ProfessionDefs.byId(skill.profession());
+            if (profession != null && profession.retraining() == RetrainingPolicy.LOCKED) {
+                return ForgetResult.fail("retraining is locked for this profession");
+            }
+        }
+        return ForgetResult.removed(cascadeRemove(set, skillId));
+    }
+
+    /** Admin bypass: forget regardless of retraining policy; still cascades to dependents. */
+    public static ForgetResult forceForget(LivingEntity entity, ResourceLocation skillId) {
+        Set<ResourceLocation> set = STATE.get(entity.getUUID());
+        if (set == null || !set.contains(skillId)) return ForgetResult.fail("not learned");
+        return ForgetResult.removed(cascadeRemove(set, skillId));
+    }
+
+    /** Remove the skill and then, to a fixpoint, any learned skill whose prerequisites are no longer met. */
+    private static Set<ResourceLocation> cascadeRemove(Set<ResourceLocation> set, ResourceLocation skillId) {
+        Set<ResourceLocation> removed = new LinkedHashSet<>();
+        set.remove(skillId);
+        removed.add(skillId);
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (ResourceLocation learnedId : new LinkedHashSet<>(set)) {
+                SkillDef learnedSkill = SkillDefs.byId(learnedId);
+                if (learnedSkill != null && !set.containsAll(learnedSkill.requires())) {
+                    set.remove(learnedId);
+                    removed.add(learnedId);
+                    changed = true;
+                }
+            }
+        }
+        return removed;
+    }
+
     @Nullable
     private static ResourceLocation exclusivityConflict(SkillDef skill, Set<ResourceLocation> learned) {
         for (ResourceLocation other : skill.exclusiveWith()) {
@@ -78,6 +134,16 @@ public final class LearnedSkills {
 
         static Result fail(String error) {
             return new Result(false, error);
+        }
+    }
+
+    public record ForgetResult(boolean ok, @Nullable String error, Set<ResourceLocation> removed) {
+        static ForgetResult removed(Set<ResourceLocation> removed) {
+            return new ForgetResult(true, null, removed);
+        }
+
+        static ForgetResult fail(String error) {
+            return new ForgetResult(false, error, Set.of());
         }
     }
 }

@@ -27,7 +27,7 @@ public final class PhenoSchemas {
 
         NodeSchemas.register(NodeSchema.of("townstead_origins:active_ability", NodeDomain.GENE)
                 .doc("An action the holder triggers from an Origin Ability key slot.")
-                .field(of("action", PhenoType.ACTION))
+                .field(required("action", PhenoType.ACTION))
                 .field(of("condition", PhenoType.CONDITION))
                 .field(of("cooldown", PhenoType.DURATION))
                 .field(of("slot", PhenoType.INT))
@@ -77,7 +77,7 @@ public final class PhenoSchemas {
 
         NodeSchemas.register(NodeSchema.of("townstead_origins:action_over_time", NodeDomain.GENE)
                 .doc("Runs an action on a fixed interval.")
-                .field(of("action", PhenoType.ACTION))
+                .field(required("action", PhenoType.ACTION))
                 .field(of("interval", PhenoType.DURATION))
                 .field(of("condition", PhenoType.CONDITION))
                 .primaryChild("action").build());
@@ -85,27 +85,27 @@ public final class PhenoSchemas {
         // --- Action wrappers (the context transitions and meta combinators) ---
         NodeSchemas.register(NodeSchema.of("townstead_origins:actor_action", NodeDomain.ACTION)
                 .doc("Runs the inner action on the actor (self).")
-                .field(of("action", PhenoType.ACTION)).primaryChild("action").build());
+                .field(required("action", PhenoType.ACTION)).primaryChild("action").build());
         NodeSchemas.register(NodeSchema.of("townstead_origins:target_action", NodeDomain.ACTION)
                 .doc("Runs the inner action on the other entity (target).")
-                .field(of("action", PhenoType.ACTION)).primaryChild("action").build());
+                .field(required("action", PhenoType.ACTION)).primaryChild("action").build());
         NodeSchemas.register(NodeSchema.of("townstead_origins:invert", NodeDomain.ACTION)
                 .doc("Swaps actor and target for the inner action.")
-                .field(of("action", PhenoType.ACTION)).primaryChild("action").build());
+                .field(required("action", PhenoType.ACTION)).primaryChild("action").build());
         NodeSchemas.register(NodeSchema.of("townstead_origins:block_action", NodeDomain.ACTION)
                 .doc("Runs a block action at the actor's position.")
-                .field(of("block_action", PhenoType.BLOCK_ACTION)).primaryChild("block_action").build());
+                .field(required("block_action", PhenoType.BLOCK_ACTION)).primaryChild("block_action").build());
         NodeSchemas.register(NodeSchema.of("townstead_origins:equipped_item_action", NodeDomain.ACTION)
                 .doc("Runs an item action on an equipped slot.")
                 .field(of("slot", PhenoType.STRING))
-                .field(of("item_action", PhenoType.ITEM_ACTION)).primaryChild("item_action").build());
+                .field(required("item_action", PhenoType.ITEM_ACTION)).primaryChild("item_action").build());
         NodeSchemas.register(NodeSchema.of("townstead_origins:and", NodeDomain.ACTION)
                 .doc("Runs all listed actions in order.")
-                .field(of("actions", PhenoType.ACTION).asList()).primaryChild("actions").build());
+                .field(required("actions", PhenoType.ACTION).asList()).primaryChild("actions").build());
         NodeSchemas.register(NodeSchema.of("townstead_origins:chance", NodeDomain.ACTION)
                 .doc("Runs the inner action with a probability.")
                 .field(of("chance", PhenoType.PERCENT))
-                .field(of("action", PhenoType.ACTION)).primaryChild("action").build());
+                .field(required("action", PhenoType.ACTION)).primaryChild("action").build());
 
         // --- Leaf actions with normalizable units ---
         NodeSchemas.register(NodeSchema.of("townstead_origins:apply_effect", NodeDomain.ACTION)
@@ -124,7 +124,7 @@ public final class PhenoSchemas {
                 .field(of("x", PhenoType.INT))
                 .field(of("y", PhenoType.INT))
                 .field(of("z", PhenoType.INT))
-                .field(of("block_action", PhenoType.BLOCK_ACTION)).primaryChild("block_action").build());
+                .field(required("block_action", PhenoType.BLOCK_ACTION)).primaryChild("block_action").build());
 
         // --- Consolidated condition ---
         NodeSchemas.register(NodeSchema.of("townstead_origins:environment", NodeDomain.CONDITION)

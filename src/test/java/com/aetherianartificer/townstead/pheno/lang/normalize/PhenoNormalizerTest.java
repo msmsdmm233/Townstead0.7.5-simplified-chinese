@@ -1,0 +1,71 @@
+package com.aetherianartificer.townstead.pheno.lang.normalize;
+
+import com.aetherianartificer.townstead.pheno.lang.schema.PhenoSchemas;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class PhenoNormalizerTest {
+
+    @BeforeAll
+    static void registerSchemas() {
+        PhenoSchemas.registerAll();
+    }
+
+    private static JsonObject obj(String singleQuoted) {
+        return JsonParser.parseString(singleQuoted.replace('\'', '"')).getAsJsonObject();
+    }
+
+    @Test
+    void geneEnvelopeAndTriggerAndWithLower() {
+        JsonObject out = PhenoNormalizer.normalize(obj(
+                "{ 'pheno_version':2, 'gene':{'dominance':'recessive','category':'Combat'},"
+                        + " 'on':'hurt', 'do':{'type':'pheno:with','target':'attacker',"
+                        + " 'do':{'type':'pheno:damage','amount':2}} }"));
+        assertEquals("recessive", out.get("dominance").getAsString());
+        assertEquals("townstead_origins:trigger", out.get("type").getAsString());
+        assertEquals("when_hurt", out.get("trigger").getAsString());
+        JsonObject action = out.getAsJsonObject("action");
+        assertEquals("townstead_origins:target_action", action.get("type").getAsString());
+        assertEquals("townstead_origins:damage", action.getAsJsonObject("action").get("type").getAsString());
+    }
+
+    @Test
+    void durationUnitConverts() {
+        JsonObject out = PhenoNormalizer.normalize(obj(
+                "{ 'pheno_version':2, 'type':'townstead_origins:active_ability',"
+                        + " 'action':{'type':'townstead_origins:heal','amount':1}, 'cooldown':'2s' }"));
+        assertEquals(40, out.get("cooldown").getAsInt());
+    }
+
+    @Test
+    void malformedUnitIsPreservedNotZeroed() {
+        JsonObject out = PhenoNormalizer.normalize(obj(
+                "{ 'pheno_version':2, 'type':'townstead_origins:active_ability',"
+                        + " 'action':{'type':'townstead_origins:heal','amount':1}, 'cooldown':'tomorrowish' }"));
+        assertTrue(out.get("cooldown").getAsJsonPrimitive().isString());
+        assertEquals("tomorrowish", out.get("cooldown").getAsString());
+    }
+
+    @Test
+    void variantConfigsAreNormalized() {
+        JsonObject out = PhenoNormalizer.normalize(obj(
+                "{ 'pheno_version':2, 'type':'townstead_origins:active_ability', 'variants':{"
+                        + " 'q':{ 'action':{'type':'townstead_origins:heal','amount':1}, 'cooldown':'3s' } } }"));
+        JsonObject variant = out.getAsJsonObject("variants").getAsJsonObject("q");
+        assertEquals(60, variant.get("cooldown").getAsInt());
+    }
+
+    @Test
+    void v1ResourcesAreReturnedUntouched() {
+        JsonObject in = obj("{ 'type':'townstead_origins:active_ability', 'cooldown':'2s' }");
+        JsonObject out = PhenoNormalizer.normalize(in);
+        assertSame(in, out);
+        assertEquals("2s", out.get("cooldown").getAsString());
+    }
+}

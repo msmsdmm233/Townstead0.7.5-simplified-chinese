@@ -41,7 +41,21 @@ public final class PhenoNormalizer {
         hoistGeneEnvelope(root);
         liftTriggerSugar(root);
         applyNamespaceAlias(root);
-        normalizeNode(root, NodeDomain.GENE);
+        String geneType = GsonHelper.getAsString(root, "type", "");
+        // Each variant config is governed by the gene's own type, so normalize it under that
+        // type (sugar, units, aliases, nested shorthand) just like a single-variant root.
+        if (root.has("variants") && root.get("variants").isJsonObject()) {
+            JsonObject variants = root.getAsJsonObject("variants");
+            for (String key : new ArrayList<>(variants.keySet())) {
+                if (variants.get(key).isJsonObject()) {
+                    JsonObject variant = variants.get(key).getAsJsonObject();
+                    applyNamespaceAlias(variant);
+                    normalizeNode(variant, NodeDomain.GENE, geneType);
+                }
+            }
+        } else {
+            normalizeNode(root, NodeDomain.GENE, geneType);
+        }
         return root;
     }
 
@@ -94,8 +108,8 @@ public final class PhenoNormalizer {
         }
     }
 
-    private static void normalizeNode(JsonObject obj, NodeDomain domain) {
-        String type = GsonHelper.getAsString(obj, "type", "");
+    private static void normalizeNode(JsonObject obj, NodeDomain domain, String typeHint) {
+        String type = obj.has("type") ? GsonHelper.getAsString(obj, "type", "") : typeHint;
         NodeSchema schema = NodeSchemas.get(type);
 
         // Universal renames.
@@ -159,7 +173,7 @@ public final class PhenoNormalizer {
                 && "townstead_origins:with".equals(GsonHelper.getAsString(obj, "type", ""))) {
             obj = lowerWith(obj);
         }
-        normalizeNode(obj, domain);
+        normalizeNode(obj, domain, "");
         return obj;
     }
 

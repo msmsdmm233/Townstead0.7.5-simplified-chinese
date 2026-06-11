@@ -83,12 +83,18 @@ public final class PhenoCommand {
                         .then(Commands.argument("target", EntityArgument.entity())
                                 .then(Commands.argument("skill", StringArgumentType.string()).suggests(SUGGEST_SKILLS)
                                         .executes(c -> learn(c.getSource(), EntityArgument.getEntity(c, "target"),
-                                                StringArgumentType.getString(c, "skill"))))))
+                                                StringArgumentType.getString(c, "skill"), false))
+                                        .then(Commands.literal("force").executes(c -> learn(c.getSource(),
+                                                EntityArgument.getEntity(c, "target"),
+                                                StringArgumentType.getString(c, "skill"), true))))))
                 .then(Commands.literal("forget")
                         .then(Commands.argument("target", EntityArgument.entity())
                                 .then(Commands.argument("skill", StringArgumentType.string()).suggests(SUGGEST_SKILLS)
                                         .executes(c -> forget(c.getSource(), EntityArgument.getEntity(c, "target"),
-                                                StringArgumentType.getString(c, "skill")))))));
+                                                StringArgumentType.getString(c, "skill"), false))
+                                        .then(Commands.literal("force").executes(c -> forget(c.getSource(),
+                                                EntityArgument.getEntity(c, "target"),
+                                                StringArgumentType.getString(c, "skill"), true)))))));
     }
 
     private static final SuggestionProvider<CommandSourceStack> SUGGEST_SKILLS = (c, b) ->
@@ -113,7 +119,7 @@ public final class PhenoCommand {
         return 1;
     }
 
-    private static int learn(CommandSourceStack source, Entity target, String skill) {
+    private static int learn(CommandSourceStack source, Entity target, String skill, boolean force) {
         if (!(target instanceof LivingEntity living)) {
             source.sendFailure(Component.literal("Pheno learn: target is not a living entity."));
             return 0;
@@ -123,17 +129,17 @@ public final class PhenoCommand {
             source.sendFailure(Component.literal("Pheno learn: '" + skill + "' is not a valid id."));
             return 0;
         }
-        LearnedSkills.Result result = LearnedSkills.learn(living, id);
+        LearnedSkills.Result result = force ? LearnedSkills.forceLearn(living, id) : LearnedSkills.learn(living, id);
         if (result.ok()) {
-            source.sendSuccess(() -> Component.literal(target.getName().getString() + " learned " + id)
-                    .withStyle(ChatFormatting.GREEN), false);
+            source.sendSuccess(() -> Component.literal(target.getName().getString()
+                    + (force ? " force-learned " : " learned ") + id).withStyle(ChatFormatting.GREEN), false);
             return 1;
         }
         source.sendFailure(Component.literal("Cannot learn " + id + ": " + result.error()));
         return 0;
     }
 
-    private static int forget(CommandSourceStack source, Entity target, String skill) {
+    private static int forget(CommandSourceStack source, Entity target, String skill, boolean force) {
         if (!(target instanceof LivingEntity living)) {
             source.sendFailure(Component.literal("Pheno forget: target is not a living entity."));
             return 0;
@@ -143,12 +149,16 @@ public final class PhenoCommand {
             source.sendFailure(Component.literal("Pheno forget: '" + skill + "' is not a valid id."));
             return 0;
         }
-        boolean removed = LearnedSkills.forget(living, id);
-        source.sendSuccess(() -> Component.literal(removed
-                ? target.getName().getString() + " forgot " + id
-                : target.getName().getString() + " had not learned " + id)
-                .withStyle(removed ? ChatFormatting.GREEN : ChatFormatting.GRAY), false);
-        return removed ? 1 : 0;
+        LearnedSkills.ForgetResult result = force ? LearnedSkills.forceForget(living, id) : LearnedSkills.forget(living, id);
+        if (!result.ok()) {
+            source.sendFailure(Component.literal("Cannot forget " + id + ": " + result.error()));
+            return 0;
+        }
+        String dependents = result.removed().size() > 1
+                ? " (cascaded: " + result.removed() + ")" : "";
+        source.sendSuccess(() -> Component.literal(target.getName().getString() + " forgot " + id + dependents)
+                .withStyle(ChatFormatting.GREEN), false);
+        return 1;
     }
 
     /**

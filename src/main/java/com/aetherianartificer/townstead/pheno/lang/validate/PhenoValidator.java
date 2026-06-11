@@ -48,8 +48,12 @@ public final class PhenoValidator {
         if (root.has("variants") && root.get("variants").isJsonObject()) {
             for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("variants").entrySet()) {
                 if (e.getValue().isJsonObject()) {
-                    descend(e.getValue().getAsJsonObject(), NodeDomain.GENE,
-                            JsonPath.ROOT.field("variants").field(e.getKey()), diag);
+                    JsonObject variant = e.getValue().getAsJsonObject();
+                    JsonPath path = JsonPath.ROOT.field("variants").field(e.getKey());
+                    // Each variant config is parsed under the gene's own type, so check its
+                    // fields and descend it against that type.
+                    checkFields(variant, type, path, diag);
+                    descend(variant, NodeDomain.GENE, path, diag);
                 }
             }
         } else {
