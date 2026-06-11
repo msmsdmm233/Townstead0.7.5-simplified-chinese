@@ -508,6 +508,7 @@ public class Townstead {
             com.aetherianartificer.townstead.origin.ability.ActiveAbilities.clear(e.getEntity().getUUID());
             com.aetherianartificer.townstead.origin.ability.ResourceValues.clear(e.getEntity().getUUID());
             com.aetherianartificer.townstead.origin.ability.AbilityToggles.clear(e.getEntity().getUUID());
+            com.aetherianartificer.townstead.profession.skill.LearnedSkills.clear(e.getEntity().getUUID());
         });
         NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
@@ -556,6 +557,9 @@ public class Townstead {
                 return;
             }
             com.aetherianartificer.townstead.origin.trigger.GeneTriggers.onDeath(e.getEntity(), e.getSource());
+            if (!(e.getEntity() instanceof net.minecraft.world.entity.player.Player)) {
+                com.aetherianartificer.townstead.profession.skill.LearnedSkills.clear(e.getEntity().getUUID());
+            }
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent.Start e) -> {
             if (com.aetherianartificer.townstead.origin.prevent.Prevents.prevents(e.getEntity(),
@@ -758,6 +762,7 @@ public class Townstead {
             com.aetherianartificer.townstead.origin.ability.ActiveAbilities.clear(e.getEntity().getUUID());
             com.aetherianartificer.townstead.origin.ability.ResourceValues.clear(e.getEntity().getUUID());
             com.aetherianartificer.townstead.origin.ability.AbilityToggles.clear(e.getEntity().getUUID());
+            com.aetherianartificer.townstead.profession.skill.LearnedSkills.clear(e.getEntity().getUUID());
         });
         MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
@@ -819,6 +824,9 @@ public class Townstead {
                 return;
             }
             com.aetherianartificer.townstead.origin.trigger.GeneTriggers.onDeath(e.getEntity(), e.getSource());
+            if (!(e.getEntity() instanceof net.minecraft.world.entity.player.Player)) {
+                com.aetherianartificer.townstead.profession.skill.LearnedSkills.clear(e.getEntity().getUUID());
+            }
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingEntityUseItemEvent.Start e) -> {
             if (com.aetherianartificer.townstead.origin.prevent.Prevents.prevents(e.getEntity(),

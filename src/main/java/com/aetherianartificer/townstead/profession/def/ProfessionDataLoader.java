@@ -91,7 +91,7 @@ public final class ProfessionDataLoader extends SimplePreparableReloadListener<P
     private static final Set<String> RETRAINING = Set.of("free", "costly", "locked");
     private static final Set<String> GRANT_OPS = Set.of("add", "multiply", "min", "max", "replace", "set", "deny");
 
-    private static ProfessionDef parseProfession(ResourceLocation id, JsonObject obj, Map<String, String> lang,
+    static ProfessionDef parseProfession(ResourceLocation id, JsonObject obj, Map<String, String> lang,
                                                  Diagnostics diag) {
         Component name = obj.has("display_name")
                 ? DataPackLang.parseComponent(obj.get("display_name"), id.toString(), lang)
@@ -133,9 +133,10 @@ public final class ProfessionDataLoader extends SimplePreparableReloadListener<P
                 parseIdList(obj, "skills"));
     }
 
-    private static SkillDef parseSkill(ResourceLocation id, JsonObject obj, Map<String, String> lang,
+    static SkillDef parseSkill(ResourceLocation id, JsonObject obj, Map<String, String> lang,
                                        Diagnostics diag) {
-        ResourceLocation profession = ResourceLocation.tryParse(GsonHelper.getAsString(obj, "profession", ""));
+        String professionRaw = GsonHelper.getAsString(obj, "profession", "");
+        ResourceLocation profession = professionRaw.isBlank() ? null : ResourceLocation.tryParse(professionRaw);
         if (profession == null) {
             diag.error(JsonPath.ROOT.field("profession"),
                     "Missing or invalid 'profession' id.", "Set it to namespace:profession_id.");

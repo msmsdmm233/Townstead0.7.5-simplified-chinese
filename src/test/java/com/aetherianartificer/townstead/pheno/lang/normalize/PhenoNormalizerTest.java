@@ -62,6 +62,20 @@ class PhenoNormalizerTest {
     }
 
     @Test
+    void variantNestedDoAndWhenShorthandAreLowered() {
+        JsonObject out = PhenoNormalizer.normalize(obj(
+                "{ 'pheno_version':2, 'type':'townstead_origins:active_ability', 'variants':{"
+                        + " 'q':{ 'do':{'type':'pheno:heal','amount':1}, 'when':{'type':'pheno:on_fire'},"
+                        + " 'cooldown':'3s' } } }"));
+        JsonObject variant = out.getAsJsonObject("variants").getAsJsonObject("q");
+        // do -> the gene's primary child (action); when -> condition; units inside the variant convert.
+        assertEquals("townstead_origins:heal", variant.getAsJsonObject("action").get("type").getAsString());
+        assertEquals("townstead_origins:on_fire", variant.getAsJsonObject("condition").get("type").getAsString());
+        assertEquals(60, variant.get("cooldown").getAsInt());
+        assertTrue(!variant.has("do") && !variant.has("when"));
+    }
+
+    @Test
     void v1ResourcesAreReturnedUntouched() {
         JsonObject in = obj("{ 'type':'townstead_origins:active_ability', 'cooldown':'2s' }");
         JsonObject out = PhenoNormalizer.normalize(in);

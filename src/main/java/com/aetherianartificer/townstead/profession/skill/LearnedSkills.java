@@ -22,8 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * (prerequisites and exclusivity); tier, point cost, unlock model, and XP gating are enforced
  * once per-entity progression state exists (deferred Townstead integration) and are noted on
  * each method. {@link #forget} respects the profession's retraining policy and cascades, so
- * dropping a prerequisite also drops everything that depended on it. {@link #forceLearn} and
- * {@link #forceForget} are explicit admin bypasses.
+ * dropping a prerequisite also drops everything that depended on it; LOCKED is permanent and
+ * COSTLY is rejected until its payment mechanism exists (never silently free). {@link #forceLearn}
+ * and {@link #forceForget} are explicit admin bypasses.
  *
  * <p>State is transient (in memory, keyed by entity UUID); durable persistence is part of the
  * deferred progression work. Mirrors the transient per-entity stores already used for ability
@@ -36,13 +37,42 @@ public final class LearnedSkills {
     private LearnedSkills() {}
 
     public static Set<ResourceLocation> learned(LivingEntity entity) {
-        Set<ResourceLocation> set = STATE.get(entity.getUUID());
+        return learned(entity.getUUID());
+    }
+
+    public static Set<ResourceLocation> learned(UUID uuid) {
+        Set<ResourceLocation> set = STATE.get(uuid);
         return set == null ? Set.of() : Collections.unmodifiableSet(set);
     }
 
     public static boolean has(LivingEntity entity, ResourceLocation skill) {
-        Set<ResourceLocation> set = STATE.get(entity.getUUID());
+        return has(entity.getUUID(), skill);
+    }
+
+    public static boolean has(UUID uuid, ResourceLocation skill) {
+        Set<ResourceLocation> set = STATE.get(uuid);
         return set != null && set.contains(skill);
+    }
+
+    /** Drop an entity's learned set. Wired to player logout so the transient store stays bounded. */
+    public static void clear(UUID uuid) {
+        STATE.remove(uuid);
+    }
+
+    public static Result learn(LivingEntity entity, ResourceLocation skillId) {
+        return learn(entity.getUUID(), skillId);
+    }
+
+    public static Result forceLearn(LivingEntity entity, ResourceLocation skillId) {
+        return forceLearn(entity.getUUID(), skillId);
+    }
+
+    public static ForgetResult forget(LivingEntity entity, ResourceLocation skillId) {
+        return forget(entity.getUUID(), skillId);
+    }
+
+    public static ForgetResult forceForget(LivingEntity entity, ResourceLocation skillId) {
+        return forceForget(entity.getUUID(), skillId);
     }
 
     /**
@@ -50,10 +80,10 @@ public final class LearnedSkills {
      * gating is deferred until per-entity progression state exists; use {@link #forceLearn} to
      * bypass for admin setup.
      */
-    public static Result learn(LivingEntity entity, ResourceLocation skillId) {
+    public static Result learn(UUID uuid, ResourceLocation skillId) {
         SkillDef skill = SkillDefs.byId(skillId);
         if (skill == null) return Result.fail("unknown skill '" + skillId + "'");
-        Set<ResourceLocation> set = STATE.computeIfAbsent(entity.getUUID(), u -> new LinkedHashSet<>());
+        Set<ResourceLocation> set = STATE.computeIfAbsent(uuid, u -> new LinkedHashSet<>());
         if (set.contains(skillId)) return Result.fail("already learned");
         for (ResourceLocation req : skill.requires()) {
             if (!set.contains(req)) return Result.fail("missing prerequisite '" + req + "'");
@@ -65,9 +95,9 @@ public final class LearnedSkills {
     }
 
     /** Admin bypass: record a learned skill without prerequisite or exclusivity checks. */
-    public static Result forceLearn(LivingEntity entity, ResourceLocation skillId) {
+    public static Result forceLearn(UUID uuid, ResourceLocation skillId) {
         if (SkillDefs.byId(skillId) == null) return Result.fail("unknown skill '" + skillId + "'");
-        STATE.computeIfAbsent(entity.getUUID(), u -> new LinkedHashSet<>()).add(skillId);
+        STATE.computeIfAbsent(uuid, u -> new LinkedHashSet<>()).add(skillId);
         return Result.success();
     }
 
@@ -75,22 +105,32 @@ public final class LearnedSkills {
      * Forget a skill, honoring the profession's retraining policy and cascading to every learned
      * skill that (transitively) required it, so the learned set never becomes graph-invalid.
      */
-    public static ForgetResult forget(LivingEntity entity, ResourceLocation skillId) {
-        Set<ResourceLocation> set = STATE.get(entity.getUUID());
+    public static ForgetResult forget(UUID uuid, ResourceLocation skillId) {
+        Set<ResourceLocation> set = STATE.get(uuid);
         if (set == null || !set.contains(skillId)) return ForgetResult.fail("not learned");
         SkillDef skill = SkillDefs.byId(skillId);
         if (skill != null) {
             ProfessionDef profession = ProfessionDefs.byId(skill.profession());
-            if (profession != null && profession.retraining() == RetrainingPolicy.LOCKED) {
-                return ForgetResult.fail("retraining is locked for this profession");
+            if (profession != null) {
+                switch (profession.retraining()) {
+                    case LOCKED -> {
+                        return ForgetResult.fail("retraining is locked for this profession");
+                    }
+                    // The cost (resources/time) is Townstead-owned and not built yet; until it is,
+                    // costly retraining is rejected rather than silently treated as free.
+                    case COSTLY -> {
+                        return ForgetResult.fail("costly retraining is not available yet");
+                    }
+                    default -> { }
+                }
             }
         }
         return ForgetResult.removed(cascadeRemove(set, skillId));
     }
 
     /** Admin bypass: forget regardless of retraining policy; still cascades to dependents. */
-    public static ForgetResult forceForget(LivingEntity entity, ResourceLocation skillId) {
-        Set<ResourceLocation> set = STATE.get(entity.getUUID());
+    public static ForgetResult forceForget(UUID uuid, ResourceLocation skillId) {
+        Set<ResourceLocation> set = STATE.get(uuid);
         if (set == null || !set.contains(skillId)) return ForgetResult.fail("not learned");
         return ForgetResult.removed(cascadeRemove(set, skillId));
     }

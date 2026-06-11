@@ -16,7 +16,7 @@ public final class ProfessionDefs {
 
     private ProfessionDefs() {}
 
-    static void replaceAll(Map<ResourceLocation, ProfessionDef> next) {
+    public static void replaceAll(Map<ResourceLocation, ProfessionDef> next) {
         ENTRIES = Map.copyOf(new LinkedHashMap<>(next));
     }
 

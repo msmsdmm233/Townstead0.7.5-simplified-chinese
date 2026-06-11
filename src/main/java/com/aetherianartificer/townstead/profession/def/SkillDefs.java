@@ -18,7 +18,7 @@ public final class SkillDefs {
 
     private SkillDefs() {}
 
-    static void replaceAll(Map<ResourceLocation, SkillDef> next) {
+    public static void replaceAll(Map<ResourceLocation, SkillDef> next) {
         ENTRIES = Map.copyOf(new LinkedHashMap<>(next));
     }
 

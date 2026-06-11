@@ -4,7 +4,8 @@ import java.util.Locale;
 
 /**
  * Whether learned skills can be unlearned. {@link #FREE}: retrain at will. {@link #COSTLY}:
- * retraining is allowed but has a cost (resources/time, enforced by Townstead). {@link #LOCKED}:
+ * retraining will have a cost (resources/time, Townstead-owned); the payment mechanism is not
+ * built yet, so it is treated as unavailable rather than free until then. {@link #LOCKED}:
  * choices are permanent.
  */
 public enum RetrainingPolicy {
