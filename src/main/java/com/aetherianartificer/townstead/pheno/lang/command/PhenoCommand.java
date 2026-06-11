@@ -1,11 +1,15 @@
 package com.aetherianartificer.townstead.pheno.lang.command;
 
 import com.aetherianartificer.townstead.origin.gene.GeneRegistry;
+import com.aetherianartificer.townstead.origin.gene.types.AbilityGeneType;
 import com.aetherianartificer.townstead.pheno.capability.Capabilities;
 import com.aetherianartificer.townstead.pheno.capability.CapabilityContribution;
 import com.aetherianartificer.townstead.pheno.capability.CapabilityView;
 import com.aetherianartificer.townstead.pheno.capability.Resolved;
 import com.aetherianartificer.townstead.pheno.capability.ValueKind;
+import com.aetherianartificer.townstead.pheno.condition.ConditionContext;
+import com.aetherianartificer.townstead.pheno.power.Power;
+import com.aetherianartificer.townstead.pheno.power.Powers;
 import com.aetherianartificer.townstead.pheno.lang.PhenoDiagnostics;
 import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostic;
 import com.aetherianartificer.townstead.pheno.lang.compile.Severity;
@@ -39,6 +43,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * {@code /pheno} authoring commands (op level 2). {@code /pheno validate} reports the
@@ -64,7 +70,59 @@ public final class PhenoCommand {
                         .then(Commands.argument("gene", StringArgumentType.string())
                                 .suggests(SUGGEST_GENES)
                                 .executes(c -> expand(c.getSource(), StringArgumentType.getString(c, "gene")))))
-                .then(Commands.literal("dump").executes(c -> dump(c.getSource()))));
+                .then(Commands.literal("dump").executes(c -> dump(c.getSource())))
+                .then(Commands.literal("parity")
+                        .then(Commands.argument("target", EntityArgument.entity())
+                                .executes(c -> parity(c.getSource(), EntityArgument.getEntity(c, "target"))))));
+    }
+
+    /**
+     * Cross-checks the additive capability layer against a direct legacy gene scan for ability
+     * flags. This is the parity gate the plan calls for before any applier is made
+     * capability-authoritative: it runs on demand (no hot-path cost) and confirms the mirrored
+     * capabilities match what the genes actually express.
+     */
+    private static int parity(CommandSourceStack source, Entity target) {
+        if (!(target instanceof LivingEntity living)) {
+            source.sendFailure(Component.literal("Pheno parity: target is not a living entity."));
+            return 0;
+        }
+        ConditionContext ctx = new ConditionContext(living);
+        Set<String> legacy = new TreeSet<>();
+        for (Power power : Powers.active(living)) {
+            if (power.component() instanceof AbilityGeneType.Instance ability) {
+                if (ability.condition() == null || ability.condition().test(ctx)) {
+                    legacy.add(ability.ability().key());
+                }
+            }
+        }
+        Set<String> capability = new TreeSet<>();
+        for (Resolved r : Capabilities.resolve(living).map().values()) {
+            if (r.key().kind() == ValueKind.FLAG && r.flag()) {
+                String id = r.key().id().toString();
+                int marker = id.indexOf(":ability/");
+                if (marker >= 0) capability.add(id.substring(marker + ":ability/".length()));
+            }
+        }
+        if (legacy.equals(capability)) {
+            source.sendSuccess(() -> Component.literal("Pheno parity OK: " + legacy.size()
+                    + " ability flag(s) match the legacy gene scan.").withStyle(ChatFormatting.GREEN), false);
+            return 1;
+        }
+        Set<String> onlyLegacy = new TreeSet<>(legacy);
+        onlyLegacy.removeAll(capability);
+        Set<String> onlyCapability = new TreeSet<>(capability);
+        onlyCapability.removeAll(legacy);
+        source.sendSuccess(() -> Component.literal("Pheno parity MISMATCH:").withStyle(ChatFormatting.RED), false);
+        if (!onlyLegacy.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("  only in genes: " + onlyLegacy)
+                    .withStyle(ChatFormatting.YELLOW), false);
+        }
+        if (!onlyCapability.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("  only in capabilities: " + onlyCapability)
+                    .withStyle(ChatFormatting.YELLOW), false);
+        }
+        return 0;
     }
 
     private static int dump(CommandSourceStack source) {
