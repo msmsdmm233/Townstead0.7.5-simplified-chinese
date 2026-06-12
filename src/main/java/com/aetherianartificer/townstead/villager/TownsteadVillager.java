@@ -16,9 +16,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.food.FoodProperties;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -1038,6 +1041,8 @@ public final class TownsteadVillager {
         private final Map<String, Long> cooldowns = new HashMap<>();
         private int lastSeenShopTier = -1;
         private final Map<String, ProfessionXp> xpByProfession = new HashMap<>();
+        private final Set<ResourceLocation> learnedSkills = new LinkedHashSet<>();
+        private final Map<String, Integer> skillPoints = new HashMap<>();
 
         public String lastProfession() {
             return lastProfession;
@@ -1107,6 +1112,49 @@ public final class TownsteadVillager {
             markDirty();
         }
 
+        /** Durable learned-skill set; the source of truth professions grant capabilities from. */
+        public Set<ResourceLocation> learnedSkills() {
+            return Collections.unmodifiableSet(learnedSkills);
+        }
+
+        public boolean hasSkill(ResourceLocation skillId) {
+            return skillId != null && learnedSkills.contains(skillId);
+        }
+
+        public boolean addSkill(ResourceLocation skillId) {
+            if (skillId == null || !learnedSkills.add(skillId)) return false;
+            markDirty();
+            return true;
+        }
+
+        public boolean removeSkill(ResourceLocation skillId) {
+            if (skillId == null || !learnedSkills.remove(skillId)) return false;
+            markDirty();
+            return true;
+        }
+
+        /** Unspent skill points for a profession (POINTS/HYBRID unlock models). */
+        public int skillPoints(String professionId) {
+            if (professionId == null) return 0;
+            return Math.max(0, skillPoints.getOrDefault(professionId, 0));
+        }
+
+        public void setSkillPoints(String professionId, int points) {
+            if (professionId == null || professionId.isBlank()) return;
+            int clamped = Math.max(0, points);
+            if (clamped == 0) {
+                skillPoints.remove(professionId);
+            } else {
+                skillPoints.put(professionId, clamped);
+            }
+            markDirty();
+        }
+
+        public void addSkillPoints(String professionId, int delta) {
+            if (professionId == null || professionId.isBlank() || delta == 0) return;
+            setSkillPoints(professionId, skillPoints(professionId) + delta);
+        }
+
         public void setTradeBackfillLevel(String key, int level) {
             if (key == null || key.isBlank()) return;
             int clamped = Math.max(0, level);
@@ -1157,6 +1205,17 @@ public final class TownsteadVillager {
                 xpAll.put(entry.getKey(), xp);
             }
             tag.put("professionXp", xpAll);
+            if (!learnedSkills.isEmpty()) {
+                ListTag skills = new ListTag();
+                for (ResourceLocation id : learnedSkills) skills.add(StringTag.valueOf(id.toString()));
+                tag.put("learnedSkills", skills);
+            }
+            CompoundTag points = new CompoundTag();
+            for (Map.Entry<String, Integer> entry : skillPoints.entrySet()) {
+                int value = Math.max(0, entry.getValue());
+                if (value > 0) points.putInt(entry.getKey(), value);
+            }
+            if (!points.isEmpty()) tag.put("skillPoints", points);
             return tag;
         }
 
@@ -1195,6 +1254,18 @@ public final class TownsteadVillager {
                         xp.getLong("lastTierUp"),
                         xp.getLong("xpDay"),
                         xp.getInt("xpToday")));
+            }
+            learnedSkills.clear();
+            ListTag skills = tag.getList("learnedSkills", Tag.TAG_STRING);
+            for (int i = 0; i < skills.size(); i++) {
+                ResourceLocation id = ResourceLocation.tryParse(skills.getString(i));
+                if (id != null) learnedSkills.add(id);
+            }
+            skillPoints.clear();
+            CompoundTag points = tag.getCompound("skillPoints");
+            for (String key : points.getAllKeys()) {
+                int value = Math.max(0, points.getInt(key));
+                if (value > 0) skillPoints.put(key, value);
             }
             markDirty();
         }
