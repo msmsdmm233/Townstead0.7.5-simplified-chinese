@@ -10,11 +10,11 @@ import net.minecraft.world.entity.player.Player;
  * Restores the actor's hunger and saturation (player-only; Apoli's {@code feed}).
  * {@code FoodData.eat(int,float)} is uniform across branches.
  *
- * <p>JSON: {@code { "type":"townstead_origins:feed", "food":4, "saturation":2.0 }}</p>
+ * <p>JSON: {@code { "type":"pheno:feed", "food":4, "saturation":2.0 }}</p>
  */
 public final class FeedActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:feed";
+    public static final String KEY = "pheno:feed";
 
     @Override
     public String key() {

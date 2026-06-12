@@ -14,11 +14,11 @@ import net.minecraft.util.GsonHelper;
  * uniform; the single-effect call takes a {@code Holder} on 1.21 and a {@code MobEffect}
  * on 1.20, so that path is version-guarded.
  *
- * <p>JSON: {@code { "type":"townstead_origins:clear_effect", "effect":"minecraft:poison" }}</p>
+ * <p>JSON: {@code { "type":"pheno:clear_effect", "effect":"minecraft:poison" }}</p>
  */
 public final class ClearEffectActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:clear_effect";
+    public static final String KEY = "pheno:clear_effect";
 
     @Override
     public String key() {

@@ -10,8 +10,8 @@ import com.google.gson.JsonObject;
  * or testing it both ways ({@code undirected}; true if either direction holds), selected
  * by {@link Mode}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:undirected",
- * "condition":{ "type":"townstead_origins:riding" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:undirected",
+ * "condition":{ "type":"pheno:riding" } }}</p>
  */
 public final class DirectionalBiConditionType implements BiEntityConditionType {
 

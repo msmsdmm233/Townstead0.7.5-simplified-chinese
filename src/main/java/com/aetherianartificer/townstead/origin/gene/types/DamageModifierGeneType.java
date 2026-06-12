@@ -19,12 +19,12 @@ import org.jetbrains.annotations.Nullable;
  * (0 = immune, &lt;1 = resistant, &gt;1 = vulnerable), optionally gated by a
  * {@link Condition}. Applied by {@code GeneDamageHandler}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:damage_modifier",
+ * <p>JSON: {@code { "type":"pheno:damage_modifier",
  * "damage_tag":"minecraft:is_fire", "modifier":0.0 }}</p>
  */
 public final class DamageModifierGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:damage_modifier";
+    public static final String KEY = "pheno:damage_modifier";
 
     public record Instance(@Nullable TagKey<DamageType> damageTag,
                            @Nullable ResourceLocation damageType,

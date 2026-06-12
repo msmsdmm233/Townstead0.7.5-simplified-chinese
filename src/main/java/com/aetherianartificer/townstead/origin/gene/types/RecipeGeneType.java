@@ -17,11 +17,11 @@ import net.minecraft.world.item.Item;
  * up. Output-item gated (so a non-gated recipe for the same item is gated too — keep the
  * output distinct).
  *
- * <p>JSON: {@code { "type":"townstead_origins:recipe", "result":"minecraft:cobweb" }}</p>
+ * <p>JSON: {@code { "type":"pheno:recipe", "result":"minecraft:cobweb" }}</p>
  */
 public final class RecipeGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:recipe";
+    public static final String KEY = "pheno:recipe";
 
     public record Instance(Item result) implements GeneInstance {
         @Override public String typeKey() { return KEY; }

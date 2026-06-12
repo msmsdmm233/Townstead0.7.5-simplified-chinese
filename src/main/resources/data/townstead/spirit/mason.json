@@ -1,1 +1,2 @@
-{ "townsteadSpirit": { "industrious": 5 } }
+{
+  "schema": "townstead:building_spirit/v1", "townsteadSpirit": { "industrious": 5 } }

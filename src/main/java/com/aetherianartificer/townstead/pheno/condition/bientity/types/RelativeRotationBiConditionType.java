@@ -12,11 +12,11 @@ import net.minecraft.world.phys.Vec3;
  * direction, i.e. the target is in the actor's view cone (Apoli's bi-entity
  * {@code relative_rotation}, simplified to a forward cone).
  *
- * <p>JSON: {@code { "type":"townstead_origins:relative_rotation", "max_angle":45 }}</p>
+ * <p>JSON: {@code { "type":"pheno:relative_rotation", "max_angle":45 }}</p>
  */
 public final class RelativeRotationBiConditionType implements BiEntityConditionType {
 
-    public static final String KEY = "townstead_origins:relative_rotation";
+    public static final String KEY = "pheno:relative_rotation";
 
     @Override
     public String key() {

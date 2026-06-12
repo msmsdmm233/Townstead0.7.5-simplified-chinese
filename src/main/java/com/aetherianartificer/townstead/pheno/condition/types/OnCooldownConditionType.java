@@ -15,11 +15,11 @@ import net.minecraft.world.item.Item;
  * Player-only, since item cooldowns live on the player's {@code ItemCooldowns}; never
  * matches on villagers.
  *
- * <p>JSON: {@code { "type":"townstead_origins:on_cooldown", "item":"minecraft:ender_pearl" }}</p>
+ * <p>JSON: {@code { "type":"pheno:on_cooldown", "item":"minecraft:ender_pearl" }}</p>
  */
 public final class OnCooldownConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:on_cooldown";
+    public static final String KEY = "pheno:on_cooldown";
 
     @Override
     public String key() {

@@ -29,6 +29,9 @@ public final class PowerToGeneConverter {
             java.util.Set.of("type", "condition", "loading_priority", "name", "description",
                     "hidden", "badges", "resource", "data", "id");
 
+    /** Source id the hits-on-target translation references; Apugli's counter has no real power. */
+    public static final String HITS_ON_TARGET_COLLECTION = "apugli:hits_on_target";
+
     private PowerToGeneConverter() {}
 
     public static void convert(String geneNamespace, ResourceLocation powerId, JsonObject power,
@@ -77,6 +80,12 @@ public final class PowerToGeneConverter {
                         "converted UNGATED - original condition not translatable, re-add by hand"));
             }
         }
+        // Power-id cross-references (a resource/collection's set, a compared resource) point at other
+        // powers; rewrite them through the same geneId mapping so they resolve to the imported genes.
+        rewriteRefs(gene, geneNamespace);
+        // Apugli stores its hits-on-target counter implicitly (no power), so any reference to it needs
+        // a backing collection gene synthesized once.
+        synthesizeBuiltins(geneNamespace, gene, genes);
         ResourceLocation geneId = geneId(geneNamespace, powerId);
         if (geneId == null) {
             skips.add(new Skip(powerId.toString(), type, "could not derive a gene id"));
@@ -124,6 +133,7 @@ public final class PowerToGeneConverter {
             case "prevent_item_use": return preventItemUseGene(power);
             case "effect_immunity": return effectImmunityGene(power);
             case "keep_inventory": return keepInventoryGene();
+            case "entity_set": return collectionGene(power);
             case "disable_regen": return disableRegenGene();
             case "burn": return burnGene(power);
             case "damage_over_time": return damageOverTimeGene(power);
@@ -168,9 +178,61 @@ public final class PowerToGeneConverter {
         }
     }
 
+    /** entity_set -> a pheno:collection (of:entity) gene, porting its add/remove hooks. tick_rate is dropped. */
+    private static JsonObject collectionGene(JsonObject power) {
+        JsonObject gene = base("collection");
+        gene.addProperty("category", "ability");
+        gene.addProperty("of", "entity");
+        if (power.has("action_on_add")) {
+            JsonElement add = ApoliActionTranslator.translateBiEntity(power.get("action_on_add"));
+            if (add != null) gene.add("on_add", add);
+        }
+        if (power.has("action_on_remove")) {
+            JsonElement remove = ApoliActionTranslator.translateBiEntity(power.get("action_on_remove"));
+            if (remove != null) gene.add("on_remove", remove);
+        }
+        return gene;
+    }
+
+    /** Add backing genes for stores a power references implicitly (Apugli's global hits-on-target). */
+    private static void synthesizeBuiltins(String geneNamespace, JsonObject gene, List<ConvertedGene> genes) {
+        String hitsId = geneIdString(geneNamespace, HITS_ON_TARGET_COLLECTION);
+        if (referencesCollection(gene, hitsId)) addSynthetic(genes, hitsId, hitsOnTargetGene(), "Hits On Target");
+    }
+
+    /** The synthesized backing gene for Apugli hits-on-target: a counted entity collection that idles out. */
+    private static JsonObject hitsOnTargetGene() {
+        JsonObject gene = base("collection");
+        gene.addProperty("category", "ability");
+        gene.addProperty("of", "entity");
+        gene.addProperty("forget_after", 100);
+        return gene;
+    }
+
+    private static void addSynthetic(List<ConvertedGene> genes, String idString, JsonObject json, String display) {
+        ResourceLocation id = ResourceLocation.tryParse(idString);
+        if (id == null) return;
+        for (ConvertedGene g : genes) if (g.id().equals(id)) return;
+        genes.add(new ConvertedGene(id, json, display));
+    }
+
+    /** Whether any node in the gene tree has a {@code collection} field pointing at {@code target}. */
+    private static boolean referencesCollection(JsonElement element, String target) {
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) if (referencesCollection(child, target)) return true;
+            return false;
+        }
+        if (!element.isJsonObject()) return false;
+        JsonObject obj = element.getAsJsonObject();
+        if (obj.has("collection") && obj.get("collection").isJsonPrimitive()
+                && target.equals(obj.get("collection").getAsString())) return true;
+        for (var entry : obj.entrySet()) if (referencesCollection(entry.getValue(), target)) return true;
+        return false;
+    }
+
     private static JsonObject base(String type) {
         JsonObject gene = new JsonObject();
-        gene.addProperty("type", "townstead_origins:" + type);
+        gene.addProperty("type", "pheno:" + type);
         gene.addProperty("dominance", "recessive");
         return gene;
     }
@@ -348,7 +410,7 @@ public final class PowerToGeneConverter {
         gene.addProperty("amount", GsonHelper.getAsFloat(power, "multiplier", 1f));
         gene.addProperty("operation", "multiply_total");
         JsonObject condition = new JsonObject();
-        condition.addProperty("type", "townstead_origins:on_ground");
+        condition.addProperty("type", "pheno:on_ground");
         condition.addProperty("inverted", true);   // i.e. while airborne
         gene.add("condition", condition);
         return gene;
@@ -486,7 +548,7 @@ public final class PowerToGeneConverter {
 
     private static JsonObject burnGene(JsonObject power) {
         JsonObject ignite = new JsonObject();
-        ignite.addProperty("type", "townstead_origins:ignite");
+        ignite.addProperty("type", "pheno:ignite");
         ignite.addProperty("seconds", Math.max(1, GsonHelper.getAsInt(power, "burn", 1)));
         JsonObject gene = base("action_over_time");
         gene.addProperty("category", "ability");
@@ -497,7 +559,7 @@ public final class PowerToGeneConverter {
 
     private static JsonObject damageOverTimeGene(JsonObject power) {
         JsonObject damage = new JsonObject();
-        damage.addProperty("type", "townstead_origins:damage");
+        damage.addProperty("type", "pheno:damage");
         damage.addProperty("amount", GsonHelper.getAsFloat(power, "damage",
                 GsonHelper.getAsFloat(power, "damage_amount", 1f)));
         JsonObject gene = base("action_over_time");
@@ -510,7 +572,7 @@ public final class PowerToGeneConverter {
     @Nullable
     private static JsonObject fireProjectileGene(JsonObject power) {
         JsonObject action = new JsonObject();
-        action.addProperty("type", "townstead_origins:fire_projectile");
+        action.addProperty("type", "pheno:fire_projectile");
         if (power.has("entity_type")) action.addProperty("entity", GsonHelper.getAsString(power, "entity_type", ""));
         action.addProperty("speed", GsonHelper.getAsFloat(power, "speed", GsonHelper.getAsFloat(power, "velocity", 1.5f)));
         action.addProperty("inaccuracy", GsonHelper.getAsFloat(power, "divergence", 1.0f));
@@ -542,7 +604,7 @@ public final class PowerToGeneConverter {
 
     private static JsonObject launchGene(JsonObject power) {
         JsonObject velocity = new JsonObject();
-        velocity.addProperty("type", "townstead_origins:add_velocity");
+        velocity.addProperty("type", "pheno:add_velocity");
         velocity.addProperty("y", GsonHelper.getAsFloat(power, "speed", GsonHelper.getAsFloat(power, "strength", 1.5f)));
         velocity.addProperty("relative", true);
         JsonObject gene = base("active_ability");
@@ -555,14 +617,14 @@ public final class PowerToGeneConverter {
     private static JsonObject waterVisionGene() {
         JsonObject gene = ability("night_vision");
         JsonObject condition = new JsonObject();
-        condition.addProperty("type", "townstead_origins:in_water");
+        condition.addProperty("type", "pheno:in_water");
         gene.add("condition", condition);
         return gene;
     }
 
     private static JsonObject periodicEffectGene(String effect) {
         JsonObject apply = new JsonObject();
-        apply.addProperty("type", "townstead_origins:apply_effect");
+        apply.addProperty("type", "pheno:apply_effect");
         apply.addProperty("effect", effect);
         apply.addProperty("duration", 100);
         JsonObject gene = base("action_over_time");
@@ -650,6 +712,36 @@ public final class PowerToGeneConverter {
     private static ResourceLocation geneId(String geneNamespace, ResourceLocation powerId) {
         String path = "imported/" + sanitize(powerId.getNamespace()) + "/" + sanitize(powerId.getPath());
         return ResourceLocation.tryParse(geneNamespace + ":" + path);
+    }
+
+    /**
+     * Fields in a converted gene whose value is another power's id. They become cross-references to
+     * the imported gene that power converts to: a resource/collection's backing power
+     * ({@code resource}/{@code collection}/the {@code in} of a {@code for_each}) and the second
+     * operand of a resource comparison ({@code compared_to_resource}).
+     */
+    private static final java.util.Set<String> REF_FIELDS =
+            java.util.Set.of("resource", "compared_to_resource", "collection", "in");
+
+    /**
+     * Rewrites every power-id cross-reference in a converted gene tree through {@link #geneIdString}
+     * so it resolves to the imported gene the referenced power became, not the original Apoli id.
+     * External references (to powers not in this pack) still rewrite to an imported id that will not
+     * exist, exactly as the verbatim id would not have resolved either.
+     */
+    private static void rewriteRefs(JsonElement element, String geneNamespace) {
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) rewriteRefs(child, geneNamespace);
+            return;
+        }
+        if (!element.isJsonObject()) return;
+        JsonObject obj = element.getAsJsonObject();
+        for (String field : REF_FIELDS) {
+            if (obj.has(field) && obj.get(field).isJsonPrimitive() && obj.getAsJsonPrimitive(field).isString()) {
+                obj.addProperty(field, geneIdString(geneNamespace, obj.get(field).getAsString()));
+            }
+        }
+        for (var entry : obj.entrySet()) rewriteRefs(entry.getValue(), geneNamespace);
     }
 
     /** The gene-id string a power converts to, for cross-references (e.g. {@code power_active} -&gt; toggle). */

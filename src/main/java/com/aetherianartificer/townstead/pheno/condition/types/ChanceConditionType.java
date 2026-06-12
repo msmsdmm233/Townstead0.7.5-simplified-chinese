@@ -11,11 +11,11 @@ import net.minecraft.util.Mth;
  * Rolled per evaluation against the entity's RNG, so a gated effect flickers
  * on at that rate. {@code chance} is clamped to {@code [0, 1]}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:chance", "chance":0.25 }}</p>
+ * <p>JSON: {@code { "type":"pheno:chance", "chance":0.25 }}</p>
  */
 public final class ChanceConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:chance";
+    public static final String KEY = "pheno:chance";
 
     @Override
     public String key() {

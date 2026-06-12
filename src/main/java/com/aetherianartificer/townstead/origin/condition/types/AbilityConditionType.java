@@ -12,11 +12,11 @@ import net.minecraft.util.GsonHelper;
  * {@code ability} / {@code power_active} for the ability subset): a passive ability that
  * is expressed and its condition met, or a toggle ability that is on.
  *
- * <p>JSON: {@code { "type":"townstead_origins:ability", "ability":"climbing" }}</p>
+ * <p>JSON: {@code { "type":"pheno:ability", "ability":"climbing" }}</p>
  */
 public final class AbilityConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:ability";
+    public static final String KEY = "pheno:ability";
 
     @Override
     public String key() {

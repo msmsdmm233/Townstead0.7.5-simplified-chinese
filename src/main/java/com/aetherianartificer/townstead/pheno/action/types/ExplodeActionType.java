@@ -10,12 +10,12 @@ import net.minecraft.world.level.Level;
  * Detonates an explosion at the actor (Apoli's entity {@code explode}); the actor is
  * credited as the source. Same six-arg overload on both branches.
  *
- * <p>JSON: {@code { "type":"townstead_origins:explode", "power":3.0, "fire":false,
+ * <p>JSON: {@code { "type":"pheno:explode", "power":3.0, "fire":false,
  * "destroy":true }}</p>
  */
 public final class ExplodeActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:explode";
+    public static final String KEY = "pheno:explode";
 
     @Override
     public String key() {

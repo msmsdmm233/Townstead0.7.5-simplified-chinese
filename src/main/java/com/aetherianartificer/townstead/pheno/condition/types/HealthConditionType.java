@@ -10,11 +10,11 @@ import net.minecraft.world.entity.LivingEntity;
  * True when the entity's health is within {@code [min,max]}. With
  * {@code "relative":true} the bounds are a fraction of max health (0-1).
  *
- * <p>JSON: {@code { "type":"townstead_origins:health", "max":0.5, "relative":true }}</p>
+ * <p>JSON: {@code { "type":"pheno:health", "max":0.5, "relative":true }}</p>
  */
 public final class HealthConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:health";
+    public static final String KEY = "pheno:health";
 
     @Override
     public String key() {

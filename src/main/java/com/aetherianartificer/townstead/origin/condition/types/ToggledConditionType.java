@@ -14,11 +14,11 @@ import net.minecraft.util.GsonHelper;
  * "phantomize" toggle is on. Genetics-specific (reads {@code AbilityToggles}), so it lives
  * in {@code origin} rather than the shared layer.
  *
- * <p>JSON: {@code { "type":"townstead_origins:toggled", "gene":"my_pack:imported/origins/phantomize" }}</p>
+ * <p>JSON: {@code { "type":"pheno:toggled", "gene":"my_pack:imported/origins/phantomize" }}</p>
  */
 public final class ToggledConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:toggled";
+    public static final String KEY = "pheno:toggled";
 
     @Override
     public String key() {

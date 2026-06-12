@@ -11,11 +11,11 @@ import net.minecraft.world.item.ItemStack;
  * (shrinks) when it would exceed its max. Negative amounts repair. Uses the
  * version-uniform {@code getDamageValue}/{@code setDamageValue}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:damage", "amount":1 }}</p>
+ * <p>JSON: {@code { "type":"pheno:damage", "amount":1 }}</p>
  */
 public final class DamageItemActionType implements ItemActionType {
 
-    public static final String KEY = "townstead_origins:damage";
+    public static final String KEY = "pheno:damage";
 
     @Override
     public String key() {

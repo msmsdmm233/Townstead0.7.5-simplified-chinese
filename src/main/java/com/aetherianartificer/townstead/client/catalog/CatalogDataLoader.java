@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.client.catalog;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.compat.BuildingIconResolver;
+import com.aetherianartificer.townstead.data.TownsteadSchema;
 import com.aetherianartificer.townstead.enclosure.EnclosureTypeIndex;
 import com.aetherianartificer.townstead.spirit.BuildingSpiritIndex;
 import com.aetherianartificer.townstead.spirit.SpiritRegistry;
@@ -90,12 +91,15 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
             try {
                 JsonObject json = GsonHelper.convertToJsonObject(entry.getValue(), "catalog entry");
                 if (path.startsWith("groups/")) {
+                    TownsteadSchema.validate(json, "townstead:catalog_group/v1");
                     String id = location.getNamespace() + ":" + path.substring("groups/".length());
                     loadGroup(id, json);
                 } else if (path.startsWith("buildings/")) {
+                    TownsteadSchema.validate(json, "townstead:catalog_building/v1");
                     String buildingType = path.substring("buildings/".length());
                     loadOverride(buildingType, json);
                 } else if ("theme".equals(path) && Townstead.MOD_ID.equals(location.getNamespace())) {
+                    TownsteadSchema.validate(json, "townstead:catalog_theme/v1");
                     loadTheme(json);
                 }
             } catch (Exception ex) {
@@ -303,6 +307,7 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
                     InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 JsonObject json = GSON.fromJson(reader, JsonObject.class);
                 if (json == null || !json.has("townsteadSpirit")) continue;
+                TownsteadSchema.validate(json, "townstead:building_spirit/v1");
                 Map<String, Integer> spirit = parseSpiritMap(json.getAsJsonObject("townsteadSpirit"), location);
                 if (!spirit.isEmpty()) BuildingSpiritIndex.put(buildingType, spirit);
             } catch (Exception ex) {

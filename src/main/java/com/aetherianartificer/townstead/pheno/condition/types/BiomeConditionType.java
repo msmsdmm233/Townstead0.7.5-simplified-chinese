@@ -16,13 +16,13 @@ import net.minecraft.world.level.biome.Biome;
  * biome {@code condition} (in_tag / temperature / precipitation) holds for the biome
  * here.
  *
- * <p>JSON: {@code { "type":"townstead_origins:biome", "biome":"minecraft:desert" }},
+ * <p>JSON: {@code { "type":"pheno:biome", "biome":"minecraft:desert" }},
  * {@code { ..., "biome_tag":"minecraft:is_nether" }}, or {@code { ..., "condition":{
- * "type":"townstead_origins:temperature", "min":1.0 } }}</p>
+ * "type":"pheno:temperature", "min":1.0 } }}</p>
  */
 public final class BiomeConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:biome";
+    public static final String KEY = "pheno:biome";
 
     @Override
     public String key() {

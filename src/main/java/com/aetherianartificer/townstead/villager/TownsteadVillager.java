@@ -285,13 +285,22 @@ public final class TownsteadVillager {
         }
 
         public int applyFood(FoodProperties food) {
+            return applyFood(food, 1f);
+        }
+
+        /**
+         * Applies a food's hunger/saturation, scaling its nutrition by {@code nutritionMultiplier}
+         * (the eater's {@code food} modifier, resolved by the caller, which holds the entity).
+         */
+        public int applyFood(FoodProperties food, float nutritionMultiplier) {
             //? if >=1.21 {
-            int nutrition = food.nutrition();
+            int rawNutrition = food.nutrition();
             float satMod = food.saturation();
             //?} else {
-            /*int nutrition = food.getNutrition();
+            /*int rawNutrition = food.getNutrition();
             float satMod = food.getSaturationModifier();
             *///?}
+            int nutrition = Math.max(0, Math.round(rawNutrition * nutritionMultiplier));
             int hungerRestored = (int)(nutrition * HungerData.FOOD_SCALE);
             hunger = Math.min(hunger + hungerRestored, HungerData.MAX_HUNGER);
             float satRestored = Math.min(nutrition * satMod * HungerData.FOOD_SCALE, hunger);

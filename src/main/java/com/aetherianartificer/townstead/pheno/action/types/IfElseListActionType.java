@@ -16,12 +16,12 @@ import java.util.List;
  * optional {@code fallback_action} (Apoli's meta {@code if_else_list}). Each entry is
  * {@code { "condition":{...}, "action":{...} }}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:if_else_list", "actions":[
+ * <p>JSON: {@code { "type":"pheno:if_else_list", "actions":[
  * { "condition":{...}, "action":{...} } ], "fallback_action":{...} }}</p>
  */
 public final class IfElseListActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:if_else_list";
+    public static final String KEY = "pheno:if_else_list";
 
     private record Branch(Condition condition, Action action) {}
 

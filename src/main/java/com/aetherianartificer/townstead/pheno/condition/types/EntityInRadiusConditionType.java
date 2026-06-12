@@ -16,13 +16,13 @@ import org.jetbrains.annotations.Nullable;
  * entity {@code condition}) against {@code compare_to} using {@code comparison}
  * (Apugli's {@code entity_in_radius}). The bearer itself is excluded.
  *
- * <p>JSON: {@code { "type":"townstead_origins:entity_in_radius", "radius":8,
+ * <p>JSON: {@code { "type":"pheno:entity_in_radius", "radius":8,
  * "comparison":">=", "compare_to":3,
- * "condition":{ "type":"townstead_origins:entity_type", "entity_type":"minecraft:zombie" } }}</p>
+ * "condition":{ "type":"pheno:entity_type", "entity_type":"minecraft:zombie" } }}</p>
  */
 public final class EntityInRadiusConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:entity_in_radius";
+    public static final String KEY = "pheno:entity_in_radius";
 
     @Override
     public String key() {

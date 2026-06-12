@@ -11,11 +11,11 @@ import net.minecraft.world.entity.player.Player;
  * (Apoli's bi-entity {@code tame}). Server-side; no-op otherwise. A racial
  * animal-whisperer trait paired with a {@code when_attack} / interaction trigger.
  *
- * <p>JSON: {@code { "type":"townstead_origins:tame" }}</p>
+ * <p>JSON: {@code { "type":"pheno:tame" }}</p>
  */
 public final class TameActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:tame";
+    public static final String KEY = "pheno:tame";
 
     @Override
     public String key() {

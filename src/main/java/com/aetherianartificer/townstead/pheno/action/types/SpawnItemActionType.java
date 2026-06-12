@@ -14,12 +14,12 @@ import net.minecraft.world.item.ItemStack;
  * Drops an item stack at the actor's position (Apugli's {@code spawn_item}). The stack
  * is {@code amount} of {@code item}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:spawn_item", "item":"minecraft:emerald",
+ * <p>JSON: {@code { "type":"pheno:spawn_item", "item":"minecraft:emerald",
  * "amount":1 }}</p>
  */
 public final class SpawnItemActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:spawn_item";
+    public static final String KEY = "pheno:spawn_item";
 
     @Override
     public String key() {

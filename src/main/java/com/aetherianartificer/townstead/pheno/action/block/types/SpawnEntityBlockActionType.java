@@ -13,11 +13,11 @@ import net.minecraft.world.entity.EntityType;
 /**
  * Spawns {@code entity} centered on the target block (Apoli's block {@code spawn_entity}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:spawn_entity", "entity":"minecraft:bee" }}</p>
+ * <p>JSON: {@code { "type":"pheno:spawn_entity", "entity":"minecraft:bee" }}</p>
  */
 public final class SpawnEntityBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:spawn_entity";
+    public static final String KEY = "pheno:spawn_entity";
 
     @Override
     public String key() {

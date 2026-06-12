@@ -63,6 +63,7 @@ public final class ApoliActionTranslator {
             }
             case "extinguish": return typed("extinguish");
             case "apply_effect": return applyEffect(apoli);
+            case "action_on_set": return actionOnSet(apoli);
             case "exhaust": {
                 JsonObject out = typed("exhaust");
                 out.addProperty("amount", GsonHelper.getAsFloat(apoli, "amount", 0f));
@@ -116,7 +117,8 @@ public final class ApoliActionTranslator {
      * {@code invert} swaps roles, and {@code damage} / {@code add_velocity} are folded
      * into a {@code target_action} (they hit the target). {@code mount} / {@code tame}
      * / {@code set_in_love} map directly. Set membership ({@code add_to_set} /
-     * {@code remove_from_set}) is plumbing and returns {@code null} (skip-logged).
+     * {@code remove_from_set}) maps to {@code change_collection} on the {@code set}'s
+     * collection now that Pheno has the collection family.
      */
     @Nullable
     public static JsonElement translateBiEntity(@Nullable JsonElement element) {
@@ -176,8 +178,55 @@ public final class ApoliActionTranslator {
             case "mount": return typed("mount");
             case "tame": return typed("tame");
             case "set_in_love": return typed("set_in_love");
+            case "add_to_set": return changeCollection(apoli, "add");
+            case "remove_from_set": return changeCollection(apoli, "remove");
+            case "change_hits_on_target": return changeHitsOnTarget(apoli);
             default: return null;
         }
+    }
+
+    /** add_to_set / remove_from_set -> change_collection on the actor's collection (the {@code set}). */
+    @Nullable
+    private static JsonElement changeCollection(JsonObject apoli, String operation) {
+        String set = GsonHelper.getAsString(apoli, "set", "");
+        if (set.isEmpty()) return null;
+        JsonObject out = typed("change_collection");
+        out.addProperty("collection", set);
+        out.addProperty("operation", operation);
+        if (apoli.has("time_limit")) out.addProperty("time_limit", GsonHelper.getAsInt(apoli, "time_limit", 0));
+        return out;
+    }
+
+    /**
+     * change_hits_on_target -> change_collection on the implicit hits-on-target counter. Apugli's
+     * {@code change}/{@code operation} become {@code amount}/{@code operation}; the per-pair idle
+     * timer is the collection's forget_after, so timer_change/timer_operation are dropped.
+     */
+    private static JsonElement changeHitsOnTarget(JsonObject apoli) {
+        JsonObject out = typed("change_collection");
+        out.addProperty("collection", PowerToGeneConverter.HITS_ON_TARGET_COLLECTION);
+        boolean set = "set".equalsIgnoreCase(GsonHelper.getAsString(apoli, "operation", "add"));
+        out.addProperty("operation", set ? "set" : "add");
+        out.addProperty("amount", GsonHelper.getAsInt(apoli, "change", 0));
+        return out;
+    }
+
+    /** action_on_set -> for_each over the collection, running the bientity action per member. */
+    @Nullable
+    private static JsonElement actionOnSet(JsonObject apoli) {
+        String set = GsonHelper.getAsString(apoli, "set", "");
+        JsonElement inner = translateBiEntity(apoli.get("bientity_action"));
+        if (set.isEmpty() || inner == null) return null;
+        JsonObject out = typed("for_each");
+        out.addProperty("in", set);
+        out.add("do", inner);
+        if (apoli.has("bientity_condition") && apoli.get("bientity_condition").isJsonObject()) {
+            JsonObject where = ApoliBiEntityConditionTranslator.translate(apoli.getAsJsonObject("bientity_condition"));
+            if (where != null) out.add("where", where);
+        }
+        if (apoli.has("limit")) out.addProperty("limit", GsonHelper.getAsInt(apoli, "limit", 0));
+        out.addProperty("order", GsonHelper.getAsBoolean(apoli, "reverse", false) ? "newest_first" : "oldest_first");
+        return out;
     }
 
     @Nullable
@@ -201,7 +250,7 @@ public final class ApoliActionTranslator {
 
     private static JsonObject typed(String name) {
         JsonObject out = new JsonObject();
-        out.addProperty("type", "townstead_origins:" + name);
+        out.addProperty("type", "pheno:" + name);
         return out;
     }
 }

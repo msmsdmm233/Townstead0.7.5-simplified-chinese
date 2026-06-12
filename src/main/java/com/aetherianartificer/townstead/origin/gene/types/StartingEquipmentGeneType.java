@@ -20,13 +20,13 @@ import java.util.Locale;
  * carry the gene but don't receive the kit). An item with a {@code slot} is equipped
  * if that slot is free, otherwise added to the inventory.
  *
- * <p>JSON: {@code { "type":"townstead_origins:starting_equipment",
+ * <p>JSON: {@code { "type":"pheno:starting_equipment",
  * "items":[ { "item":"minecraft:trident", "count":1 },
  *           { "item":"minecraft:turtle_helmet", "slot":"head" } ] }}</p>
  */
 public final class StartingEquipmentGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:starting_equipment";
+    public static final String KEY = "pheno:starting_equipment";
 
     public record Entry(ResourceLocation item, int count, @Nullable EquipmentSlot slot) {}
 

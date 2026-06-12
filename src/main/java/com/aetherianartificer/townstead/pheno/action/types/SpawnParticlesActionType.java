@@ -14,12 +14,12 @@ import net.minecraft.util.GsonHelper;
  * Emits a one-shot burst of particles at the actor (Apoli's {@code spawn_particles}).
  * Simple particles only.
  *
- * <p>JSON: {@code { "type":"townstead_origins:spawn_particles", "particle":"minecraft:cloud",
+ * <p>JSON: {@code { "type":"pheno:spawn_particles", "particle":"minecraft:cloud",
  * "count":20, "spread":0.5, "speed":0.05 }}</p>
  */
 public final class SpawnParticlesActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:spawn_particles";
+    public static final String KEY = "pheno:spawn_particles";
 
     @Override
     public String key() {

@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.profession.def;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.data.DataPackLang;
+import com.aetherianartificer.townstead.data.TownsteadSchema;
 import com.aetherianartificer.townstead.pheno.lang.PhenoDiagnostics;
 import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostic;
 import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostics;
@@ -93,6 +94,7 @@ public final class ProfessionDataLoader extends SimplePreparableReloadListener<P
 
     static ProfessionDef parseProfession(ResourceLocation id, JsonObject obj, Map<String, String> lang,
                                                  Diagnostics diag) {
+        TownsteadSchema.validate(obj, "townstead:profession/v1");
         Component name = obj.has("display_name")
                 ? DataPackLang.parseComponent(obj.get("display_name"), id.toString(), lang)
                 : Component.literal(id.getPath());
@@ -137,6 +139,7 @@ public final class ProfessionDataLoader extends SimplePreparableReloadListener<P
 
     static SkillDef parseSkill(ResourceLocation id, JsonObject obj, Map<String, String> lang,
                                        Diagnostics diag) {
+        TownsteadSchema.validate(obj, "townstead:skill/v1");
         String professionRaw = GsonHelper.getAsString(obj, "profession", "");
         ResourceLocation profession = professionRaw.isBlank() ? null : ResourceLocation.tryParse(professionRaw);
         if (profession == null) {

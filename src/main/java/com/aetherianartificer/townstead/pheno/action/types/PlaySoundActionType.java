@@ -14,13 +14,13 @@ import java.util.Locale;
  * so it accepts a single id, a {@code {sound,volume,pitch}} object, or a weighted
  * {@code "sounds"} array (Apugli's {@code weighted_sound_event}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:play_sound", "sound":"minecraft:entity.player.levelup",
- * "volume":1.0, "pitch":1.0 }} or {@code { "type":"townstead_origins:play_sound",
+ * <p>JSON: {@code { "type":"pheno:play_sound", "sound":"minecraft:entity.player.levelup",
+ * "volume":1.0, "pitch":1.0 }} or {@code { "type":"pheno:play_sound",
  * "sounds":[ { "sound":"minecraft:entity.cat.purr", "weight":3 }, { "sound":"minecraft:entity.cat.ambient" } ] }}</p>
  */
 public final class PlaySoundActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:play_sound";
+    public static final String KEY = "pheno:play_sound";
 
     @Override
     public String key() {

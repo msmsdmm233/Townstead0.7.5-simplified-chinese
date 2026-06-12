@@ -19,12 +19,12 @@ import net.minecraft.world.phys.Vec3;
  * bolt). {@code entity} is the projectile entity id ({@code minecraft:arrow} default);
  * {@code speed} and {@code inaccuracy} mirror {@code Projectile.shoot}. Server-side.
  *
- * <p>JSON: {@code { "type":"townstead_origins:fire_projectile", "entity":"minecraft:arrow",
+ * <p>JSON: {@code { "type":"pheno:fire_projectile", "entity":"minecraft:arrow",
  * "speed":1.5, "inaccuracy":1.0 }}</p>
  */
 public final class FireProjectileActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:fire_projectile";
+    public static final String KEY = "pheno:fire_projectile";
 
     @Override
     public String key() {

@@ -56,6 +56,22 @@ public final class ApoliBiEntityConditionTranslator {
             // Directional metas: inner is a BI-ENTITY condition
             case "invert": return directional("invert", apoli);
             case "undirected": return directional("undirected", apoli);
+            // Set membership: is the target in the actor's collection (the set)
+            case "in_set": {
+                String set = GsonHelper.getAsString(apoli, "set", "");
+                if (set.isEmpty()) return null;
+                JsonObject out = simple("collection_contains");
+                out.addProperty("collection", set);
+                return out;
+            }
+            // Apugli hits-on-target: how many times the actor has hit the target, against the implicit counter
+            case "hits_on_target": {
+                JsonObject out = simple("collection_count");
+                out.addProperty("collection", PowerToGeneConverter.HITS_ON_TARGET_COLLECTION);
+                out.addProperty("comparison", GsonHelper.getAsString(apoli, "comparison", ">="));
+                out.addProperty("compare_to", GsonHelper.getAsInt(apoli, "compare_to", 1));
+                return out;
+            }
             // relative_rotation has no clean mapping onto our forward-cone form, so it is
             // skip-logged rather than converted wrong.
             default: return null;
@@ -84,7 +100,7 @@ public final class ApoliBiEntityConditionTranslator {
 
     private static JsonObject simple(String name) {
         JsonObject out = new JsonObject();
-        out.addProperty("type", "townstead_origins:" + name);
+        out.addProperty("type", "pheno:" + name);
         return out;
     }
 }

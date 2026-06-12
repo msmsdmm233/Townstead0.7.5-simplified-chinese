@@ -10,11 +10,11 @@ import net.minecraft.world.level.block.state.BlockState;
  * Schedules a block tick for the target block after {@code delay} ticks (Apugli's
  * {@code schedule_tick}), e.g. to make a block re-evaluate its state. No-op on air.
  *
- * <p>JSON: {@code { "type":"townstead_origins:schedule_tick", "delay":1 }}</p>
+ * <p>JSON: {@code { "type":"pheno:schedule_tick", "delay":1 }}</p>
  */
 public final class ScheduleTickBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:schedule_tick";
+    public static final String KEY = "pheno:schedule_tick";
 
     @Override
     public String key() {

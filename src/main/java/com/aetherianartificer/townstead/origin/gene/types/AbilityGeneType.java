@@ -19,12 +19,12 @@ import java.util.Locale;
  * binds to a {@code slot}, shared with active abilities). Applied each tick by
  * {@code GeneAbilityTicker}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:ability", "ability":"night_vision",
+ * <p>JSON: {@code { "type":"pheno:ability", "ability":"night_vision",
  * "mode":"toggle", "slot":1 }}</p>
  */
 public final class AbilityGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:ability";
+    public static final String KEY = "pheno:ability";
 
     public enum Mode { PASSIVE, TOGGLE }
 

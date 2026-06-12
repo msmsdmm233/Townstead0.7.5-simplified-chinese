@@ -107,13 +107,13 @@ public final class SchemaGen {
     public static JsonObject jsonSchema() {
         JsonObject root = new JsonObject();
         root.addProperty("$schema", "http://json-schema.org/draft-07/schema#");
-        root.addProperty("title", "Townstead Pheno gene");
+        root.addProperty("title", "Townstead Gene v2");
         root.addProperty("type", "object");
         JsonObject properties = new JsonObject();
-        JsonObject version = new JsonObject();
-        version.addProperty("type", "integer");
-        version.addProperty("minimum", 1);
-        properties.add("pheno_version", version);
+        JsonObject schema = new JsonObject();
+        schema.addProperty("type", "string");
+        schema.addProperty("const", "townstead:gene/v2");
+        properties.add("schema", schema);
         JsonObject type = new JsonObject();
         type.add("enum", sortedKeys(GeneTypes.all().keySet()));
         properties.add("type", type);

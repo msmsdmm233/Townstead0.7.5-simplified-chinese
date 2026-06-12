@@ -14,11 +14,11 @@ import net.minecraft.world.level.levelgen.structure.Structure;
  * True when the entity stands inside a generated {@code structure} (Apugli's
  * {@code structure}). Server-only; never matches on the client.
  *
- * <p>JSON: {@code { "type":"townstead_origins:structure", "structure":"minecraft:village_plains" }}</p>
+ * <p>JSON: {@code { "type":"pheno:structure", "structure":"minecraft:village_plains" }}</p>
  */
 public final class StructureConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:structure";
+    public static final String KEY = "pheno:structure";
 
     @Override
     public String key() {

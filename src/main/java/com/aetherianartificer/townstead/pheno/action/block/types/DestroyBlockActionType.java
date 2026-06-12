@@ -10,11 +10,11 @@ import net.minecraft.util.GsonHelper;
  * whether it drops as in survival breaking; the {@code cause} entity (if any) is
  * credited as the breaker.
  *
- * <p>JSON: {@code { "type":"townstead_origins:destroy", "drop_item":true }}</p>
+ * <p>JSON: {@code { "type":"pheno:destroy", "drop_item":true }}</p>
  */
 public final class DestroyBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:destroy";
+    public static final String KEY = "pheno:destroy";
 
     @Override
     public String key() {

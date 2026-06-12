@@ -17,12 +17,12 @@ import net.minecraft.util.Mth;
  * and early-exits. {@code radius} is capped at {@value #MAX_RADIUS} since this scans a cube
  * each evaluation; keep it small on per-tick gates.
  *
- * <p>JSON: {@code { "type":"townstead_origins:block_in_radius", "radius":4,
- * "block_condition":{ "type":"townstead_origins:fluid", "fluid":"lava" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:block_in_radius", "radius":4,
+ * "block_condition":{ "type":"pheno:fluid", "fluid":"lava" } }}</p>
  */
 public final class BlockInRadiusConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:block_in_radius";
+    public static final String KEY = "pheno:block_in_radius";
 
     private static final int MAX_RADIUS = 8;
 

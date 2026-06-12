@@ -21,11 +21,11 @@ import java.util.Set;
  * back to the inventory each tick. {@code "slots":"all"} restricts the four armor
  * slots.
  *
- * <p>JSON: {@code { "type":"townstead_origins:restrict_equipment", "slots":["head","chest"] }}</p>
+ * <p>JSON: {@code { "type":"pheno:restrict_equipment", "slots":["head","chest"] }}</p>
  */
 public final class RestrictEquipmentGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:restrict_equipment";
+    public static final String KEY = "pheno:restrict_equipment";
 
     private static final Set<EquipmentSlot> ARMOR =
             EnumSet.of(EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET);

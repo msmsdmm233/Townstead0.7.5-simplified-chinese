@@ -20,11 +20,11 @@ import net.minecraft.world.effect.MobEffect;
  * True when the entity has the named status effect (optionally at or above a
  * minimum amplifier).
  *
- * <p>JSON: {@code { "type":"townstead_origins:status_effect", "effect":"minecraft:poison" }}</p>
+ * <p>JSON: {@code { "type":"pheno:status_effect", "effect":"minecraft:poison" }}</p>
  */
 public final class StatusEffectConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:status_effect";
+    public static final String KEY = "pheno:status_effect";
 
     @Override
     public String key() {

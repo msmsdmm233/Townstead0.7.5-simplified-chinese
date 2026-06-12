@@ -21,8 +21,9 @@ import java.util.OptionalInt;
 /**
  * Lowers v2 authoring sugar into the canonical JSON the existing parsers already understand,
  * so the ergonomic form and the explicit form compile to exactly the same nodes. Runs only when
- * a resource declares {@code "pheno_version": 2}; v1 resources are returned untouched, so legacy
- * data is never reinterpreted.
+ * a gene declares {@code "schema": "townstead:gene/v2"}; v1 resources are returned
+ * untouched, so legacy data is never reinterpreted. The former {@code pheno_version: 2}
+ * declaration remains accepted as a compatibility alias.
  *
  * <p>It applies: the {@code pheno:} namespace shorthand; the {@code gene} envelope (genetic
  * metadata separated from behavior); {@code on}+{@code do} trigger shorthand; the {@code with}
@@ -40,7 +41,6 @@ public final class PhenoNormalizer {
         JsonObject root = geneRoot.deepCopy();
         hoistGeneEnvelope(root);
         liftTriggerSugar(root);
-        applyNamespaceAlias(root);
         String geneType = GsonHelper.getAsString(root, "type", "");
         // Each variant config is governed by the gene's own type, so normalize it under that
         // type (sugar, units, aliases, nested shorthand) just like a single-variant root.
@@ -49,7 +49,6 @@ public final class PhenoNormalizer {
             for (String key : new ArrayList<>(variants.keySet())) {
                 if (variants.get(key).isJsonObject()) {
                     JsonObject variant = variants.get(key).getAsJsonObject();
-                    applyNamespaceAlias(variant);
                     normalizeNode(variant, NodeDomain.GENE, geneType);
                 }
             }
@@ -57,6 +56,18 @@ public final class PhenoNormalizer {
             normalizeNode(root, NodeDomain.GENE, geneType);
         }
         return root;
+    }
+
+    /** Normalize a standalone v2 condition node used by another Townstead data format. */
+    public static JsonObject normalizeCondition(JsonObject condition) {
+        JsonObject out = condition.deepCopy();
+        normalizeNode(out, NodeDomain.CONDITION, "");
+        return out;
+    }
+
+    /** Normalize a standalone v2 action node used by another Townstead data format. */
+    public static JsonElement normalizeAction(JsonElement action) {
+        return normalizeChild(action.deepCopy(), NodeDomain.ACTION);
     }
 
     /** {@code "gene": { "dominance": ..., "category": ... }} -> top-level fields. */
@@ -73,7 +84,7 @@ public final class PhenoNormalizer {
     private static void liftTriggerSugar(JsonObject root) {
         if (!root.has("on") || root.has("type")) return;
         String on = GsonHelper.getAsString(root, "on", "");
-        root.addProperty("type", "townstead_origins:trigger");
+        root.addProperty("type", "pheno:trigger");
         root.addProperty("trigger", triggerName(on));
         if (!root.has("target")) root.addProperty("target", "self");
         if (root.has("do") && !root.has("action")) root.add("action", root.get("do"));
@@ -96,16 +107,6 @@ public final class PhenoNormalizer {
             case "lightning", "struck_by_lightning" -> "when_struck_by_lightning";
             default -> t.startsWith("when_") ? t : "when_" + t;
         };
-    }
-
-    /** Rewrite a {@code pheno:} type to the canonical {@code townstead_origins:} namespace. */
-    private static void applyNamespaceAlias(JsonObject obj) {
-        if (obj.has("type") && obj.get("type").isJsonPrimitive()) {
-            String type = obj.get("type").getAsString();
-            if (type.startsWith("pheno:")) {
-                obj.addProperty("type", "townstead_origins:" + type.substring("pheno:".length()));
-            }
-        }
     }
 
     private static void normalizeNode(JsonObject obj, NodeDomain domain, String typeHint) {
@@ -168,9 +169,8 @@ public final class PhenoNormalizer {
         }
         if (!value.isJsonObject()) return value;
         JsonObject obj = value.getAsJsonObject();
-        applyNamespaceAlias(obj);
         if (domain == NodeDomain.ACTION
-                && "townstead_origins:with".equals(GsonHelper.getAsString(obj, "type", ""))) {
+                && "pheno:with".equals(GsonHelper.getAsString(obj, "type", ""))) {
             obj = lowerWith(obj);
         }
         normalizeNode(obj, domain, "");
@@ -196,14 +196,14 @@ public final class PhenoNormalizer {
 
     private static JsonObject wrap(String type, String childKey, JsonElement inner) {
         JsonObject out = new JsonObject();
-        out.addProperty("type", "townstead_origins:" + type);
+        out.addProperty("type", "pheno:" + type);
         out.add(childKey, inner);
         return out;
     }
 
     private static JsonObject equipped(String slot, JsonElement inner) {
         JsonObject out = new JsonObject();
-        out.addProperty("type", "townstead_origins:equipped_item_action");
+        out.addProperty("type", "pheno:equipped_item_action");
         out.addProperty("slot", slot);
         out.add("item_action", inner);
         return out;
@@ -211,7 +211,7 @@ public final class PhenoNormalizer {
 
     private static JsonObject blockOffset(JsonElement inner) {
         JsonObject offset = new JsonObject();
-        offset.addProperty("type", "townstead_origins:offset");
+        offset.addProperty("type", "pheno:offset");
         offset.addProperty("y", -1);
         offset.add("block_action", inner);
         return wrap("block_action", "block_action", offset);

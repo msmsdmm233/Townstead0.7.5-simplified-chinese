@@ -42,10 +42,13 @@ public final class GeneDamageHandler {
         result += com.aetherianartificer.townstead.origin.damage.EntityGroupCombat.enchantBonus(victim, source);
         //?}
         // The attacker's modify_damage_dealt scales what it deals (resolved here, on the
-        // same victim-side event, so it stays server-authoritative).
+        // same victim-side event, so it stays server-authoritative). Projectile hits also fold
+        // in modify_projectile_damage (the shooter is source.getEntity(), the arrow is direct).
         if (source.getEntity() instanceof LivingEntity attacker && attacker != victim) {
-            result = com.aetherianartificer.townstead.origin.modifier.GeneModifiers.modify(
-                    attacker, com.aetherianartificer.townstead.origin.gene.types.ModifierGeneType.Modifier.DAMAGE_DEALT, result);
+            result = com.aetherianartificer.townstead.origin.hook.PhenoHooks.damageDealt(attacker, result);
+            if (source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.Projectile) {
+                result = com.aetherianartificer.townstead.origin.hook.PhenoHooks.projectileDamage(attacker, result);
+            }
         }
         return Math.max(0f, result);
     }

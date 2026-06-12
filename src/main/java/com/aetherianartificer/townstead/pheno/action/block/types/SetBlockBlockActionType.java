@@ -12,11 +12,11 @@ import net.minecraft.world.level.block.Block;
 /**
  * Sets the target block to {@code block} (Apoli's block {@code set_block}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:set_block", "block":"minecraft:cobblestone" }}</p>
+ * <p>JSON: {@code { "type":"pheno:set_block", "block":"minecraft:cobblestone" }}</p>
  */
 public final class SetBlockBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:set_block";
+    public static final String KEY = "pheno:set_block";
 
     @Override
     public String key() {

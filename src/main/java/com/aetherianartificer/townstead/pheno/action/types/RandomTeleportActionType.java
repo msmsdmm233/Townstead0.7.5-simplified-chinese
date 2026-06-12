@@ -10,11 +10,11 @@ import net.minecraft.util.RandomSource;
  * Teleports the actor to a random safe spot within {@code distance} blocks (Apoli's
  * {@code random_teleport}); chorus-fruit-style.
  *
- * <p>JSON: {@code { "type":"townstead_origins:random_teleport", "distance":8 }}</p>
+ * <p>JSON: {@code { "type":"pheno:random_teleport", "distance":8 }}</p>
  */
 public final class RandomTeleportActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:random_teleport";
+    public static final String KEY = "pheno:random_teleport";
 
     @Override
     public String key() {

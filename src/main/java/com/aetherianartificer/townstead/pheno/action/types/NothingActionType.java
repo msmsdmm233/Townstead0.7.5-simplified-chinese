@@ -7,11 +7,11 @@ import com.google.gson.JsonObject;
 /**
  * Does nothing (Apoli's meta {@code nothing}); useful as an explicit no-op branch.
  *
- * <p>JSON: {@code { "type":"townstead_origins:nothing" }}</p>
+ * <p>JSON: {@code { "type":"pheno:nothing" }}</p>
  */
 public final class NothingActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:nothing";
+    public static final String KEY = "pheno:nothing";
 
     @Override
     public String key() {

@@ -13,12 +13,12 @@ import java.util.List;
  * Runs exactly one of {@code actions}, picked by weight (Apoli's meta {@code choice}).
  * Each entry is {@code { "action":{...}, "weight":N }} ({@code weight} defaults to 1).
  *
- * <p>JSON: {@code { "type":"townstead_origins:choice", "actions":[
+ * <p>JSON: {@code { "type":"pheno:choice", "actions":[
  * { "action":{...}, "weight":3 }, { "action":{...} } ] }}</p>
  */
 public final class ChoiceActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:choice";
+    public static final String KEY = "pheno:choice";
 
     @Override
     public String key() {

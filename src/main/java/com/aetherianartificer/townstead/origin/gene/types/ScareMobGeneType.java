@@ -23,12 +23,12 @@ import java.util.Set;
  * of them, within {@code radius}, is steered away. Enforced server-side by the passive
  * ticker.
  *
- * <p>JSON: {@code { "type":"townstead_origins:scare_mob",
+ * <p>JSON: {@code { "type":"pheno:scare_mob",
  * "mobs":["minecraft:creeper","#minecraft:skeletons"], "radius":8 }}</p>
  */
 public final class ScareMobGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:scare_mob";
+    public static final String KEY = "pheno:scare_mob";
 
     public record Instance(Set<ResourceLocation> ids, Set<TagKey<EntityType<?>>> tags, double radius)
             implements GeneInstance {

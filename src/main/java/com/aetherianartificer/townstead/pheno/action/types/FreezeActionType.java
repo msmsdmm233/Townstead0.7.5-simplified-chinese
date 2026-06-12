@@ -12,11 +12,11 @@ import net.minecraft.world.entity.LivingEntity;
  * fully frozen and taking freeze damage. {@code setTicksFrozen} is identical on both
  * branches.
  *
- * <p>JSON: {@code { "type":"townstead_origins:freeze", "amount":5 }}</p>
+ * <p>JSON: {@code { "type":"pheno:freeze", "amount":5 }}</p>
  */
 public final class FreezeActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:freeze";
+    public static final String KEY = "pheno:freeze";
 
     @Override
     public String key() {

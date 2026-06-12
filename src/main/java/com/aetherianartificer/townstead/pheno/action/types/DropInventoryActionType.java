@@ -9,11 +9,11 @@ import net.minecraft.world.entity.player.Player;
  * Drops the actor's entire inventory on the ground (player-only; Apoli's
  * {@code drop_inventory}). A curse-flavored trigger effect.
  *
- * <p>JSON: {@code { "type":"townstead_origins:drop_inventory" }}</p>
+ * <p>JSON: {@code { "type":"pheno:drop_inventory" }}</p>
  */
 public final class DropInventoryActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:drop_inventory";
+    public static final String KEY = "pheno:drop_inventory";
 
     @Override
     public String key() {

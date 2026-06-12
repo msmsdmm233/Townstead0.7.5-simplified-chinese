@@ -17,13 +17,13 @@ import org.jetbrains.annotations.Nullable;
  * everything nearby). Optionally gated by a {@link Condition} on the holder, and can
  * include the holder itself.
  *
- * <p>JSON: {@code { "type":"townstead_origins:aura", "radius":4, "interval":40,
- * "include_self":false, "action":{ "type":"townstead_origins:apply_effect",
+ * <p>JSON: {@code { "type":"pheno:aura", "radius":4, "interval":40,
+ * "include_self":false, "action":{ "type":"pheno:apply_effect",
  * "effect":"minecraft:regeneration", "duration":60 } }}</p>
  */
 public final class AuraGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:aura";
+    public static final String KEY = "pheno:aura";
 
     public record Instance(double radius, int interval, Action action,
                            @Nullable Condition condition, boolean includeSelf) implements GeneInstance {

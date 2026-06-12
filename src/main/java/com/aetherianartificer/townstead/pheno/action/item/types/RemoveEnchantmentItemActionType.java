@@ -14,11 +14,11 @@ import net.minecraft.world.item.ItemStack;
  * branches diverge: 1.21 mutates the enchantments component by {@code ResourceKey}, 1.20
  * edits the {@code EnchantmentHelper} map.
  *
- * <p>JSON: {@code { "type":"townstead_origins:remove_enchantment", "enchantment":"minecraft:sharpness" }}</p>
+ * <p>JSON: {@code { "type":"pheno:remove_enchantment", "enchantment":"minecraft:sharpness" }}</p>
  */
 public final class RemoveEnchantmentItemActionType implements ItemActionType {
 
-    public static final String KEY = "townstead_origins:remove_enchantment";
+    public static final String KEY = "pheno:remove_enchantment";
 
     @Override
     public String key() {

@@ -18,12 +18,12 @@ import java.util.Locale;
  * {@code slot} is {@code mainhand} (default), {@code offhand}, {@code head}, {@code chest},
  * {@code legs} or {@code feet}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:equipped_item_action", "slot":"mainhand",
- * "item_action":{ "type":"townstead_origins:damage", "amount":1 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:equipped_item_action", "slot":"mainhand",
+ * "item_action":{ "type":"pheno:damage", "amount":1 } }}</p>
  */
 public final class EquippedItemActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:equipped_item_action";
+    public static final String KEY = "pheno:equipped_item_action";
 
     @Override
     public String key() {

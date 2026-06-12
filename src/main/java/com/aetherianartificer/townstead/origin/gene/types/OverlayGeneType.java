@@ -17,13 +17,13 @@ import org.jetbrains.annotations.Nullable;
  * The server evaluates the optional {@link Condition} each tick and syncs the active set;
  * the texture id rides the gene catalog so the client can blit it without a resource pack.
  *
- * <p>JSON: {@code { "type":"townstead_origins:overlay",
- * "texture":"townstead_origins:textures/overlay/dark_vision.png", "alpha":0.6,
- * "condition":{ "type":"townstead_origins:in_rain" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:overlay",
+ * "texture":"pheno:textures/overlay/dark_vision.png", "alpha":0.6,
+ * "condition":{ "type":"pheno:in_rain" } }}</p>
  */
 public final class OverlayGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:overlay";
+    public static final String KEY = "pheno:overlay";
 
     public record Instance(ResourceLocation texture, float alpha, @Nullable Condition condition)
             implements GeneInstance {

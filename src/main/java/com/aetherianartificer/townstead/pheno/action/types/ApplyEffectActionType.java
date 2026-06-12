@@ -20,12 +20,12 @@ import net.minecraft.world.effect.MobEffect;
 /**
  * Applies a status effect to the actor.
  *
- * <p>JSON: {@code { "type":"townstead_origins:apply_effect", "effect":"minecraft:speed",
+ * <p>JSON: {@code { "type":"pheno:apply_effect", "effect":"minecraft:speed",
  * "duration":200, "amplifier":1 }}</p>
  */
 public final class ApplyEffectActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:apply_effect";
+    public static final String KEY = "pheno:apply_effect";
 
     @Override
     public String key() {

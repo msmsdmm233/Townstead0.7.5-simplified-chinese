@@ -118,6 +118,51 @@ public final class CapabilityResolver {
         return new Resolved(key, base, applied, ignored);
     }
 
+    /**
+     * Folds modifier-style contributions onto a live {@code base} instead of a key identity, in
+     * the same order as {@link #resolveKey} (exclusivity collapse, then DENY, then REPLACE, ADD,
+     * MULTIPLY, MIN, MAX). All entries are assumed to target one logical value (one or more keys
+     * that share a hook), so they combine directly. An active DENY neutralizes the modifiers and
+     * returns {@code base} unchanged. This is the apply-to-base variant the base-relative appliers
+     * (modifiers, and later damage) query at their vanilla hook.
+     */
+    public static double applyToBase(double base, List<CapabilityContribution> contributions) {
+        List<CapabilityContribution> active = new ArrayList<>();
+        for (CapabilityContribution c : contributions) {
+            if (c.active()) active.add(c);
+        }
+
+        Map<String, CapabilityContribution> exclusiveWinner = new LinkedHashMap<>();
+        List<CapabilityContribution> candidates = new ArrayList<>();
+        for (CapabilityContribution c : active) {
+            String group = exclusivityKey(c);
+            if (group == null) {
+                candidates.add(c);
+                continue;
+            }
+            CapabilityContribution prev = exclusiveWinner.get(group);
+            if (prev == null || better(c, prev)) exclusiveWinner.put(group, c);
+        }
+        candidates.addAll(exclusiveWinner.values());
+
+        for (CapabilityContribution c : candidates) {
+            if (c.op() == Op.DENY) return base;
+        }
+
+        double v = base;
+        CapabilityContribution replaceWinner = null;
+        for (CapabilityContribution c : candidates) {
+            if (c.op() != Op.REPLACE) continue;
+            if (replaceWinner == null || better(c, replaceWinner)) replaceWinner = c;
+        }
+        if (replaceWinner != null) v = replaceWinner.value();
+        for (CapabilityContribution c : candidates) if (c.op() == Op.ADD) v += c.value();
+        for (CapabilityContribution c : candidates) if (c.op() == Op.MULTIPLY) v *= c.value();
+        for (CapabilityContribution c : candidates) if (c.op() == Op.MIN) v = Math.min(v, c.value());
+        for (CapabilityContribution c : candidates) if (c.op() == Op.MAX) v = Math.max(v, c.value());
+        return v;
+    }
+
     @Nullable
     private static String exclusivityKey(CapabilityContribution c) {
         return c.exclusivityGroup() != null ? "x:" + c.exclusivityGroup() : null;

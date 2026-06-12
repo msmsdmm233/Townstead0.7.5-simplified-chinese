@@ -11,12 +11,12 @@ import net.minecraft.world.entity.LivingEntity;
  * Runs the wrapped entity action on the living vehicle the actor is riding (Apoli's
  * {@code riding_action}); the vehicle becomes the inner action's {@code entity()}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:riding_action",
- * "action":{ "type":"townstead_origins:damage", "amount":2 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:riding_action",
+ * "action":{ "type":"pheno:damage", "amount":2 } }}</p>
  */
 public final class RidingActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:riding_action";
+    public static final String KEY = "pheno:riding_action";
 
     @Override
     public String key() {

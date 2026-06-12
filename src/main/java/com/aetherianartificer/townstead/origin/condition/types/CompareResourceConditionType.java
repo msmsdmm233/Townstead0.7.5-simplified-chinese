@@ -16,12 +16,12 @@ import org.jetbrains.annotations.Nullable;
  * {@code comparison} (Apugli's {@code compare_resource}). Genetics-specific, so it
  * lives in {@code origin} rather than the shared layer.
  *
- * <p>JSON: {@code { "type":"townstead_origins:compare_resource", "resource":"my_pack:mana",
+ * <p>JSON: {@code { "type":"pheno:compare_resource", "resource":"my_pack:mana",
  * "comparison":">=", "compare_to":10 }}</p>
  */
 public final class CompareResourceConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:compare_resource";
+    public static final String KEY = "pheno:compare_resource";
 
     @Override
     public String key() {

@@ -15,11 +15,11 @@ import net.minecraft.world.effect.MobEffect;
  * True when the entity has at least {@code min_count} active effects belonging to a
  * mob-effect {@code tag} (Apugli's {@code status_effect_tag}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:status_effect_tag", "tag":"c:harmful" }}</p>
+ * <p>JSON: {@code { "type":"pheno:status_effect_tag", "tag":"c:harmful" }}</p>
  */
 public final class StatusEffectTagConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:status_effect_tag";
+    public static final String KEY = "pheno:status_effect_tag";
 
     @Override
     public String key() {

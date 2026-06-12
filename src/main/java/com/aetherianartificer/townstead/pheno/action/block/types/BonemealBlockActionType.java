@@ -11,11 +11,11 @@ import net.minecraft.world.level.block.state.BlockState;
  * Applies bonemeal to the target block if it is a valid bonemealable target (Apoli's
  * block {@code bonemeal}): grows crops, spreads grass, ages saplings, etc.
  *
- * <p>JSON: {@code { "type":"townstead_origins:bonemeal" }}</p>
+ * <p>JSON: {@code { "type":"pheno:bonemeal" }}</p>
  */
 public final class BonemealBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:bonemeal";
+    public static final String KEY = "pheno:bonemeal";
 
     @Override
     public String key() {

@@ -10,12 +10,12 @@ import net.minecraft.world.phys.Vec3;
  * True when the entity is within {@code [min, max]} blocks of {@code (x,y,z)} (Apoli's
  * {@code distance_from_coordinates}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:distance_from_coordinates", "x":0, "z":0,
+ * <p>JSON: {@code { "type":"pheno:distance_from_coordinates", "x":0, "z":0,
  * "max":100 }}</p>
  */
 public final class DistanceFromCoordinatesConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:distance_from_coordinates";
+    public static final String KEY = "pheno:distance_from_coordinates";
 
     @Override
     public String key() {

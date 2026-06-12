@@ -20,11 +20,11 @@ import java.util.Set;
  * multiplayer ride the client, which has no gene data, so those aren't covered; in
  * singleplayer everything is.)
  *
- * <p>JSON: {@code { "type":"townstead_origins:prevent_sound", "sound":"minecraft:entity.player.hurt" }}</p>
+ * <p>JSON: {@code { "type":"pheno:prevent_sound", "sound":"minecraft:entity.player.hurt" }}</p>
  */
 public final class PreventSoundGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:prevent_sound";
+    public static final String KEY = "pheno:prevent_sound";
 
     public record Instance(Set<ResourceLocation> sounds) implements GeneInstance {
         @Override public String typeKey() { return KEY; }

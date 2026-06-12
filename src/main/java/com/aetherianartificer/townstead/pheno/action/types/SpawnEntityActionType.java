@@ -14,11 +14,11 @@ import net.minecraft.world.entity.EntityType;
 /**
  * Spawns an entity at the actor's position (Apoli's entity {@code spawn_entity}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:spawn_entity", "entity":"minecraft:bat" }}</p>
+ * <p>JSON: {@code { "type":"pheno:spawn_entity", "entity":"minecraft:bat" }}</p>
  */
 public final class SpawnEntityActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:spawn_entity";
+    public static final String KEY = "pheno:spawn_entity";
 
     @Override
     public String key() {

@@ -20,11 +20,11 @@ import org.jetbrains.annotations.Nullable;
  * The filter is a block {@code tag} or {@code block} id; {@code allow} (default true)
  * grants harvest. Matched on the target block's state, so it works on both loaders.
  *
- * <p>JSON: {@code { "type":"townstead_origins:modify_harvest", "tag":"minecraft:base_stone_overworld" }}</p>
+ * <p>JSON: {@code { "type":"pheno:modify_harvest", "tag":"minecraft:base_stone_overworld" }}</p>
  */
 public final class ModifyHarvestGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:modify_harvest";
+    public static final String KEY = "pheno:modify_harvest";
 
     public record Instance(@Nullable TagKey<Block> tag, @Nullable ResourceLocation blockId, boolean allow)
             implements GeneInstance {

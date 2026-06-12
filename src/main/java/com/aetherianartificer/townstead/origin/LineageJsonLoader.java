@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.origin;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.data.DataPackLang;
+import com.aetherianartificer.townstead.data.TownsteadSchema;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -38,6 +39,7 @@ public final class LineageJsonLoader extends SimpleJsonResourceReloadListener {
             String ctx = file.toString();
             try {
                 JsonObject obj = GsonHelper.convertToJsonObject(entry.getValue(), ctx);
+                TownsteadSchema.validate(obj, "townstead:lineage/v1");
                 Component displayName = DataPackLang.parseComponent(obj.get("display_name"), ctx, lang);
                 List<ResourceLocation> ancestries = OriginJsonParsing.idList(obj, "ancestries");
                 Demonym demonym = OriginJsonParsing.demonym(obj, ctx, lang);

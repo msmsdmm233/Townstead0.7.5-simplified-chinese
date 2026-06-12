@@ -38,14 +38,14 @@ class PhenoValidatorTest {
 
     @Test
     void missingRequiredChildIsFlaggedWithExactPath() {
-        Diagnostics diag = validate("{ 'type':'townstead_origins:active_ability', 'cooldown':40 }");
+        Diagnostics diag = validate("{ 'type':'pheno:active_ability', 'cooldown':40 }");
         assertTrue(has(diag, "$.action", "Missing required field"),
                 "active_ability without 'action' must be flagged at $.action");
     }
 
     @Test
     void scalarTypeMismatchIsFlaggedWithExactPath() {
-        Diagnostics diag = validate("{ 'type':'townstead_origins:attribute', 'attribute':5 }");
+        Diagnostics diag = validate("{ 'type':'pheno:attribute', 'attribute':5 }");
         assertTrue(has(diag, "$.attribute", "resource id"),
                 "a numeric attribute id must be flagged at $.attribute");
     }
@@ -53,7 +53,7 @@ class PhenoValidatorTest {
     @Test
     void variantMissingRequiredFieldUsesVariantPath() {
         Diagnostics diag = validate(
-                "{ 'type':'townstead_origins:active_ability', 'variants':{ 'q':{ 'cooldown':40 } } }");
+                "{ 'type':'pheno:active_ability', 'variants':{ 'q':{ 'cooldown':40 } } }");
         assertTrue(has(diag, "$.variants.q.action", "Missing required field"),
                 "a required field missing inside a variant must be located under that variant");
     }
@@ -61,7 +61,7 @@ class PhenoValidatorTest {
     @Test
     void wellFormedGeneHasNoFieldDiagnostics() {
         Diagnostics diag = validate(
-                "{ 'type':'townstead_origins:active_ability',"
+                "{ 'type':'pheno:active_ability',"
                         + " 'action':{'type':'townstead_origins:heal','amount':1}, 'cooldown':40 }");
         for (Diagnostic d : diag.all()) {
             assertFalse(d.message().contains("Missing required field") || d.message().contains("Expected"),

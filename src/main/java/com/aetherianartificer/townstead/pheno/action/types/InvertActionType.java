@@ -10,12 +10,12 @@ import com.google.gson.JsonObject;
  * Runs the wrapped bi-entity action with the actor and target swapped (Apoli's
  * bi-entity {@code invert}). No-op when there is no counterpart.
  *
- * <p>JSON: {@code { "type":"townstead_origins:invert",
- * "action":{ "type":"townstead_origins:mount" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:invert",
+ * "action":{ "type":"pheno:mount" } }}</p>
  */
 public final class InvertActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:invert";
+    public static final String KEY = "pheno:invert";
 
     @Override
     public String key() {

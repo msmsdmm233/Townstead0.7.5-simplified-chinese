@@ -13,11 +13,11 @@ import net.minecraft.world.level.block.Block;
  * Places {@code block} at the target only if the current block is replaceable (air,
  * grass, water, ...), so it adds rather than overwrites (Apoli's block {@code add_block}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:add_block", "block":"minecraft:snow" }}</p>
+ * <p>JSON: {@code { "type":"pheno:add_block", "block":"minecraft:snow" }}</p>
  */
 public final class AddBlockBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:add_block";
+    public static final String KEY = "pheno:add_block";
 
     @Override
     public String key() {

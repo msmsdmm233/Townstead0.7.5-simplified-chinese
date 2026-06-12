@@ -16,11 +16,11 @@ import net.minecraft.world.entity.player.Player;
  * True when the entity's chosen origin is the given {@code origin} id (Apoli's
  * {@code origin}). Reads the player's stored origin or the villager's life origin.
  *
- * <p>JSON: {@code { "type":"townstead_origins:origin", "origin":"townstead_origins:overworlder" }}</p>
+ * <p>JSON: {@code { "type":"pheno:origin", "origin":"pheno:overworlder" }}</p>
  */
 public final class OriginConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:origin";
+    public static final String KEY = "pheno:origin";
 
     @Override
     public String key() {

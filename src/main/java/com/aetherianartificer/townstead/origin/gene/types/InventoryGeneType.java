@@ -13,11 +13,11 @@ import net.minecraft.util.GsonHelper;
  * controls whether the contents survive death (default keep). Player-only at runtime
  * (villagers don't open menus); the contents persist in the player's saved data.
  *
- * <p>JSON: {@code { "type":"townstead_origins:inventory", "size":27, "slot":1 }}</p>
+ * <p>JSON: {@code { "type":"pheno:inventory", "size":27, "slot":1 }}</p>
  */
 public final class InventoryGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:inventory";
+    public static final String KEY = "pheno:inventory";
 
     public record Instance(int size, int slot, boolean dropOnDeath) implements GeneInstance {
         @Override public String typeKey() { return KEY; }

@@ -10,11 +10,11 @@ import net.minecraft.world.InteractionHand;
  * Plays the actor's hand-swing animation (Apoli's {@code swing_hand}). {@code hand} is
  * {@code main} (default) or {@code off}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:swing_hand", "hand":"main" }}</p>
+ * <p>JSON: {@code { "type":"pheno:swing_hand", "hand":"main" }}</p>
  */
 public final class SwingHandActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:swing_hand";
+    public static final String KEY = "pheno:swing_hand";
 
     @Override
     public String key() {

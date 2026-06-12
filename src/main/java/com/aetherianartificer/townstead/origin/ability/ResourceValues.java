@@ -2,7 +2,9 @@ package com.aetherianartificer.townstead.origin.ability;
 
 import com.aetherianartificer.townstead.origin.gene.Gene;
 import com.aetherianartificer.townstead.origin.gene.GeneRegistry;
+import com.aetherianartificer.townstead.origin.gene.types.ReachHook;
 import com.aetherianartificer.townstead.origin.gene.types.ResourceGeneType;
+import com.aetherianartificer.townstead.pheno.action.ActionContext;
 import com.aetherianartificer.townstead.pheno.power.Power;
 import com.aetherianartificer.townstead.pheno.power.Powers;
 import net.minecraft.resources.ResourceLocation;
@@ -45,8 +47,25 @@ public final class ResourceValues {
     public static void set(LivingEntity entity, ResourceLocation geneId, int value) {
         ResourceGeneType.Instance instance = instanceOf(geneId);
         if (instance == null) return;
+        int prev = get(entity, geneId);
         int next = Math.max(instance.min(), Math.min(instance.max(), value));
         VALUES.computeIfAbsent(entity.getUUID(), k -> new ConcurrentHashMap<>()).put(geneId, next);
+        if (next > prev && !instance.onReach().isEmpty()) fireReach(entity, geneId, instance, prev, next);
+    }
+
+    /** Fire any on_reach hook the rise from {@code prev} to {@code next} crosses; reset the meter if asked. */
+    private static void fireReach(LivingEntity entity, ResourceLocation geneId,
+                                  ResourceGeneType.Instance instance, int prev, int next) {
+        boolean reset = false;
+        for (ReachHook hook : instance.onReach()) {
+            if (!hook.crossed(prev, next)) continue;
+            hook.action().run(new ActionContext(entity));
+            if (hook.reset()) reset = true;
+        }
+        if (reset) {
+            int start = Math.max(instance.min(), Math.min(instance.max(), instance.start()));
+            VALUES.computeIfAbsent(entity.getUUID(), k -> new ConcurrentHashMap<>()).put(geneId, start);
+        }
     }
 
     /** Regenerate every expressed resource gene on its own interval. */

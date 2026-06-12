@@ -13,12 +13,12 @@ import java.util.Locale;
  * (Apugli's {@code velocity}). {@code axis} is {@code x}, {@code y}, {@code z},
  * {@code horizontal} (xz magnitude), or {@code total} (full magnitude, default).
  *
- * <p>JSON: {@code { "type":"townstead_origins:velocity", "axis":"y", "max":-0.5 }}
+ * <p>JSON: {@code { "type":"pheno:velocity", "axis":"y", "max":-0.5 }}
  * (falling fast).</p>
  */
 public final class VelocityConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:velocity";
+    public static final String KEY = "pheno:velocity";
 
     @Override
     public String key() {

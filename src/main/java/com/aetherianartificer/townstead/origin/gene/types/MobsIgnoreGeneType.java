@@ -16,12 +16,12 @@ import org.jetbrains.annotations.Nullable;
  * an optional {@code bientity_condition} gates on the mob/bearer relationship. Enforced
  * by {@code MobsIgnore} off the change-target event.
  *
- * <p>JSON: {@code { "type":"townstead_origins:mobs_ignore",
- * "mob_condition":{ "type":"townstead_origins:entity_type", "entity_type":"minecraft:zombie" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:mobs_ignore",
+ * "mob_condition":{ "type":"pheno:entity_type", "entity_type":"minecraft:zombie" } }}</p>
  */
 public final class MobsIgnoreGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:mobs_ignore";
+    public static final String KEY = "pheno:mobs_ignore";
 
     public record Instance(@Nullable Condition mobCondition, @Nullable BiEntityCondition biEntityCondition)
             implements GeneInstance {

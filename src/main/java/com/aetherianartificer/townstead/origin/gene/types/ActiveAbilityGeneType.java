@@ -22,13 +22,13 @@ import java.util.Locale;
  * auto-assign). {@code ai_trigger} lets villagers use it on their own (default
  * {@code never}, so villagers carry the gene but only players fire it unless opted in).
  *
- * <p>JSON: {@code { "type":"townstead_origins:active_ability", "cooldown":200,
+ * <p>JSON: {@code { "type":"pheno:active_ability", "cooldown":200,
  * "slot":1, "ai_trigger":"when_hurt",
- * "action":{ "type":"townstead_origins:heal", "amount":6 } }}</p>
+ * "action":{ "type":"pheno:heal", "amount":6 } }}</p>
  */
 public final class ActiveAbilityGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:active_ability";
+    public static final String KEY = "pheno:active_ability";
 
     public enum AiTrigger {
         NEVER, ALWAYS, WHEN_HURT, WHEN_THREATENED;

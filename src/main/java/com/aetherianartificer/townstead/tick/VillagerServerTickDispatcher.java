@@ -78,6 +78,8 @@ public final class VillagerServerTickDispatcher {
                 com.aetherianartificer.townstead.origin.ability.ActiveAbilities.aiTick(villager));
         profile("villager.gene_resource", () ->
                 com.aetherianartificer.townstead.origin.ability.ResourceValues.tick(villager));
+        profile("villager.gene_collection", () ->
+                com.aetherianartificer.townstead.origin.collection.CollectionValues.tick(villager));
     }
 
     private static void profile(String name, Runnable runnable) {

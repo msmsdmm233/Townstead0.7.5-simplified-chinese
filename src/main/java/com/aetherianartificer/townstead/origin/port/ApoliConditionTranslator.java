@@ -56,7 +56,7 @@ public final class ApoliConditionTranslator {
             case "hostile": return simple("hostile");
             case "in_snow": return simple("in_snow");
             case "submerged_in": return apoli.has("fluid")
-                    ? copyString(apoli, "fluid", "townstead_origins:submerged_in", "fluid") : simple("submerged");
+                    ? copyString(apoli, "fluid", "pheno:submerged_in", "fluid") : simple("submerged");
             // Value comparisons (Apoli {comparison, compare_to} -> our min/max)
             case "brightness": return brightness(apoli);
             case "health": return numeric("health", apoli);
@@ -95,28 +95,37 @@ public final class ApoliConditionTranslator {
                 out.addProperty("y", GsonHelper.getAsInt(apoli, "offset_y", 0));
                 out.addProperty("z", GsonHelper.getAsInt(apoli, "offset_z", 0));
                 JsonObject bc = new JsonObject();
-                bc.addProperty("type", "townstead_origins:movement_blocking");
+                bc.addProperty("type", "pheno:movement_blocking");
                 out.add("block_condition", bc);
                 return out;
             }
-            case "dimension": return copyString(apoli, "dimension", "townstead_origins:dimension", "dimension");
+            case "dimension": return copyString(apoli, "dimension", "pheno:dimension", "dimension");
             case "biome": return apoli.has("biome")
-                    ? copyString(apoli, "biome", "townstead_origins:biome", "biome") : null;
-            case "entity_type": return copyString(apoli, "entity_type", "townstead_origins:entity_type", "entity_type");
-            case "gamemode": return copyString(apoli, "gamemode", "townstead_origins:gamemode", "gamemode");
-            case "entity_group": return copyString(apoli, "group", "townstead_origins:entity_group", "group");
-            case "structure": return copyString(apoli, "structure", "townstead_origins:structure", "structure");
-            case "on_cooldown": return copyString(apoli, "item", "townstead_origins:on_cooldown", "item");
-            case "status_effect": return copyString(apoli, "effect", "townstead_origins:status_effect", "effect");
+                    ? copyString(apoli, "biome", "pheno:biome", "biome") : null;
+            case "entity_type": return copyString(apoli, "entity_type", "pheno:entity_type", "entity_type");
+            case "gamemode": return copyString(apoli, "gamemode", "pheno:gamemode", "gamemode");
+            case "entity_group": return copyString(apoli, "group", "pheno:entity_group", "group");
+            case "structure": return copyString(apoli, "structure", "pheno:structure", "structure");
+            case "set_size": {
+                String set = GsonHelper.getAsString(apoli, "set", "");
+                if (set.isEmpty()) return null;
+                JsonObject out = simple("collection_size");
+                out.addProperty("collection", set);
+                out.addProperty("comparison", GsonHelper.getAsString(apoli, "comparison", ">="));
+                out.addProperty("compare_to", GsonHelper.getAsInt(apoli, "compare_to", 0));
+                return out;
+            }
+            case "on_cooldown": return copyString(apoli, "item", "pheno:on_cooldown", "item");
+            case "status_effect": return copyString(apoli, "effect", "pheno:status_effect", "effect");
             case "status_effect_tag": {
                 if (!apoli.has("tag")) return null;
-                JsonObject out = copyString(apoli, "tag", "townstead_origins:status_effect_tag", "tag");
+                JsonObject out = copyString(apoli, "tag", "pheno:status_effect_tag", "tag");
                 if (apoli.has("min_count")) out.addProperty("min_count", GsonHelper.getAsInt(apoli, "min_count", 1));
                 return out;
             }
             // Metas
-            case "and": return composite("townstead_origins:and", apoli);
-            case "or": return composite("townstead_origins:or", apoli);
+            case "and": return composite("pheno:and", apoli);
+            case "or": return composite("pheno:or", apoli);
             case "constant": {
                 JsonObject out = simple("constant");
                 out.addProperty("value", GsonHelper.getAsBoolean(apoli, "value", true));
@@ -147,7 +156,7 @@ public final class ApoliConditionTranslator {
 
     private static JsonObject simple(String name) {
         JsonObject out = new JsonObject();
-        out.addProperty("type", "townstead_origins:" + name);
+        out.addProperty("type", "pheno:" + name);
         return out;
     }
 

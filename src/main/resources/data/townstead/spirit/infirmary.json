@@ -1,1 +1,2 @@
-{ "townsteadSpirit": { "scholar": 5, "commercial": 2 } }
+{
+  "schema": "townstead:building_spirit/v1", "townsteadSpirit": { "scholar": 5, "commercial": 2 } }

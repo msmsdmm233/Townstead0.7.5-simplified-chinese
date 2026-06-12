@@ -18,13 +18,13 @@ import org.jetbrains.annotations.Nullable;
  * {@code exhaust} = drain hunger, plus any other action (damage, apply_effect, …).
  * Applied server-side by {@code GeneAbilityTicker}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:action_over_time", "interval":20,
- * "action":{ "type":"townstead_origins:ignite", "seconds":2 },
- * "condition":{ "type":"townstead_origins:exposed_to_sky" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:action_over_time", "interval":20,
+ * "action":{ "type":"pheno:ignite", "seconds":2 },
+ * "condition":{ "type":"pheno:exposed_to_sky" } }}</p>
  */
 public final class ActionOverTimeGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:action_over_time";
+    public static final String KEY = "pheno:action_over_time";
 
     public record Instance(Action action, int interval, @Nullable Condition condition)
             implements GeneInstance {

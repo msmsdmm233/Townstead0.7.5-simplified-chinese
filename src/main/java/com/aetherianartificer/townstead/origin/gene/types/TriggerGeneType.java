@@ -22,13 +22,13 @@ import java.util.Locale;
  * {@code ActionContext.other()}. Dispatched server-side by {@code GeneTriggers} off
  * the damage and death events.
  *
- * <p>JSON: {@code { "type":"townstead_origins:trigger", "trigger":"when_hurt",
- * "target":"other", "action":{ "type":"townstead_origins:ignite", "seconds":3 },
- * "condition":{ "type":"townstead_origins:on_fire" } }} (thorns-style retaliation).</p>
+ * <p>JSON: {@code { "type":"pheno:trigger", "trigger":"when_hurt",
+ * "target":"other", "action":{ "type":"pheno:ignite", "seconds":3 },
+ * "condition":{ "type":"pheno:on_fire" } }} (thorns-style retaliation).</p>
  */
 public final class TriggerGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:trigger";
+    public static final String KEY = "pheno:trigger";
 
     public enum Trigger { WHEN_HURT, WHEN_ATTACK, WHEN_KILL, WHEN_DEATH, WHEN_LAND, WHEN_WAKE_UP,
         WHEN_JUMP, WHEN_STRUCK_BY_LIGHTNING, WHEN_EQUIP, WHEN_ITEM_USE }

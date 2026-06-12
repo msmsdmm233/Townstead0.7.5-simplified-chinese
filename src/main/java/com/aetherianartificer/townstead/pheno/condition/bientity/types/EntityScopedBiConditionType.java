@@ -12,8 +12,8 @@ import com.google.gson.JsonObject;
  * bi-entity {@code actor_condition} / {@code target_condition} / {@code both} /
  * {@code either} metas), selected by {@link Scope}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:target_condition",
- * "condition":{ "type":"townstead_origins:on_fire" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:target_condition",
+ * "condition":{ "type":"pheno:on_fire" } }}</p>
  */
 public final class EntityScopedBiConditionType implements BiEntityConditionType {
 

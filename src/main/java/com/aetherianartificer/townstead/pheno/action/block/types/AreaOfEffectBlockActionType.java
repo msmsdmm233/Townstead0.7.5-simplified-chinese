@@ -16,13 +16,13 @@ import org.jetbrains.annotations.Nullable;
  * {@code sphere}; an optional {@code block_condition} filters which blocks are affected.
  * Radius is capped to keep the volume bounded.
  *
- * <p>JSON: {@code { "type":"townstead_origins:area_of_effect", "radius":2, "shape":"sphere",
- * "block_condition":{ "type":"townstead_origins:in_tag", "tag":"minecraft:crops" },
- * "block_action":{ "type":"townstead_origins:bonemeal" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:area_of_effect", "radius":2, "shape":"sphere",
+ * "block_condition":{ "type":"pheno:in_tag", "tag":"minecraft:crops" },
+ * "block_action":{ "type":"pheno:bonemeal" } }}</p>
  */
 public final class AreaOfEffectBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:area_of_effect";
+    public static final String KEY = "pheno:area_of_effect";
 
     private static final int MAX_RADIUS = 16;
 

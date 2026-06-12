@@ -18,12 +18,12 @@ import java.util.Locale;
  * syncs to every client. (For sounds played as the <em>effect</em> of a power, use the
  * {@code play_sound} action instead.)
  *
- * <p>JSON: {@code { "type":"townstead_origins:custom_sound", "slot":"hurt",
+ * <p>JSON: {@code { "type":"pheno:custom_sound", "slot":"hurt",
  * "sound":"minecraft:entity.cat.hiss" }}</p>
  */
 public final class CustomSoundGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:custom_sound";
+    public static final String KEY = "pheno:custom_sound";
 
     public enum Slot {
         HURT("hurt"), DEATH("death"), STEP("step");

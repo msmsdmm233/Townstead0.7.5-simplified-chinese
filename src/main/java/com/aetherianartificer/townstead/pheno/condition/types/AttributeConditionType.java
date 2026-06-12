@@ -21,12 +21,12 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
  * (Apoli's {@code attribute}). The attribute is a {@code Holder} on 1.21 and a raw
  * {@code Attribute} on 1.20, so resolution is version-guarded.
  *
- * <p>JSON: {@code { "type":"townstead_origins:attribute",
+ * <p>JSON: {@code { "type":"pheno:attribute",
  * "attribute":"minecraft:generic.movement_speed", "min":0.12 }}</p>
  */
 public final class AttributeConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:attribute";
+    public static final String KEY = "pheno:attribute";
 
     @Override
     public String key() {

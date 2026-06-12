@@ -13,11 +13,11 @@ import java.util.Locale;
  * {@code entity_group}): {@code undead}, {@code arthropod}, etc., as resolved by
  * {@link EntityGroups}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:entity_group", "group":"undead" }}</p>
+ * <p>JSON: {@code { "type":"pheno:entity_group", "group":"undead" }}</p>
  */
 public final class EntityGroupConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:entity_group";
+    public static final String KEY = "pheno:entity_group";
 
     @Override
     public String key() {

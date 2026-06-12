@@ -13,11 +13,11 @@ import java.util.Locale;
  * Townstead runs all power actions server-side, so {@code server} (default) runs and
  * {@code client} is a no-op (client-only actions are not modeled).
  *
- * <p>JSON: {@code { "type":"townstead_origins:side", "side":"server", "action":{...} }}</p>
+ * <p>JSON: {@code { "type":"pheno:side", "side":"server", "action":{...} }}</p>
  */
 public final class SideActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:side";
+    public static final String KEY = "pheno:side";
 
     @Override
     public String key() {

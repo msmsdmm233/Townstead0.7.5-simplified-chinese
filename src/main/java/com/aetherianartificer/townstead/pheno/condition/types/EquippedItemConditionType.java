@@ -15,12 +15,12 @@ import java.util.Locale;
  * (Apoli's {@code equipped_item}). {@code slot} is {@code mainhand} (default),
  * {@code offhand}, {@code head}, {@code chest}, {@code legs} or {@code feet}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:equipped_item", "slot":"head",
- * "item_condition":{ "type":"townstead_origins:enchantment", "enchantment":"minecraft:aqua_affinity" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:equipped_item", "slot":"head",
+ * "item_condition":{ "type":"pheno:enchantment", "enchantment":"minecraft:aqua_affinity" } }}</p>
  */
 public final class EquippedItemConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:equipped_item";
+    public static final String KEY = "pheno:equipped_item";
 
     @Override
     public String key() {

@@ -12,12 +12,12 @@ import net.minecraft.util.GsonHelper;
  * (Apoli's {@code block} entity condition). The offset defaults to the entity's own
  * block (its feet); use {@code y:-1} for the block it stands on.
  *
- * <p>JSON: {@code { "type":"townstead_origins:block", "y":-1,
- * "block_condition":{ "type":"townstead_origins:in_tag", "tag":"minecraft:sand" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:block", "y":-1,
+ * "block_condition":{ "type":"pheno:in_tag", "tag":"minecraft:sand" } }}</p>
  */
 public final class BlockAtConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:block";
+    public static final String KEY = "pheno:block";
 
     @Override
     public String key() {

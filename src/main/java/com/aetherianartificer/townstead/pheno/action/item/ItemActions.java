@@ -1,17 +1,20 @@
 package com.aetherianartificer.townstead.pheno.action.item;
 
+import com.aetherianartificer.townstead.pheno.selector.ItemSelector;
+import com.aetherianartificer.townstead.pheno.selector.ItemSelectors;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.util.GsonHelper;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
- * Parses an item-action JSON element into an {@link ItemAction}. An array runs every
- * action in order; an object dispatches by {@code "type"}. Clone of {@code Actions}.
+ * Parses an item-action JSON element into an {@link ItemAction}. An array runs every action in
+ * order; an object dispatches by {@code "type"}, then, if it carries an {@code on}, runs once per
+ * selected stack (the item analogue of an entity action's {@code on}). Clone of {@code Actions}.
  */
 public final class ItemActions {
 
@@ -32,7 +35,18 @@ public final class ItemActions {
         }
         if (!element.isJsonObject()) return null;
         JsonObject json = element.getAsJsonObject();
-        Optional<ItemActionType> type = ItemActionTypes.get(GsonHelper.getAsString(json, "type", ""));
-        return type.map(t -> t.parse(json)).orElse(null);
+        ItemAction inner = ItemActionTypes.get(GsonHelper.getAsString(json, "type", ""))
+                .map(t -> t.parse(json)).orElse(null);
+        if (inner == null) return null;
+        if (!json.has("on")) return inner;
+        ItemSelector selector = ItemSelectors.parse(json.get("on"));
+        if (selector == null) return null;
+        ItemAction core = inner;
+        return ctx -> {
+            if (ctx.holder() == null) return;
+            for (ItemStack stack : selector.select(ctx.holder())) {
+                core.run(new ItemActionContext(stack, ctx.holder()));
+            }
+        };
     }
 }

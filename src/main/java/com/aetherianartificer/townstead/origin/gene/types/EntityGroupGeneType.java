@@ -15,11 +15,11 @@ import java.util.Locale;
  * (vanilla then does the rest for free); on 1.21.1 the same effects are layered in
  * through the damage/effect hooks, since per-entity mob type was removed there.
  *
- * <p>JSON: {@code { "type":"townstead_origins:entity_group", "group":"undead" }}</p>
+ * <p>JSON: {@code { "type":"pheno:entity_group", "group":"undead" }}</p>
  */
 public final class EntityGroupGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:entity_group";
+    public static final String KEY = "pheno:entity_group";
 
     public enum Group {
         DEFAULT, UNDEAD, ARTHROPOD, ILLAGER, AQUATIC;

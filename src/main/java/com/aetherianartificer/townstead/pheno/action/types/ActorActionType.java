@@ -10,12 +10,12 @@ import com.google.gson.JsonObject;
  * pass-through that exists for symmetry with {@code target_action} and so it can be
  * flipped by {@code invert} (Apoli's bi-entity {@code actor_action}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:actor_action",
- * "action":{ "type":"townstead_origins:heal", "amount":4 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:actor_action",
+ * "action":{ "type":"pheno:heal", "amount":4 } }}</p>
  */
 public final class ActorActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:actor_action";
+    public static final String KEY = "pheno:actor_action";
 
     @Override
     public String key() {

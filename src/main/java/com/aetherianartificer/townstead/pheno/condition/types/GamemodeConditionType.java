@@ -12,11 +12,11 @@ import java.util.Locale;
  * True when the entity is a player in the given {@code gamemode} ({@code survival},
  * {@code creative}, {@code adventure}, {@code spectator}); Apoli's {@code gamemode}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:gamemode", "gamemode":"creative" }}</p>
+ * <p>JSON: {@code { "type":"pheno:gamemode", "gamemode":"creative" }}</p>
  */
 public final class GamemodeConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:gamemode";
+    public static final String KEY = "pheno:gamemode";
 
     @Override
     public String key() {

@@ -15,12 +15,12 @@ import net.minecraft.world.entity.LivingEntity;
  * with the actor as {@code other()}. A one-shot nova (pair with a trigger), distinct
  * from the periodic {@code aura} gene.
  *
- * <p>JSON: {@code { "type":"townstead_origins:area_of_effect", "radius":4,
- * "action":{ "type":"townstead_origins:damage", "amount":4 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:area_of_effect", "radius":4,
+ * "action":{ "type":"pheno:damage", "amount":4 } }}</p>
  */
 public final class AreaOfEffectActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:area_of_effect";
+    public static final String KEY = "pheno:area_of_effect";
 
     @Override
     public String key() {

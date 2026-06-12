@@ -18,12 +18,12 @@ import java.util.Set;
  * are cleared within the tick interval. (Instantaneous effects like instant damage
  * aren't blocked, since they resolve immediately.)
  *
- * <p>JSON: {@code { "type":"townstead_origins:effect_immunity",
+ * <p>JSON: {@code { "type":"pheno:effect_immunity",
  * "effects":["minecraft:poison","minecraft:wither"] }} or {@code { ..., "all":true }}</p>
  */
 public final class EffectImmunityGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:effect_immunity";
+    public static final String KEY = "pheno:effect_immunity";
 
     public record Instance(Set<ResourceLocation> effects, boolean all) implements GeneInstance {
         public Instance { effects = Set.copyOf(effects); }

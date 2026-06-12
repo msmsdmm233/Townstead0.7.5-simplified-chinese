@@ -21,13 +21,13 @@ import java.util.List;
  * {@code max_stacks} while the condition is met and falls to {@code min_stacks} otherwise;
  * the effect amplifier is {@code stacks / stacks_per_level}. Ticked server-side.
  *
- * <p>JSON: {@code { "type":"townstead_origins:stacking_effect", "max_stacks":360,
+ * <p>JSON: {@code { "type":"pheno:stacking_effect", "max_stacks":360,
  * "stacks_per_level":60, "effects":[{"effect":"minecraft:slowness"}],
- * "condition":{ "type":"townstead_origins:block_at", "offset_y":1, ... } }}</p>
+ * "condition":{ "type":"pheno:block_at", "offset_y":1, ... } }}</p>
  */
 public final class StackingEffectGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:stacking_effect";
+    public static final String KEY = "pheno:stacking_effect";
 
     public record EffectSpec(ResourceLocation effect, boolean ambient, boolean particles, boolean icon) {}
 

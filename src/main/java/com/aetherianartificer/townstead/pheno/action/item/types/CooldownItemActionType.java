@@ -10,11 +10,11 @@ import net.minecraft.world.entity.player.Player;
  * Puts the stack's item on cooldown for the holder (Apugli's item {@code cooldown}).
  * No-op unless the holder is a player, since item cooldowns live on the player.
  *
- * <p>JSON: {@code { "type":"townstead_origins:cooldown", "cooldown":40 }}</p>
+ * <p>JSON: {@code { "type":"pheno:cooldown", "cooldown":40 }}</p>
  */
 public final class CooldownItemActionType implements ItemActionType {
 
-    public static final String KEY = "townstead_origins:cooldown";
+    public static final String KEY = "pheno:cooldown";
 
     @Override
     public String key() {

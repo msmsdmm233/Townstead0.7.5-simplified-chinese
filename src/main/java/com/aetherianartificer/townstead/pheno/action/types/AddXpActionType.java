@@ -10,11 +10,11 @@ import net.minecraft.world.entity.player.Player;
  * Grants the actor experience (player-only). {@code points} adds raw XP; {@code levels}
  * adds whole levels. (Apoli's {@code add_xp}.)
  *
- * <p>JSON: {@code { "type":"townstead_origins:add_xp", "points":10 }}</p>
+ * <p>JSON: {@code { "type":"pheno:add_xp", "points":10 }}</p>
  */
 public final class AddXpActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:add_xp";
+    public static final String KEY = "pheno:add_xp";
 
     @Override
     public String key() {

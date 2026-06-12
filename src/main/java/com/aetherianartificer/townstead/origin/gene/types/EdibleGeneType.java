@@ -22,12 +22,12 @@ import java.util.Set;
  * a brief poison or speed). Player-facing; villager diet is handled by the
  * {@code diet} gene + the consumption system.
  *
- * <p>JSON: {@code { "type":"townstead_origins:edible", "items":["minecraft:rotten_flesh"],
+ * <p>JSON: {@code { "type":"pheno:edible", "items":["minecraft:rotten_flesh"],
  * "nutrition":4, "saturation":0.6 }}</p>
  */
 public final class EdibleGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:edible";
+    public static final String KEY = "pheno:edible";
 
     public record Instance(Set<ResourceLocation> items, int nutrition, float saturation,
                            @Nullable Action onEat) implements GeneInstance {

@@ -2,10 +2,10 @@ package com.aetherianartificer.townstead.origin.capability;
 
 import com.aetherianartificer.townstead.origin.gene.types.AbilityGeneType;
 import com.aetherianartificer.townstead.origin.gene.types.ModifierGeneType;
+import com.aetherianartificer.townstead.origin.modifier.ModifierCapability;
 import com.aetherianartificer.townstead.pheno.capability.CapabilityCollector;
 import com.aetherianartificer.townstead.pheno.capability.CapabilityKey;
 import com.aetherianartificer.townstead.pheno.capability.CapabilitySource;
-import com.aetherianartificer.townstead.pheno.capability.Op;
 import com.aetherianartificer.townstead.pheno.capability.Provenance;
 import com.aetherianartificer.townstead.pheno.condition.ConditionContext;
 import com.aetherianartificer.townstead.pheno.power.Power;
@@ -38,10 +38,12 @@ public final class GeneCapabilitySource implements CapabilitySource {
                 boolean active = ability.condition() == null || ability.condition().test(ctx);
                 out.flag(key, Provenance.gene(power.id(), ability.mode().name().toLowerCase(Locale.ROOT)), active);
             } else if (component instanceof ModifierGeneType.Instance modifier) {
-                CapabilityKey key = CapabilityKey.scalar(id("modifier/" + modifier.modifier().name().toLowerCase(Locale.ROOT)));
+                CapabilityKey key = ModifierCapability.key(modifier.modifier(), modifier.discriminator());
                 boolean active = modifier.condition() == null || modifier.condition().test(ctx);
-                Op op = modifier.op() == ModifierGeneType.Op.ADD ? Op.ADD : Op.MULTIPLY;
-                out.numeric(key, op, modifier.value(), Provenance.gene(power.id()), active);
+                for (ModifierGeneType.Mod mod : modifier.mods()) {
+                    out.numeric(key, ModifierCapability.op(mod.op()), mod.value(),
+                            Provenance.gene(power.id()), active);
+                }
             }
         }
     }

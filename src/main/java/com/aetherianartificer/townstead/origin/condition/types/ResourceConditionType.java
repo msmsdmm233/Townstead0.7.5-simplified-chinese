@@ -13,11 +13,11 @@ import net.minecraft.util.GsonHelper;
  * (Apoli's {@code resource}). A genetics-specific condition, so it lives in {@code origin}
  * (which depends on pheno) rather than the shared layer.
  *
- * <p>JSON: {@code { "type":"townstead_origins:resource", "resource":"my_pack:mana", "min":1 }}</p>
+ * <p>JSON: {@code { "type":"pheno:resource", "resource":"my_pack:mana", "min":1 }}</p>
  */
 public final class ResourceConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:resource";
+    public static final String KEY = "pheno:resource";
 
     @Override
     public String key() {

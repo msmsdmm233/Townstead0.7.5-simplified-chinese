@@ -10,11 +10,11 @@ import net.minecraft.util.GsonHelper;
  * Always returns a fixed {@code value} (Apoli's {@code constant}). Useful as a
  * placeholder while authoring or to disable a gate without deleting it.
  *
- * <p>JSON: {@code { "type":"townstead_origins:constant", "value":true }}</p>
+ * <p>JSON: {@code { "type":"pheno:constant", "value":true }}</p>
  */
 public final class ConstantConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:constant";
+    public static final String KEY = "pheno:constant";
 
     @Override
     public String key() {

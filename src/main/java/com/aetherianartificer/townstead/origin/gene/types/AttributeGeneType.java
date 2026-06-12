@@ -20,13 +20,13 @@ import java.util.Locale;
  * {@code conditioned_attribute}, e.g. stronger at night). Applied by
  * {@code GeneAttributeApplier}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:attribute",
+ * <p>JSON: {@code { "type":"pheno:attribute",
  * "attribute":"minecraft:generic.max_health", "amount":4.0, "operation":"add",
- * "condition":{ "type":"townstead_origins:time_of_day", "min":13000, "max":23000 } }}</p>
+ * "condition":{ "type":"pheno:time_of_day", "min":13000, "max":23000 } }}</p>
  */
 public final class AttributeGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:attribute";
+    public static final String KEY = "pheno:attribute";
 
     /** Operation, version-mapped to vanilla in the applier. */
     public enum Op { ADD, MULTIPLY_BASE, MULTIPLY_TOTAL }

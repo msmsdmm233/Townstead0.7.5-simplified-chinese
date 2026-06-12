@@ -12,11 +12,11 @@ import com.google.gson.JsonObject;
  * tick performs (see {@code FoodDataNaturalRegenMixin} + the heal listener); other
  * healing is untouched. A future energy-recovery gene covers the needs-system side.
  *
- * <p>JSON: {@code { "type":"townstead_origins:disable_regen" }}</p>
+ * <p>JSON: {@code { "type":"pheno:disable_regen" }}</p>
  */
 public final class DisableRegenGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:disable_regen";
+    public static final String KEY = "pheno:disable_regen";
 
     public record Instance() implements GeneInstance {
         @Override public String typeKey() { return KEY; }

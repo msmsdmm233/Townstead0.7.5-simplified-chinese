@@ -9,11 +9,11 @@ import com.google.gson.JsonObject;
  * A race whose players keep their inventory and XP on death. Enforced by canceling
  * the inventory drop and copying it onto the respawned player.
  *
- * <p>JSON: {@code { "type":"townstead_origins:keep_inventory" }}</p>
+ * <p>JSON: {@code { "type":"pheno:keep_inventory" }}</p>
  */
 public final class KeepInventoryGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:keep_inventory";
+    public static final String KEY = "pheno:keep_inventory";
 
     public record Instance() implements GeneInstance {
         @Override public String typeKey() { return KEY; }

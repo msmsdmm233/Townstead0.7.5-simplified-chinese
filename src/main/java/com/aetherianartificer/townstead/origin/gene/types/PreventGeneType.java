@@ -29,12 +29,12 @@ import java.util.Set;
  * and/or an {@code items} id list (omit both to cover every item). Enforced by
  * {@code Prevents} off the relevant events / a collision mixin.
  *
- * <p>JSON: {@code { "type":"townstead_origins:prevent", "what":"item_use",
+ * <p>JSON: {@code { "type":"pheno:prevent", "what":"item_use",
  * "tag":"minecraft:meat" }}</p>
  */
 public final class PreventGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:prevent";
+    public static final String KEY = "pheno:prevent";
 
     public enum What {
         DEATH("death"), SLEEP("sleep"), ENTITY_COLLISION("entity_collision"), ITEM_USE("item_use");

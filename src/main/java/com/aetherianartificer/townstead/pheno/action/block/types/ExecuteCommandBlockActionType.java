@@ -16,11 +16,11 @@ import net.minecraft.world.phys.Vec3;
  * if any, is the source entity. The public {@code CommandSourceStack} constructor is
  * identical on both branches.
  *
- * <p>JSON: {@code { "type":"townstead_origins:execute_command", "command":"setblock ~ ~1 ~ torch" }}</p>
+ * <p>JSON: {@code { "type":"pheno:execute_command", "command":"setblock ~ ~1 ~ torch" }}</p>
  */
 public final class ExecuteCommandBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:execute_command";
+    public static final String KEY = "pheno:execute_command";
 
     @Override
     public String key() {

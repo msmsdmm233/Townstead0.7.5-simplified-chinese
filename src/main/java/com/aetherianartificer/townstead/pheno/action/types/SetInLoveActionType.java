@@ -11,11 +11,11 @@ import net.minecraft.world.entity.player.Player;
  * actor, if a player, is credited as the cause for breeding stats. Server-side; no-op
  * if the target is not an animal.
  *
- * <p>JSON: {@code { "type":"townstead_origins:set_in_love" }}</p>
+ * <p>JSON: {@code { "type":"pheno:set_in_love" }}</p>
  */
 public final class SetInLoveActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:set_in_love";
+    public static final String KEY = "pheno:set_in_love";
 
     @Override
     public String key() {

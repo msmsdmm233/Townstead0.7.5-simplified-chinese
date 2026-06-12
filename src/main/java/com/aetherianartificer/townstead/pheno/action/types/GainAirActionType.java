@@ -9,11 +9,11 @@ import net.minecraft.util.GsonHelper;
  * Changes the actor's air supply by {@code air} ticks, clamped to its maximum (Apoli's
  * {@code gain_air}). Negative values drain air.
  *
- * <p>JSON: {@code { "type":"townstead_origins:gain_air", "air":60 }}</p>
+ * <p>JSON: {@code { "type":"pheno:gain_air", "air":60 }}</p>
  */
 public final class GainAirActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:gain_air";
+    public static final String KEY = "pheno:gain_air";
 
     @Override
     public String key() {

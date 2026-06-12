@@ -2,18 +2,21 @@ package com.aetherianartificer.townstead.pheno.action.types;
 
 import com.aetherianartificer.townstead.pheno.action.Action;
 import com.aetherianartificer.townstead.pheno.action.ActionType;
+import com.aetherianartificer.townstead.pheno.selector.SelectorContext;
+import com.aetherianartificer.townstead.pheno.value.Value;
+import com.aetherianartificer.townstead.pheno.value.Values;
 import com.google.gson.JsonObject;
-import net.minecraft.util.GsonHelper;
 
 /**
  * Hurts the actor by {@code amount} (generic damage source) - the cost side of an
- * ability (e.g. a self-sacrifice power).
+ * ability (e.g. a self-sacrifice power). {@code amount} is a value, so it can be a literal or a
+ * {@code count} of a selection.
  *
- * <p>JSON: {@code { "type":"townstead_origins:damage", "amount":2.0 }}</p>
+ * <p>JSON: {@code { "type":"pheno:damage", "amount":2.0 }}</p>
  */
 public final class DamageActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:damage";
+    public static final String KEY = "pheno:damage";
 
     @Override
     public String key() {
@@ -22,8 +25,11 @@ public final class DamageActionType implements ActionType {
 
     @Override
     public Action parse(JsonObject json) {
-        float amount = GsonHelper.getAsFloat(json, "amount", 0f);
-        if (amount <= 0f) return null;
-        return ctx -> ctx.entity().hurt(ctx.level().damageSources().generic(), amount);
+        Value amount = json.has("amount") ? Values.parse(json.get("amount")) : null;
+        if (amount == null) return null;
+        return ctx -> {
+            float a = (float) amount.get(SelectorContext.of(ctx));
+            if (a > 0f) ctx.entity().hurt(ctx.level().damageSources().generic(), a);
+        };
     }
 }

@@ -12,12 +12,12 @@ import net.minecraft.world.phys.Vec3;
  * Adds velocity to the actor (a dash or leap). With {@code "relative":true} the
  * vector is rotated to the actor's facing, so {@code z} is "forward".
  *
- * <p>JSON: {@code { "type":"townstead_origins:add_velocity", "x":0, "y":0.4, "z":1.2,
+ * <p>JSON: {@code { "type":"pheno:add_velocity", "x":0, "y":0.4, "z":1.2,
  * "relative":true }}</p>
  */
 public final class VelocityActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:add_velocity";
+    public static final String KEY = "pheno:add_velocity";
 
     @Override
     public String key() {

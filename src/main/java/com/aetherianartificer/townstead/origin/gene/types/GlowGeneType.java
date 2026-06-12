@@ -14,12 +14,12 @@ import org.jetbrains.annotations.Nullable;
  * viewers; the outline colour follows vanilla team colouring (custom per-gene
  * colour is not yet supported). Maps Apoli's {@code self_glow}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:glow",
- * "condition":{ "type":"townstead_origins:in_water" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:glow",
+ * "condition":{ "type":"pheno:in_water" } }}</p>
  */
 public final class GlowGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:glow";
+    public static final String KEY = "pheno:glow";
 
     public record Instance(@Nullable Condition condition) implements GeneInstance {
         @Override public String typeKey() { return KEY; }

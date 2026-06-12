@@ -8,11 +8,11 @@ import net.minecraft.util.GsonHelper;
 /**
  * Shrinks the stack by {@code amount} (Apoli's item {@code consume}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:consume", "amount":1 }}</p>
+ * <p>JSON: {@code { "type":"pheno:consume", "amount":1 }}</p>
  */
 public final class ConsumeItemActionType implements ItemActionType {
 
-    public static final String KEY = "townstead_origins:consume";
+    public static final String KEY = "pheno:consume";
 
     @Override
     public String key() {

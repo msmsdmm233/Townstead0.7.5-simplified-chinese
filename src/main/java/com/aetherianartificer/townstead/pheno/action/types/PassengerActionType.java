@@ -12,12 +12,12 @@ import net.minecraft.world.entity.LivingEntity;
  * Runs the wrapped entity action on each living passenger riding the actor (Apoli's
  * {@code passenger_action}); the passenger becomes the inner action's {@code entity()}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:passenger_action",
- * "action":{ "type":"townstead_origins:dismount" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:passenger_action",
+ * "action":{ "type":"pheno:dismount" } }}</p>
  */
 public final class PassengerActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:passenger_action";
+    public static final String KEY = "pheno:passenger_action";
 
     @Override
     public String key() {

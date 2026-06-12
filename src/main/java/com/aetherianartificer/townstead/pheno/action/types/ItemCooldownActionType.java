@@ -14,12 +14,12 @@ import net.minecraft.world.item.Item;
  * Puts an {@code item} on cooldown for the actor (Apugli's {@code item_cooldown}).
  * Player-only, since item cooldowns live on the player's {@code ItemCooldowns}.
  *
- * <p>JSON: {@code { "type":"townstead_origins:item_cooldown", "item":"minecraft:ender_pearl",
+ * <p>JSON: {@code { "type":"pheno:item_cooldown", "item":"minecraft:ender_pearl",
  * "cooldown":100 }}</p>
  */
 public final class ItemCooldownActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:item_cooldown";
+    public static final String KEY = "pheno:item_cooldown";
 
     @Override
     public String key() {

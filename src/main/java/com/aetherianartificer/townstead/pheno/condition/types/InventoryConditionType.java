@@ -13,12 +13,12 @@ import net.minecraft.world.item.ItemStack;
  * True when the player carries {@code [min, max]} items matching an {@code item_condition}
  * (Apoli's {@code inventory}). Player-only; counts every matching stack's size.
  *
- * <p>JSON: {@code { "type":"townstead_origins:inventory", "min":8,
- * "item_condition":{ "type":"townstead_origins:ingredient", "tag":"minecraft:coals" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:inventory", "min":8,
+ * "item_condition":{ "type":"pheno:ingredient", "tag":"minecraft:coals" } }}</p>
  */
 public final class InventoryConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:inventory";
+    public static final String KEY = "pheno:inventory";
 
     @Override
     public String key() {

@@ -15,14 +15,14 @@ import org.jetbrains.annotations.Nullable;
  * combat trigger or a {@code target_action} so a relationship (can-see, distance, owner)
  * gates the effect. No-op-to-else when there is no target.
  *
- * <p>JSON: {@code { "type":"townstead_origins:if_bientity",
- * "condition":{ "type":"townstead_origins:can_see" },
- * "if_action":{ "type":"townstead_origins:target_action",
- *               "action":{ "type":"townstead_origins:damage", "amount":4 } } }}</p>
+ * <p>JSON: {@code { "type":"pheno:if_bientity",
+ * "condition":{ "type":"pheno:can_see" },
+ * "if_action":{ "type":"pheno:target_action",
+ *               "action":{ "type":"pheno:damage", "amount":4 } } }}</p>
  */
 public final class IfBientityActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:if_bientity";
+    public static final String KEY = "pheno:if_bientity";
 
     @Override
     public String key() {

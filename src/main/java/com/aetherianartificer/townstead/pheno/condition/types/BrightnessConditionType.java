@@ -8,11 +8,11 @@ import net.minecraft.util.GsonHelper;
 /**
  * True when the light level at the entity is within {@code [min,max]} (0-15).
  *
- * <p>JSON: {@code { "type":"townstead_origins:brightness", "min":0, "max":7 }}</p>
+ * <p>JSON: {@code { "type":"pheno:brightness", "min":0, "max":7 }}</p>
  */
 public final class BrightnessConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:brightness";
+    public static final String KEY = "pheno:brightness";
 
     @Override
     public String key() {

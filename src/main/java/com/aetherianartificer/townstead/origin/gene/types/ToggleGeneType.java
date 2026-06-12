@@ -12,11 +12,11 @@ import net.minecraft.util.GsonHelper;
  * {@code power_active}). State lives in {@code AbilityToggles}, flipped by the key the same
  * way a toggle-mode ability is. {@code slot} (1-8) claims a key; 0 auto-assigns.
  *
- * <p>JSON: {@code { "type":"townstead_origins:toggle", "slot":1 }}</p>
+ * <p>JSON: {@code { "type":"pheno:toggle", "slot":1 }}</p>
  */
 public final class ToggleGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:toggle";
+    public static final String KEY = "pheno:toggle";
 
     public record Instance(int slot) implements GeneInstance {
         @Override public String typeKey() { return KEY; }

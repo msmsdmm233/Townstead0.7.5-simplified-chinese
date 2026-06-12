@@ -14,12 +14,12 @@ import com.google.gson.JsonObject;
  * {@code target_action(damage)} hurts the target, {@code target_action(add_velocity)}
  * knocks it back.
  *
- * <p>JSON: {@code { "type":"townstead_origins:target_action",
- * "action":{ "type":"townstead_origins:damage", "amount":4 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:target_action",
+ * "action":{ "type":"pheno:damage", "amount":4 } }}</p>
  */
 public final class TargetActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:target_action";
+    public static final String KEY = "pheno:target_action";
 
     @Override
     public String key() {

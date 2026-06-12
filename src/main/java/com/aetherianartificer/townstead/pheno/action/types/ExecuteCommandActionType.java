@@ -11,11 +11,11 @@ import net.minecraft.util.GsonHelper;
  * (Apoli's entity {@code execute_command}). {@code createCommandSourceStack} /
  * {@code withPermission} / {@code withSuppressedOutput} are uniform across branches.
  *
- * <p>JSON: {@code { "type":"townstead_origins:execute_command", "command":"effect give @s glowing 5" }}</p>
+ * <p>JSON: {@code { "type":"pheno:execute_command", "command":"effect give @s glowing 5" }}</p>
  */
 public final class ExecuteCommandActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:execute_command";
+    public static final String KEY = "pheno:execute_command";
 
     @Override
     public String key() {

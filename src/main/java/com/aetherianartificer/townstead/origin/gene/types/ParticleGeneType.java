@@ -16,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
  * race), optionally only while a {@link Condition} holds. Server-applied via
  * {@code sendParticles}, so it shows on every viewer. Simple particles only.
  *
- * <p>JSON: {@code { "type":"townstead_origins:particle", "particle":"minecraft:flame",
+ * <p>JSON: {@code { "type":"pheno:particle", "particle":"minecraft:flame",
  * "count":2, "spread":0.4, "speed":0.0, "y_offset":0.6 }}</p>
  *
  * <p>{@code spread} is the emission radius as a fraction of the entity's bounding box
@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class ParticleGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:particle";
+    public static final String KEY = "pheno:particle";
 
     public record Instance(ResourceLocation particle, int count, float spread, float speed, float yOffset,
                            @Nullable Condition condition) implements GeneInstance {

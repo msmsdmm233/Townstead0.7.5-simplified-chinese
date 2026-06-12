@@ -11,12 +11,12 @@ import com.google.gson.JsonObject;
  * Runs an entity action on the stack's holder (Apoli's item {@code holder_action}): the
  * bridge from an item context back to an entity action. No-op without a holder.
  *
- * <p>JSON: {@code { "type":"townstead_origins:holder_action",
- * "action":{ "type":"townstead_origins:damage", "amount":2 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:holder_action",
+ * "action":{ "type":"pheno:damage", "amount":2 } }}</p>
  */
 public final class HolderActionItemActionType implements ItemActionType {
 
-    public static final String KEY = "townstead_origins:holder_action";
+    public static final String KEY = "pheno:holder_action";
 
     @Override
     public String key() {

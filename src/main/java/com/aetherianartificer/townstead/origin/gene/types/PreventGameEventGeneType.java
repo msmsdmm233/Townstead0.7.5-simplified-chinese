@@ -18,11 +18,11 @@ import java.util.Set;
  * footsteps). {@code event} names one id and/or {@code events} lists several. Enforced by
  * a mixin on the entity's game-event emission.
  *
- * <p>JSON: {@code { "type":"townstead_origins:prevent_game_event", "event":"minecraft:step" }}</p>
+ * <p>JSON: {@code { "type":"pheno:prevent_game_event", "event":"minecraft:step" }}</p>
  */
 public final class PreventGameEventGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:prevent_game_event";
+    public static final String KEY = "pheno:prevent_game_event";
 
     public record Instance(Set<ResourceLocation> events) implements GeneInstance {
         @Override public String typeKey() { return KEY; }

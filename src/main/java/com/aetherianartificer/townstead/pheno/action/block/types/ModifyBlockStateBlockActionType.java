@@ -13,12 +13,12 @@ import net.minecraft.world.level.block.state.properties.Property;
  * to advance to the next value. No-op if the block lacks the property or the value is
  * invalid.
  *
- * <p>JSON: {@code { "type":"townstead_origins:modify_block_state", "property":"age",
+ * <p>JSON: {@code { "type":"pheno:modify_block_state", "property":"age",
  * "value":"7" }} or {@code { ..., "property":"open", "operation":"cycle" }}</p>
  */
 public final class ModifyBlockStateBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:modify_block_state";
+    public static final String KEY = "pheno:modify_block_state";
 
     @Override
     public String key() {

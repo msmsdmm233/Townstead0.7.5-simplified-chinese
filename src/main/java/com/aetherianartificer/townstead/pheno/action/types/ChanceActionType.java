@@ -10,12 +10,12 @@ import net.minecraft.util.GsonHelper;
  * Runs the wrapped action with probability {@code chance} (0-1; Apoli's meta
  * {@code chance}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:chance", "chance":0.25,
- * "action":{ "type":"townstead_origins:spawn_particles", "particle":"minecraft:crit" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:chance", "chance":0.25,
+ * "action":{ "type":"pheno:spawn_particles", "particle":"minecraft:crit" } }}</p>
  */
 public final class ChanceActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:chance";
+    public static final String KEY = "pheno:chance";
 
     @Override
     public String key() {

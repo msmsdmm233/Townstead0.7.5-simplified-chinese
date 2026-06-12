@@ -14,12 +14,12 @@ import net.minecraft.server.level.ServerLevel;
  * power (a trigger, aura or active ability) reaches blocks. Use the block {@code offset}
  * / {@code area_of_effect} metas to shift or spread the effect from the actor.
  *
- * <p>JSON: {@code { "type":"townstead_origins:block_action",
- * "block_action":{ "type":"townstead_origins:explode", "power":3 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:block_action",
+ * "block_action":{ "type":"pheno:explode", "power":3 } }}</p>
  */
 public final class RunBlockActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:block_action";
+    public static final String KEY = "pheno:block_action";
 
     @Override
     public String key() {

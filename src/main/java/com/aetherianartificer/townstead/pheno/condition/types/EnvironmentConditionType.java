@@ -19,7 +19,7 @@ import java.util.function.Function;
  * a list within a category passes if any entry matches (OR):
  *
  * <pre>
- * { "type": "townstead_origins:environment",
+ * { "type": "pheno:environment",
  *   "weather": ["rain", "thunder"],   // rain | thunder | snow | clear
  *   "exposure": "sky",                 // sky | sun
  *   "time": "night",                   // day | night
@@ -34,7 +34,7 @@ import java.util.function.Function;
  */
 public final class EnvironmentConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:environment";
+    public static final String KEY = "pheno:environment";
 
     @Override
     public String key() {
@@ -121,14 +121,14 @@ public final class EnvironmentConditionType implements ConditionType {
         if (id.isEmpty()) return null;
         JsonObject o = new JsonObject();
         if (id.startsWith("#")) {
-            o.addProperty("type", "townstead_origins:status_effect_tag");
+            o.addProperty("type", "pheno:status_effect_tag");
             o.addProperty("tag", id.substring(1));
             if (effects.has("count") && effects.get("count").isJsonObject()) {
                 JsonObject count = effects.getAsJsonObject("count");
                 if (count.has("min")) o.addProperty("min_count", GsonHelper.getAsInt(count, "min", 1));
             }
         } else {
-            o.addProperty("type", "townstead_origins:status_effect");
+            o.addProperty("type", "pheno:status_effect");
             o.addProperty("effect", id);
         }
         return Conditions.parse(o);
@@ -157,14 +157,14 @@ public final class EnvironmentConditionType implements ConditionType {
     @Nullable
     private static Condition stateLeaf(String name) {
         JsonObject o = new JsonObject();
-        o.addProperty("type", "townstead_origins:" + name);
+        o.addProperty("type", "pheno:" + name);
         return Conditions.parse(o);
     }
 
     @Nullable
     private static Condition leaf(String type, String field, String value) {
         JsonObject o = new JsonObject();
-        o.addProperty("type", "townstead_origins:" + type);
+        o.addProperty("type", "pheno:" + type);
         o.addProperty(field, value);
         return Conditions.parse(o);
     }

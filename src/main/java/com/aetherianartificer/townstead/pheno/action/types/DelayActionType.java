@@ -11,12 +11,12 @@ import net.minecraft.util.GsonHelper;
  * Runs the wrapped action {@code ticks} server ticks later (Apoli's meta {@code delay}),
  * via {@link ActionScheduler}. The action is skipped if the actor is gone by then.
  *
- * <p>JSON: {@code { "type":"townstead_origins:delay", "ticks":40,
- * "action":{ "type":"townstead_origins:explode", "power":3 } }}</p>
+ * <p>JSON: {@code { "type":"pheno:delay", "ticks":40,
+ * "action":{ "type":"pheno:explode", "power":3 } }}</p>
  */
 public final class DelayActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:delay";
+    public static final String KEY = "pheno:delay";
 
     @Override
     public String key() {

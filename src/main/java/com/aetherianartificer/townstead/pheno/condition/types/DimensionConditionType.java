@@ -10,11 +10,11 @@ import net.minecraft.util.GsonHelper;
 /**
  * True when the entity is in the named dimension.
  *
- * <p>JSON: {@code { "type":"townstead_origins:dimension", "dimension":"minecraft:the_nether" }}</p>
+ * <p>JSON: {@code { "type":"pheno:dimension", "dimension":"minecraft:the_nether" }}</p>
  */
 public final class DimensionConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:dimension";
+    public static final String KEY = "pheno:dimension";
 
     @Override
     public String key() {

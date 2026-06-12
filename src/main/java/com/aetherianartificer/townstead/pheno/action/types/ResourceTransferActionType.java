@@ -13,12 +13,12 @@ import net.minecraft.util.GsonHelper;
  * (Apugli's {@code resource_transfer}). Only the amount actually drained from
  * {@code from} (after its min clamp) is added to {@code to}, so the transfer conserves.
  *
- * <p>JSON: {@code { "type":"townstead_origins:resource_transfer", "from":"my_pack:rage",
+ * <p>JSON: {@code { "type":"pheno:resource_transfer", "from":"my_pack:rage",
  * "to":"my_pack:focus", "amount":5 }}</p>
  */
 public final class ResourceTransferActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:resource_transfer";
+    public static final String KEY = "pheno:resource_transfer";
 
     @Override
     public String key() {

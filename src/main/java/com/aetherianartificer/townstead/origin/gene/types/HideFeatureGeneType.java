@@ -16,11 +16,11 @@ import java.util.Locale;
  * zeroing their render scale. Maps Apoli's {@code prevent_feature_render}. The part
  * list rides the catalog; the villager render mixin reads it client-side.
  *
- * <p>JSON: {@code { "type":"townstead_origins:hide_feature", "features":["arms"] }}</p>
+ * <p>JSON: {@code { "type":"pheno:hide_feature", "features":["arms"] }}</p>
  */
 public final class HideFeatureGeneType implements GeneType {
 
-    public static final String KEY = "townstead_origins:hide_feature";
+    public static final String KEY = "pheno:hide_feature";
 
     private static final List<String> GROUPS = List.of("head", "body", "arms", "legs");
 

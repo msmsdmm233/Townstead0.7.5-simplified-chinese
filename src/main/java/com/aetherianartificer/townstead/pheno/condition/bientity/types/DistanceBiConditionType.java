@@ -9,11 +9,11 @@ import net.minecraft.util.GsonHelper;
  * True when the distance between actor and target is within {@code [min, max]} blocks
  * (Apoli's bi-entity {@code distance}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:distance", "max":3.0 }}</p>
+ * <p>JSON: {@code { "type":"pheno:distance", "max":3.0 }}</p>
  */
 public final class DistanceBiConditionType implements BiEntityConditionType {
 
-    public static final String KEY = "townstead_origins:distance";
+    public static final String KEY = "pheno:distance";
 
     @Override
     public String key() {

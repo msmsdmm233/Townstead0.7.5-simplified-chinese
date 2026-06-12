@@ -10,12 +10,12 @@ import net.minecraft.util.GsonHelper;
  * Shifts the target block by {@code (x,y,z)} before running the wrapped block action
  * (Apoli's block {@code offset}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:offset", "y":1,
- * "block_action":{ "type":"townstead_origins:set_block", "block":"minecraft:torch" } }}</p>
+ * <p>JSON: {@code { "type":"pheno:offset", "y":1,
+ * "block_action":{ "type":"pheno:set_block", "block":"minecraft:torch" } }}</p>
  */
 public final class OffsetBlockActionType implements BlockActionType {
 
-    public static final String KEY = "townstead_origins:offset";
+    public static final String KEY = "pheno:offset";
 
     @Override
     public String key() {

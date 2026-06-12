@@ -13,13 +13,13 @@ import org.jetbrains.annotations.Nullable;
  * Runs {@code if_action} when {@code condition} holds on the actor, otherwise the
  * optional {@code else_action} (Apoli's meta {@code if_else}).
  *
- * <p>JSON: {@code { "type":"townstead_origins:if_else",
- * "condition":{ "type":"townstead_origins:submerged" },
+ * <p>JSON: {@code { "type":"pheno:if_else",
+ * "condition":{ "type":"pheno:submerged" },
  * "if_action":{...}, "else_action":{...} }}</p>
  */
 public final class IfElseActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:if_else";
+    public static final String KEY = "pheno:if_else";
 
     @Override
     public String key() {

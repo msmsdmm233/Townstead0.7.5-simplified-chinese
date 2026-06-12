@@ -17,11 +17,11 @@ import java.util.Locale;
  * True when the entity's eyes are in the given fluid (Apoli's {@code submerged_in}).
  * {@code fluid} is {@code water} or {@code lava}, or a {@code fluid_tag} can be named.
  *
- * <p>JSON: {@code { "type":"townstead_origins:submerged_in", "fluid":"lava" }}</p>
+ * <p>JSON: {@code { "type":"pheno:submerged_in", "fluid":"lava" }}</p>
  */
 public final class SubmergedInConditionType implements ConditionType {
 
-    public static final String KEY = "townstead_origins:submerged_in";
+    public static final String KEY = "pheno:submerged_in";
 
     @Override
     public String key() {

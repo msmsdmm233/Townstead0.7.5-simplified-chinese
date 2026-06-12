@@ -10,11 +10,11 @@ import net.minecraft.util.GsonHelper;
  * is whether gravity stays ON; the default {@code false} disables gravity (the entity
  * floats), pair it with a condition or a counter-action to restore it.
  *
- * <p>JSON: {@code { "type":"townstead_origins:set_no_gravity", "gravity":false }}</p>
+ * <p>JSON: {@code { "type":"pheno:set_no_gravity", "gravity":false }}</p>
  */
 public final class SetNoGravityActionType implements ActionType {
 
-    public static final String KEY = "townstead_origins:set_no_gravity";
+    public static final String KEY = "pheno:set_no_gravity";
 
     @Override
     public String key() {
