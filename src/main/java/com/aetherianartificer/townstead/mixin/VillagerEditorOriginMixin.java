@@ -1,12 +1,12 @@
 package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.client.gui.origin.OriginPicker;
-import com.aetherianartificer.townstead.client.gui.origin.VariantPickerWidget;
 import com.aetherianartificer.townstead.client.origin.OriginClientStore;
 import com.aetherianartificer.townstead.client.origin.PreviewParticles;
 import net.minecraft.client.gui.GuiGraphics;
 import com.aetherianartificer.townstead.client.skin.OriginSkinPickerTexture;
 import com.aetherianartificer.townstead.client.skin.SkinTintRegistry;
+import com.aetherianartificer.townstead.client.species.RigModels;
 import com.aetherianartificer.townstead.client.species.RigSkinTone;
 import com.aetherianartificer.townstead.mixin.accessor.ColorPickerWidgetAccessor;
 import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
@@ -21,8 +21,12 @@ import com.aetherianartificer.townstead.origin.OriginSetC2SPayload;
 import net.conczin.mca.client.gui.DestinyScreen;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
 import net.conczin.mca.client.gui.widget.ColorPickerWidget;
+import net.conczin.mca.client.gui.widget.GeneSliderWidget;
 import net.conczin.mca.client.gui.widget.HorizontalColorPickerWidget;
+import net.conczin.mca.entity.ai.Genetics;
 import net.conczin.mca.entity.VillagerEntityMCA;
+import net.conczin.mca.util.compat.ButtonWidget;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
@@ -41,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntConsumer;
 
 /**
  * Adds an "origins" tab to MCA's Villager Editor. When editing an NPC the picker
@@ -139,6 +144,7 @@ public abstract class VillagerEditorOriginMixin extends Screen {
         if ("body".equals(page)) {
             townstead$recolorSkinPicker();
             townstead$addTonePicker();
+            townstead$trimInertBodySliders();
         }
 
         if (!"origins".equals(page)) return;
@@ -264,23 +270,64 @@ public abstract class VillagerEditorOriginMixin extends Screen {
         OriginClientStore.setCarriedVariant(villager.getId(), geneId, opts.get(start).id());
         townstead$recolorSkinPicker();
         int[] idx = { start };
-        VariantPickerWidget[] picker = new VariantPickerWidget[1];
-        picker[0] = new VariantPickerWidget(skin.getX(), pickerY, skin.getWidth(), rowHeight,
-                townstead$toneLabel(opts.get(start).label()),
-                delta -> {
-                    idx[0] = Math.floorMod(idx[0] + delta, opts.size());
-                    String variantId = opts.get(idx[0]).id();
-                    picker[0].setMessage(townstead$toneLabel(opts.get(idx[0]).label()));
-                    OriginClientStore.setCarriedVariant(villager.getId(), geneId, variantId);   // live preview
-                    townstead$recolorSkinPicker();                                              // swatch follows
-                    townstead$sendSetVariant(townstead$target, geneId, variantId);              // commit
-                });
-        addRenderableWidget(picker[0]);
+        // Three buttons [<] [Tone] [>], matching the editor's date pagination. The middle button is a
+        // static label (no-op); the arrows page through the tone variants.
+        int arrowW = 20;
+        int midW = Math.max(20, skin.getWidth() - arrowW * 2);
+        ButtonWidget[] mid = new ButtonWidget[1];
+        IntConsumer cycle = delta -> {
+            idx[0] = Math.floorMod(idx[0] + delta, opts.size());
+            String variantId = opts.get(idx[0]).id();
+            mid[0].setMessage(Component.literal(opts.get(idx[0]).label()));
+            OriginClientStore.setCarriedVariant(villager.getId(), geneId, variantId);   // live preview
+            townstead$recolorSkinPicker();                                              // swatch follows
+            townstead$sendSetVariant(townstead$target, geneId, variantId);              // commit
+        };
+        addRenderableWidget(new ButtonWidget(skin.getX(), pickerY, arrowW, rowHeight,
+                Component.literal("<"), b -> cycle.accept(-1)));
+        mid[0] = new ButtonWidget(skin.getX() + arrowW, pickerY, midW, rowHeight,
+                Component.literal(opts.get(start).label()), b -> { });
+        addRenderableWidget(mid[0]);
+        addRenderableWidget(new ButtonWidget(skin.getX() + arrowW + midW, pickerY, arrowW, rowHeight,
+                Component.literal(">"), b -> cycle.accept(1)));
     }
 
+    /**
+     * Drop MCA Body-page gene sliders that do nothing for this species:
+     * <ul>
+     *   <li><b>Breast</b> when the species opts out of breasts ({@code "breasts": false}).</li>
+     *   <li><b>Skin</b> for an alternate rig: that slider only selects one of MCA's villager-skin
+     *       textures, which an own-textured rig (e.g. skeletownie's {@code skeleton.png}) never shows.
+     *       (The melanin/hemoglobin colour square is untouched; it still shades the rig's tone.)</li>
+     * </ul>
+     * MCA lays Breast + Skin out as a pair on one row, so if only one is removed the survivor is
+     * widened to fill the freed half; if both go, the row is left empty.
+     */
     @Unique
-    private Component townstead$toneLabel(String label) {
-        return Component.literal("< " + label + " >");
+    private void townstead$trimInertBodySliders() {
+        boolean hideBreast = !RigModels.breasts(villager);
+        boolean hideSkin = RigModels.isAlternate(RigModels.rigBaseFor(villager));
+        if (!hideBreast && !hideSkin) return;
+        String breastKey = Genetics.BREAST.getTranslationKey();
+        String skinKey = Genetics.SKIN.getTranslationKey();
+        GeneSliderWidget breast = null;
+        GeneSliderWidget skin = null;
+        for (GuiEventListener child : children()) {
+            if (child instanceof GeneSliderWidget slider
+                    && slider.getMessage().getContents() instanceof TranslatableContents tc) {
+                if (breastKey.equals(tc.getKey())) breast = slider;
+                else if (skinKey.equals(tc.getKey())) skin = slider;
+            }
+        }
+        // If only one of the row-pair is removed, widen the survivor across the whole row.
+        if (hideBreast && !hideSkin && breast != null && skin != null && skin.getX() > breast.getX()) {
+            skin.setWidth(skin.getX() + skin.getWidth() - breast.getX());
+            skin.setX(breast.getX());
+        } else if (hideSkin && !hideBreast && skin != null && breast != null && breast.getX() < skin.getX()) {
+            breast.setWidth(skin.getX() + skin.getWidth() - breast.getX());
+        }
+        if (hideBreast && breast != null) removeWidget(breast);
+        if (hideSkin && skin != null) removeWidget(skin);
     }
 
     @Unique

@@ -24,6 +24,8 @@
     "VillagerEntityMCALifeStageMixin",
     "PathNavigationFenceGateMixin",
     "PregnancyInheritanceMixin",
+    "FertilityPregnancyMixin",
+    "MessengerVoiceMixin",
     "VillagerHungerMixin",
     "VillagerServerTickMixin",
     "WalkNodeEvaluatorFenceGateMixin",

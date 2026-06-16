@@ -19,7 +19,7 @@ package com.aetherianartificer.townstead.origin.gene;
  */
 public record GeneDisplay(Kind kind, float min, float max, String targetId, float amount) {
 
-    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE }
+    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED }
 
     public static final GeneDisplay PRESENCE = new GeneDisplay(Kind.BOOLEAN, 0f, 1f, "", 0f);
 
@@ -111,6 +111,16 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
         String packed = (particle == null ? "" : particle.toString()) + ";" + count + ";"
                 + fmt(spread) + ";" + fmt(speed) + ";" + fmt(yOffset);
         return new GeneDisplay(Kind.PARTICLE, 0f, 1f, packed, 0f);
+    }
+
+    /**
+     * The needs this gene switches off ({@code hunger}/{@code thirst}/{@code sleep}), packed into
+     * {@code targetId} as {@code "hunger;thirst"} so the interact-screen status bar can hide each
+     * suppressed need's icon. The server enforcement reads the gene directly; a presence chip in the picker.
+     */
+    public static GeneDisplay suppressNeed(java.util.List<String> needs) {
+        String packed = needs == null ? "" : String.join(";", needs);
+        return new GeneDisplay(Kind.SUPPRESS_NEED, 0f, 1f, packed, 0f);
     }
 
     private static String fmt(float v) {

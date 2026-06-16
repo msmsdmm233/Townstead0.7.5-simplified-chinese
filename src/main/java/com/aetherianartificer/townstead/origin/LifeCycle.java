@@ -15,11 +15,16 @@ import java.util.Optional;
  * overrides the earlier layer. A butterfly origin doesn't want to inherit
  * human stages and patch them; it wants Egg→Caterpillar→Larva→Butterfly.</p>
  */
-public record LifeCycle(List<LifeStage> stages) {
-    public static final LifeCycle EMPTY = new LifeCycle(List.of());
+public record LifeCycle(List<LifeStage> stages, boolean ageless) {
+    public static final LifeCycle EMPTY = new LifeCycle(List.of(), false);
 
     public LifeCycle {
         stages = stages == null ? List.of() : List.copyOf(stages);
+    }
+
+    /** Convenience for a normal (aging) cycle. */
+    public LifeCycle(List<LifeStage> stages) {
+        this(stages, false);
     }
 
     public boolean isEmpty() {

@@ -2,6 +2,9 @@ package com.aetherianartificer.townstead.origin;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.data.DataPackLang;
+import com.aetherianartificer.townstead.origin.personality.Personalities;
+import com.aetherianartificer.townstead.origin.personality.PersonalityPolicies;
+import com.aetherianartificer.townstead.origin.personality.PersonalityPolicyRegistry;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -35,6 +38,7 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
                          ProfilerFiller profiler) {
         Map<String, String> lang = DataPackLang.loadLangIndex(resourceManager);
         Map<ResourceLocation, Species> parsed = new LinkedHashMap<>();
+        Map<ResourceLocation, Personalities> policies = new LinkedHashMap<>();
         for (Map.Entry<ResourceLocation, JsonElement> entry : entries.entrySet()) {
             ResourceLocation file = entry.getKey();
             try {
@@ -52,11 +56,13 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
                 float admixture = Math.max(0f, Math.min(1f, GsonHelper.getAsFloat(obj, "admixture_chance", 0f)));
                 Genome genome = OriginJsonParsing.genes(obj, file.toString(), LOGGER);
                 parsed.put(file, new Species(file, displayName, rig, hold, animations, breasts, admixture, genome));
+                policies.put(file, PersonalityPolicies.parse(obj));
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse species {}: {}", file, ex.getMessage());
             }
         }
         SpeciesRegistry.replaceAll(parsed);
+        PersonalityPolicyRegistry.setSpecies(policies);
         LOGGER.info("Loaded {} origin species", parsed.size());
     }
 

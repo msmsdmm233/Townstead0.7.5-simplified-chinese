@@ -276,10 +276,11 @@ public class Townstead {
     public static final Supplier<Item> CALENDAR_ITEM = ITEMS.register("calendar",
             () -> new BlockItem(CALENDAR_BLOCK.get(), new Item.Properties()));
 
-    // ── Immortality / mortality potions ──
-    // Brewed like vanilla potions (Awkward + Enchanted Golden Apple -> Immortality;
-    // Immortality + Fermented Spider Eye -> Mortality) and thrown as splash potions
-    // at MCA villagers. The marker effect (LifePotionEffect) flips the immortality flag.
+    // ── Agelessness / aging potions ──
+    // Brewed like vanilla potions (Awkward + Enchanted Golden Apple -> Agelessness;
+    // Agelessness + Fermented Spider Eye -> Aging) and thrown as splash potions at MCA
+    // villagers. The marker effect (LifePotionEffect) flips the granted-ageless flag. This is
+    // the agelessness axis only; the immortal trait/gene is a separate concept and untouched.
 
     private static final DeferredRegister<net.minecraft.world.effect.MobEffect> MOB_EFFECTS =
             DeferredRegister.create(net.minecraft.core.registries.Registries.MOB_EFFECT, MOD_ID);
@@ -287,29 +288,29 @@ public class Townstead {
             DeferredRegister.create(net.minecraft.core.registries.Registries.POTION, MOD_ID);
 
     //? if neoforge {
-    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.effect.MobEffect, net.minecraft.world.effect.MobEffect> IMMORTALITY_EFFECT =
-            MOB_EFFECTS.register("immortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(true, 0xE8C547));
-    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.effect.MobEffect, net.minecraft.world.effect.MobEffect> MORTALITY_EFFECT =
-            MOB_EFFECTS.register("mortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(false, 0x9A9A9A));
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.effect.MobEffect, net.minecraft.world.effect.MobEffect> AGELESSNESS_EFFECT =
+            MOB_EFFECTS.register("agelessness", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(true, 0xE8C547));
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.effect.MobEffect, net.minecraft.world.effect.MobEffect> AGING_EFFECT =
+            MOB_EFFECTS.register("aging", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(false, 0x9A9A9A));
 
-    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.item.alchemy.Potion, net.minecraft.world.item.alchemy.Potion> IMMORTALITY_POTION =
-            POTIONS.register("immortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_immortality",
-                    new net.minecraft.world.effect.MobEffectInstance(IMMORTALITY_EFFECT, 1)));
-    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.item.alchemy.Potion, net.minecraft.world.item.alchemy.Potion> MORTALITY_POTION =
-            POTIONS.register("mortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_mortality",
-                    new net.minecraft.world.effect.MobEffectInstance(MORTALITY_EFFECT, 1)));
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.item.alchemy.Potion, net.minecraft.world.item.alchemy.Potion> AGELESSNESS_POTION =
+            POTIONS.register("agelessness", () -> new net.minecraft.world.item.alchemy.Potion("townstead_agelessness",
+                    new net.minecraft.world.effect.MobEffectInstance(AGELESSNESS_EFFECT, 1)));
+    public static final net.neoforged.neoforge.registries.DeferredHolder<net.minecraft.world.item.alchemy.Potion, net.minecraft.world.item.alchemy.Potion> AGING_POTION =
+            POTIONS.register("aging", () -> new net.minecraft.world.item.alchemy.Potion("townstead_aging",
+                    new net.minecraft.world.effect.MobEffectInstance(AGING_EFFECT, 1)));
     //?} else {
-    /*public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.effect.MobEffect> IMMORTALITY_EFFECT =
-            MOB_EFFECTS.register("immortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(true, 0xE8C547));
-    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.effect.MobEffect> MORTALITY_EFFECT =
-            MOB_EFFECTS.register("mortality", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(false, 0x9A9A9A));
+    /*public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.effect.MobEffect> AGELESSNESS_EFFECT =
+            MOB_EFFECTS.register("agelessness", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(true, 0xE8C547));
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.effect.MobEffect> AGING_EFFECT =
+            MOB_EFFECTS.register("aging", () -> new com.aetherianartificer.townstead.item.LifePotionEffect(false, 0x9A9A9A));
 
-    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.alchemy.Potion> IMMORTALITY_POTION =
-            POTIONS.register("immortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_immortality",
-                    new net.minecraft.world.effect.MobEffectInstance(IMMORTALITY_EFFECT.get(), 1)));
-    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.alchemy.Potion> MORTALITY_POTION =
-            POTIONS.register("mortality", () -> new net.minecraft.world.item.alchemy.Potion("townstead_mortality",
-                    new net.minecraft.world.effect.MobEffectInstance(MORTALITY_EFFECT.get(), 1)));
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.alchemy.Potion> AGELESSNESS_POTION =
+            POTIONS.register("agelessness", () -> new net.minecraft.world.item.alchemy.Potion("townstead_agelessness",
+                    new net.minecraft.world.effect.MobEffectInstance(AGELESSNESS_EFFECT.get(), 1)));
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.item.alchemy.Potion> AGING_POTION =
+            POTIONS.register("aging", () -> new net.minecraft.world.item.alchemy.Potion("townstead_aging",
+                    new net.minecraft.world.effect.MobEffectInstance(AGING_EFFECT.get(), 1)));
     *///?}
 
     public static final Supplier<BlockEntityType<FieldPostBlockEntity>> FIELD_POST_BE =
@@ -347,15 +348,15 @@ public class Townstead {
     /** Adds the drinkable + splash variants of both life potions to the Townstead tab. */
     private static void townstead$addLifePotions(net.minecraft.world.item.CreativeModeTab.Output output) {
         //? if neoforge {
-        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION, IMMORTALITY_POTION));
-        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.SPLASH_POTION, IMMORTALITY_POTION));
-        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION, MORTALITY_POTION));
-        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.SPLASH_POTION, MORTALITY_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION, AGELESSNESS_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.SPLASH_POTION, AGELESSNESS_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION, AGING_POTION));
+        output.accept(net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.SPLASH_POTION, AGING_POTION));
         //?} else {
-        /*output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION), IMMORTALITY_POTION.get()));
-        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SPLASH_POTION), IMMORTALITY_POTION.get()));
-        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION), MORTALITY_POTION.get()));
-        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SPLASH_POTION), MORTALITY_POTION.get()));
+        /*output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION), AGELESSNESS_POTION.get()));
+        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SPLASH_POTION), AGELESSNESS_POTION.get()));
+        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION), AGING_POTION.get()));
+        output.accept(net.minecraft.world.item.alchemy.PotionUtils.setPotion(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SPLASH_POTION), AGING_POTION.get()));
         *///?}
     }
 
@@ -367,9 +368,9 @@ public class Townstead {
                     net.minecraft.world.item.alchemy.Potion.class, Item.class,
                     net.minecraft.world.item.alchemy.Potion.class);
             addMix.invoke(null, net.minecraft.world.item.alchemy.Potions.AWKWARD,
-                    net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE, IMMORTALITY_POTION.get());
-            addMix.invoke(null, IMMORTALITY_POTION.get(),
-                    net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, MORTALITY_POTION.get());
+                    net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE, AGELESSNESS_POTION.get());
+            addMix.invoke(null, AGELESSNESS_POTION.get(),
+                    net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, AGING_POTION.get());
         } catch (Exception e) {
             LOGGER.error("Failed to register Townstead potion brewing recipes", e);
         }
@@ -437,9 +438,9 @@ public class Townstead {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.brewing.RegisterBrewingRecipesEvent e) -> {
             net.minecraft.world.item.alchemy.PotionBrewing.Builder b = e.getBuilder();
             b.addMix(net.minecraft.world.item.alchemy.Potions.AWKWARD,
-                    net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE, IMMORTALITY_POTION);
-            b.addMix(IMMORTALITY_POTION,
-                    net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, MORTALITY_POTION);
+                    net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE, AGELESSNESS_POTION);
+            b.addMix(AGELESSNESS_POTION,
+                    net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, AGING_POTION);
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
             if (e.getTarget() instanceof VillagerEntityMCA villager
@@ -556,7 +557,8 @@ public class Townstead {
                     e.getEntity(), e.getSource(), e.getAmount());
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingDeathEvent e) -> {
-            if (com.aetherianartificer.townstead.origin.prevent.Prevents.tryPreventDeath(e.getEntity())) {
+            if (com.aetherianartificer.townstead.origin.Immortality.survivesDeath(e.getEntity(), e.getSource())
+                    || com.aetherianartificer.townstead.origin.prevent.Prevents.tryPreventDeath(e.getEntity())) {
                 e.setCanceled(true);
                 return;
             }
@@ -830,7 +832,8 @@ public class Townstead {
                     e.getEntity(), e.getSource(), e.getAmount());
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingDeathEvent e) -> {
-            if (com.aetherianartificer.townstead.origin.prevent.Prevents.tryPreventDeath(e.getEntity())) {
+            if (com.aetherianartificer.townstead.origin.Immortality.survivesDeath(e.getEntity(), e.getSource())
+                    || com.aetherianartificer.townstead.origin.prevent.Prevents.tryPreventDeath(e.getEntity())) {
                 e.setCanceled(true);
                 return;
             }
@@ -1006,6 +1009,8 @@ public class Townstead {
                     new com.aetherianartificer.townstead.origin.gene.types.ChronotypeGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.LifeCycleGeneType());
+            com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.origin.gene.types.FertilityGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.AttributeGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
@@ -1557,6 +1562,7 @@ public class Townstead {
         event.addListener(new com.aetherianartificer.townstead.origin.AncestryJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.LineageJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.OriginJsonLoader());
+        event.addListener(new com.aetherianartificer.townstead.origin.personality.PersonalityJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.HeritageJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.chronotype.ChronotypeCatalogLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.gene.GeneJsonLoader());
@@ -3487,6 +3493,7 @@ public class Townstead {
         int bioAgeDays = (int) Math.max(0L, today - birthDay);
         boolean immortal = lifeState.immortal()
                 || com.aetherianartificer.townstead.origin.trait.TraitEffects.isImmortal(villager);
+        boolean ageless = com.aetherianartificer.townstead.origin.LifeStageProgression.isAgeless(lifeState);
 
         net.minecraft.resources.ResourceLocation originId =
                 net.minecraft.resources.ResourceLocation.tryParse(lifeState.originId());
@@ -3536,8 +3543,8 @@ public class Townstead {
                     seniorStageIndex = i;
                 }
             }
-            if (immortal && !lifeState.currentStageId().isEmpty()) {
-                // Immortal: report the frozen stage, not the calendar-derived one.
+            if ((immortal || ageless) && !lifeState.currentStageId().isEmpty()) {
+                // Stage-frozen (immortal or ageless): report the frozen stage, not the calendar one.
                 for (int i = 0; i < cycle.size(); i++) {
                     if (cycle.stageAt(i).id().equals(lifeState.currentStageId())) {
                         currentStageIndex = i;
@@ -3577,14 +3584,21 @@ public class Townstead {
             stageNarrativeMax = new float[0];
         }
 
+        com.aetherianartificer.townstead.origin.personality.PersonalityDef personality =
+                com.aetherianartificer.townstead.origin.personality.PersonalityRegistry.byId(
+                        com.aetherianartificer.townstead.data.DataPackLang.parseId(life.getString("personalityId")));
+        String personalityName = personality == null ? "" : personality.displayName().getString();
+        String personalityDesc = personality == null ? "" : personality.description().getString();
+
         return new com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload(
                 villager.getId(),
                 birth.year(), birthMonthIndex, birthDayOfMonth,
                 month[0], month[1], ageYears, stamped,
                 isSenior, seniorPermil,
-                bioAgeDays, immortal, currentStageIndex,
+                bioAgeDays, immortal, ageless, currentStageIndex,
                 stageDays, stageKeys, stageFallbacks, narrativeAge, stageScales, stageModelAges,
-                stageNarrativeMin, stageNarrativeMax, narrativeRate, seniorStageIndex
+                stageNarrativeMin, stageNarrativeMax, narrativeRate, seniorStageIndex,
+                personalityName, personalityDesc
         );
     }
 

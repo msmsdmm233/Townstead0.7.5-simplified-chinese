@@ -189,6 +189,20 @@ public record GeneCatalogEntry(
         }
     }
 
+    /** True when this gene switches off one or more needs (suppressed needs ride in {@code targetId}). */
+    public boolean isSuppressNeed() {
+        return displayKind == GeneDisplay.Kind.SUPPRESS_NEED.ordinal();
+    }
+
+    /** Whether this gene suppresses the given need ({@code hunger}/{@code thirst}/{@code sleep}). */
+    public boolean suppressesNeed(String need) {
+        if (!isSuppressNeed() || targetId == null || targetId.isEmpty()) return false;
+        for (String entry : targetId.split(";")) {
+            if (entry.equals(need)) return true;
+        }
+        return false;
+    }
+
     public boolean isRecessive() {
         return dominanceOrdinal == com.aetherianartificer.townstead.origin.gene.Dominance.RECESSIVE.ordinal();
     }

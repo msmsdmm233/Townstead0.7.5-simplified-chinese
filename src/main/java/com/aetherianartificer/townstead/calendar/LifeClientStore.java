@@ -26,6 +26,7 @@ public final class LifeClientStore {
             int seniorProgressPermil,
             int bioAgeDays,
             boolean immortal,
+            boolean ageless,
             int currentStageIndex,
             int[] stageDays,
             String[] stageLabelKeys,
@@ -36,8 +37,15 @@ public final class LifeClientStore {
             float[] stageNarrativeMin,
             float[] stageNarrativeMax,
             float narrativeRate,
-            int seniorStageIndex
+            int seniorStageIndex,
+            String personalityName,
+            String personalityDesc
     ) {
+        /** True when this villager carries a custom (data-pack) personality whose name should be shown. */
+        public boolean hasCustomPersonality() {
+            return personalityName != null && !personalityName.isEmpty();
+        }
+
         /** Real age in game-years = elapsed game-days / calendar year length. */
         public int realAgeYears(int daysPerYear) {
             return bioAgeDays / Math.max(1, daysPerYear);
@@ -184,6 +192,7 @@ public final class LifeClientStore {
                 payload.seniorProgressPermil(),
                 payload.bioAgeDays(),
                 payload.immortal(),
+                payload.ageless(),
                 payload.currentStageIndex(),
                 payload.stageDays(),
                 payload.stageLabelKeys(),
@@ -194,7 +203,9 @@ public final class LifeClientStore {
                 payload.stageNarrativeMin(),
                 payload.stageNarrativeMax(),
                 payload.narrativeRate(),
-                payload.seniorStageIndex()
+                payload.seniorStageIndex(),
+                payload.personalityName(),
+                payload.personalityDesc()
         ));
         if (onChange != null) onChange.run();
     }

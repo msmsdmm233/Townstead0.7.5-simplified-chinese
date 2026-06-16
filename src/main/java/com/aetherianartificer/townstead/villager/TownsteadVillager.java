@@ -759,10 +759,15 @@ public final class TownsteadVillager {
         private int birthMonth;
         private int birthDay;
         private String originId = "";
+        private String personalityId = "";
         private int[] stageDays = EMPTY_INT_ARRAY;
         private int cycleFingerprint;
         private String currentStageId = "";
         private boolean immortal;
+        // Granted agelessness (the Potion of Agelessness). Separate from the immortal flag (which the
+        // immortal trait/gene keeps) and from a species' intrinsic ageless life cycle; all three pin
+        // the life stage via LifeStageProgression.isAgeless.
+        private boolean ageless;
         private boolean isSenior;
         private float fertility;
         // Apparent-age freeze: when "villagers do not age" is on, the day aging was frozen.
@@ -833,6 +838,21 @@ public final class TownsteadVillager {
         }
 
         /**
+         * The villager's personality reference: a custom {@code PersonalityDef} id or a bare base-enum
+         * name, rolled from the origin's allowlist at spawn. Empty when the origin defines no policy
+         * (then MCA's own personality stands). Drives the display name and the voice tier; MCA's
+         * mechanics ride the base enum this maps to (set on the brain at spawn).
+         */
+        public String personalityId() {
+            return personalityId;
+        }
+
+        public void setPersonalityId(String id) {
+            personalityId = id == null ? "" : id;
+            markDirty();
+        }
+
+        /**
          * Per-stage day durations rolled at spawn, aligned to the origin's
          * {@link com.aetherianartificer.townstead.origin.LifeCycle} stage order.
          * Length 0 until the spawn handler rolls; mismatch with the current
@@ -880,6 +900,15 @@ public final class TownsteadVillager {
 
         public void setImmortal(boolean value) {
             immortal = value;
+            markDirty();
+        }
+
+        public boolean ageless() {
+            return ageless;
+        }
+
+        public void setAgeless(boolean value) {
+            ageless = value;
             markDirty();
         }
 
@@ -980,6 +1009,9 @@ public final class TownsteadVillager {
             if (hasOrigin()) {
                 tag.putString("originId", originId);
             }
+            if (!personalityId.isEmpty()) {
+                tag.putString("personalityId", personalityId);
+            }
             if (stageDays.length > 0) {
                 tag.putIntArray("stageDays", stageDays.clone());
             }
@@ -990,6 +1022,7 @@ public final class TownsteadVillager {
                 tag.putString("currentStageId", currentStageId);
             }
             if (immortal) tag.putBoolean("immortal", true);
+            if (ageless) tag.putBoolean("ageless", true);
             if (isSenior) tag.putBoolean("isSenior", true);
             if (fertility > 0f) tag.putFloat("fertility", fertility);
             if (agingFrozenDay != Long.MIN_VALUE) tag.putLong("agingFrozenDay", agingFrozenDay);
@@ -1016,10 +1049,12 @@ public final class TownsteadVillager {
             birthMonth = tag.getInt("birthMonth");
             birthDay = tag.getInt("birthDay");
             originId = tag.getString("originId");
+            personalityId = tag.getString("personalityId");
             stageDays = tag.contains("stageDays") ? tag.getIntArray("stageDays") : EMPTY_INT_ARRAY;
             cycleFingerprint = tag.getInt("cycleFingerprint");
             currentStageId = tag.getString("currentStageId");
             immortal = tag.getBoolean("immortal");
+            ageless = tag.getBoolean("ageless");
             isSenior = tag.getBoolean("isSenior");
             fertility = tag.getFloat("fertility");
             agingFrozenDay = tag.contains("agingFrozenDay") ? tag.getLong("agingFrozenDay") : Long.MIN_VALUE;
