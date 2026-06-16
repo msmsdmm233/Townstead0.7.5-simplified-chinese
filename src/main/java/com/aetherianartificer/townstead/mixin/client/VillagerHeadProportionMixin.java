@@ -102,7 +102,7 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
 
     /** The proportions gene on the entity's applied origin (synced catalog), or {@code null}. */
     private static GeneCatalogEntry townstead$proportionsGene(LivingEntity entity) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId.isEmpty()) return null;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         if (origin == null) return null;

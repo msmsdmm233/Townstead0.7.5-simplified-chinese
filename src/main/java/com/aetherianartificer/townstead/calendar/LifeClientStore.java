@@ -39,11 +39,24 @@ public final class LifeClientStore {
             float narrativeRate,
             int seniorStageIndex,
             String personalityName,
-            String personalityDesc
+            String personalityDesc,
+            String[] personalityPoolRefs,
+            String[] personalityPoolNames
     ) {
         /** True when this villager carries a custom (data-pack) personality whose name should be shown. */
         public boolean hasCustomPersonality() {
             return personalityName != null && !personalityName.isEmpty();
+        }
+
+        /** The personality refs this villager's origin allows (custom ids or base-enum names); for the editor picker. */
+        public String[] personalityPool() {
+            return personalityPoolRefs == null ? new String[0] : personalityPoolRefs;
+        }
+
+        /** The resolved display name for a pool ref at {@code index} (empty for a bare base-enum ref). */
+        public String personalityPoolName(int index) {
+            return personalityPoolNames != null && index >= 0 && index < personalityPoolNames.length
+                    ? personalityPoolNames[index] : "";
         }
 
         /** Real age in game-years = elapsed game-days / calendar year length. */
@@ -205,7 +218,9 @@ public final class LifeClientStore {
                 payload.narrativeRate(),
                 payload.seniorStageIndex(),
                 payload.personalityName(),
-                payload.personalityDesc()
+                payload.personalityDesc(),
+                payload.personalityPoolRefs(),
+                payload.personalityPoolNames()
         ));
         if (onChange != null) onChange.run();
     }

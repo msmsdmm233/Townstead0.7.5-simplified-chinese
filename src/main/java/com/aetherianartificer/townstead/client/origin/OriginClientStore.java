@@ -1,6 +1,9 @@
 package com.aetherianartificer.townstead.client.origin;
 
 import com.aetherianartificer.townstead.origin.OriginSetC2SPayload;
+import com.aetherianartificer.townstead.villager.TownsteadVillagerState;
+import net.conczin.mca.entity.VillagerEntityMCA;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.List;
 import java.util.Map;
@@ -38,6 +41,31 @@ public final class OriginClientStore {
     }
 
     /**
+     * The entity's current origin id, preferring the live per-entity sync but falling back to the
+     * entity's own persisted snapshot when nothing is synced for its id. The fallback covers a
+     * CarryOn-reconstructed villager, which is rebuilt from NBT with a brand-new id that the server
+     * never tracked, so render layers keep its species (rig, skin tint, proportions) while carried.
+     */
+    public static String resolve(LivingEntity entity) {
+        if (entity == null) return "";
+        String synced = get(entity.getId());
+        if (synced != null && !synced.isEmpty()) return synced;
+        if (entity instanceof VillagerEntityMCA villager) return TownsteadVillagerState.snapshotOriginId(villager);
+        return "";
+    }
+
+    /** This entity's rolled variant for {@code geneId}, synced if present, else from its snapshot. */
+    public static String resolveCarriedVariant(LivingEntity entity, String geneId) {
+        if (entity == null) return "";
+        String synced = carriedVariants(entity.getId()).get(geneId);
+        if (synced != null && !synced.isEmpty()) return synced;
+        if (entity instanceof VillagerEntityMCA villager) {
+            return TownsteadVillagerState.snapshotCarriedVariant(villager, geneId);
+        }
+        return "";
+    }
+
+    /**
      * Store an entity's expressed alleles: gene ids (for the expressed set) and, for variant genes,
      * the rolled variant id keyed by gene id (so a per-entity skin-tone variant can be resolved).
      */
@@ -61,6 +89,31 @@ public final class OriginClientStore {
     /** The gene ids the entity expresses, or an empty set if not yet synced. */
     public static Set<String> expressedGenes(int entityId) {
         return EXPRESSED.getOrDefault(entityId, Set.of());
+    }
+
+    /**
+     * The gene ids the entity expresses, preferring the live per-entity sync but falling back to the
+     * encodings persisted in the entity's own snapshot when nothing is synced for its id (a
+     * CarryOn-reconstructed villager), so its real attachments and hidden features still render.
+     */
+    public static Set<String> expressedGenes(LivingEntity entity) {
+        if (entity == null) return Set.of();
+        Set<String> synced = EXPRESSED.get(entity.getId());
+        if (synced != null) return synced;
+        if (entity instanceof VillagerEntityMCA villager) {
+            return geneIdsOf(TownsteadVillagerState.snapshotExpressedAlleles(villager));
+        }
+        return Set.of();
+    }
+
+    private static Set<String> geneIdsOf(List<String> encodings) {
+        Set<String> ids = ConcurrentHashMap.newKeySet();
+        for (String encoded : encodings) {
+            if (encoded == null || encoded.isEmpty() || encoded.equals("~")) continue;
+            int hash = encoded.indexOf('#');
+            ids.add(hash < 0 ? encoded : encoded.substring(0, hash));
+        }
+        return ids;
     }
 
     /** The entity's rolled variant id per variant-gene id, or an empty map if not yet synced. */

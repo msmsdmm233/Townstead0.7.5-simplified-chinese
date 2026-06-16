@@ -36,7 +36,7 @@ public final class RigModels {
 
     /** The species rig.base for an entity, resolved through its synced origin (villager default). */
     public static String rigBaseFor(LivingEntity entity) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId == null || originId.isEmpty()) return VILLAGER;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         return origin == null || origin.rigBase() == null || origin.rigBase().isEmpty()
@@ -144,7 +144,7 @@ public final class RigModels {
 
     /** The species' authored uniform render scale for this entity (from the data pack; 1.0 default). */
     public static float scaleFor(LivingEntity entity) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId == null || originId.isEmpty()) return 1.0f;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         return origin == null || origin.rigScale() <= 0f ? 1.0f : origin.rigScale();
@@ -152,7 +152,7 @@ public final class RigModels {
 
     /** Whether this entity's species shows breasts (true unless a species opts out). */
     public static boolean breasts(LivingEntity entity) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId == null || originId.isEmpty()) return true;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         return origin == null || origin.breasts();
@@ -160,7 +160,7 @@ public final class RigModels {
 
     /** The species' per-state animation sources for this entity (humanoid default; never null). */
     public static Animations animations(LivingEntity entity) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId == null || originId.isEmpty()) return Animations.DEFAULT;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         return origin == null || origin.animations() == null ? Animations.DEFAULT : origin.animations();
@@ -171,7 +171,7 @@ public final class RigModels {
      * its item should not render). Null also when the entity has no synced species.
      */
     public static Hold.Grip holdGrip(LivingEntity entity, boolean offHand) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId == null || originId.isEmpty()) return null;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         if (origin == null || origin.hold() == null) return null;

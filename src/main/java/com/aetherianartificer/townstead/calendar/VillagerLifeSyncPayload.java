@@ -46,7 +46,9 @@ public record VillagerLifeSyncPayload(
         float narrativeRate,
         int seniorStageIndex,
         String personalityName,
-        String personalityDesc
+        String personalityDesc,
+        String[] personalityPoolRefs,
+        String[] personalityPoolNames
 //? if neoforge {
 ) implements CustomPacketPayload {
 //?} else {
@@ -78,7 +80,8 @@ public record VillagerLifeSyncPayload(
                 birthMonthKey, birthMonthFallback, ageYears, stamped, isSenior, seniorProgressPermil,
                 bioAgeDays, immortal, ageless, currentStageIndex, stageDays, stageLabelKeys, stageLabelFallbacks,
                 narrativeAge, stageScales, stageModelAges, stageNarrativeMin, stageNarrativeMax,
-                narrativeRate, seniorStageIndex, personalityName, personalityDesc);
+                narrativeRate, seniorStageIndex, personalityName, personalityDesc,
+                personalityPoolRefs, personalityPoolNames);
     }
 
     //? if forge {
@@ -129,6 +132,13 @@ public record VillagerLifeSyncPayload(
         buf.writeInt(p.seniorStageIndex());
         buf.writeUtf(p.personalityName() == null ? "" : p.personalityName());
         buf.writeUtf(p.personalityDesc() == null ? "" : p.personalityDesc());
+        String[] refs = p.personalityPoolRefs() == null ? new String[0] : p.personalityPoolRefs();
+        String[] names = p.personalityPoolNames() == null ? new String[0] : p.personalityPoolNames();
+        buf.writeVarInt(refs.length);
+        for (int i = 0; i < refs.length; i++) {
+            buf.writeUtf(refs[i] == null ? "" : refs[i]);
+            buf.writeUtf(i < names.length && names[i] != null ? names[i] : "");
+        }
     }
 
     public static VillagerLifeSyncPayload read(FriendlyByteBuf buf) {
@@ -173,6 +183,13 @@ public record VillagerLifeSyncPayload(
         int seniorStageIndex = buf.readInt();
         String personalityName = buf.readUtf();
         String personalityDesc = buf.readUtf();
+        int poolCount = buf.readVarInt();
+        String[] personalityPoolRefs = new String[poolCount];
+        String[] personalityPoolNames = new String[poolCount];
+        for (int i = 0; i < poolCount; i++) {
+            personalityPoolRefs[i] = buf.readUtf();
+            personalityPoolNames[i] = buf.readUtf();
+        }
         return new VillagerLifeSyncPayload(
                 entityId, birthYear, birthMonthIndex, birthDayOfMonth,
                 birthMonthKey, birthMonthFallback, ageYears, stamped,
@@ -180,7 +197,8 @@ public record VillagerLifeSyncPayload(
                 bioAgeDays, immortal, ageless, currentStageIndex,
                 stageDays, keys, fallbacks, narrativeAge, stageScales, stageModelAges,
                 stageNarrativeMin, stageNarrativeMax, narrativeRate, seniorStageIndex,
-                personalityName, personalityDesc
+                personalityName, personalityDesc,
+                personalityPoolRefs, personalityPoolNames
         );
     }
 }

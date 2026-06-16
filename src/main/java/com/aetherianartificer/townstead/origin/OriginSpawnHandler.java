@@ -228,7 +228,7 @@ public final class OriginSpawnHandler {
      * own mechanics apply). An origin with no personality policy yields a null ref, leaving MCA's own
      * rolled personality untouched (vanilla behaviour).
      */
-    private static void assignPersonality(VillagerEntityMCA villager, TownsteadVillager state, ResourceLocation originId) {
+    public static void assignPersonality(VillagerEntityMCA villager, TownsteadVillager state, ResourceLocation originId) {
         String ref = PersonalityResolver.roll(originId, villager.getRandom());
         if (ref == null) return;
         state.life().setPersonalityId(ref);

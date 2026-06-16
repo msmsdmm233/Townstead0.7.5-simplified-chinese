@@ -232,6 +232,10 @@ public final class TownsteadNetwork {
                 com.aetherianartificer.townstead.origin.SetGeneVariantC2SPayload::write,
                 com.aetherianartificer.townstead.origin.SetGeneVariantC2SPayload::read,
                 TownsteadNetwork::handleSetGeneVariant);
+        registerC2S(com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload.class,
+                com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload::write,
+                com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload::read,
+                TownsteadNetwork::handleSetPersonality);
         registerC2S(com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload.class,
                 com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload::write,
                 com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload::read,
@@ -309,6 +313,22 @@ public final class TownsteadNetwork {
                     com.aetherianartificer.townstead.origin.ExpressedGenesS2CPayload.forEntity(target, living);
             sendToPlayer(sp, genes);
             sendToTrackingEntity(entity, genes);
+        }
+    }
+
+    private static void handleSetPersonality(
+            com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload payload, ServerPlayer sp) {
+        int target = com.aetherianartificer.townstead.origin.OriginServerLogic.setPersonality(
+                sp, payload.entityId(), payload.ref());
+        if (target == com.aetherianartificer.townstead.origin.OriginSetC2SPayload.NONE) return;
+        Entity entity = sp.serverLevel().getEntity(target);
+        if (entity instanceof net.conczin.mca.entity.VillagerEntityMCA villager) {
+            com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync =
+                    com.aetherianartificer.townstead.Townstead.townstead$lifeSync(villager);
+            if (lifeSync != null) {
+                sendToPlayer(sp, lifeSync);
+                sendToTrackingEntity(villager, lifeSync);
+            }
         }
     }
 

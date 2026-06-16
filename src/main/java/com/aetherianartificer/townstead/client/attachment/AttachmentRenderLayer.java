@@ -114,13 +114,12 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
     /** The attachment defs the entity expresses (per-entity set first, origin grant list as fallback). */
     private static List<AttachmentDef> resolve(LivingEntity entity) {
         List<AttachmentDef> out = new ArrayList<>();
-        int id = entity.getId();
-        Set<String> expressed = OriginClientStore.expressedGenes(id);
+        Set<String> expressed = OriginClientStore.expressedGenes(entity);
         if (!expressed.isEmpty()) {
             for (String geneId : expressed) collect(geneId, out);
             return out;
         }
-        String originId = OriginClientStore.get(id);
+        String originId = OriginClientStore.resolve(entity);
         if (originId.isEmpty()) return out;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         if (origin == null) return out;

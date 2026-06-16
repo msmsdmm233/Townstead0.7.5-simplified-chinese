@@ -245,19 +245,23 @@ public final class Heredity {
         return out;
     }
 
-    /** Project the genotype onto the expressed phenotype map (variant genes only). */
+    /**
+     * Project the genotype onto the expressed phenotype: the variant-gene map (skin tint, chronotype,
+     * etc.) plus the full expressed-allele encoding list (every locus, persisted so a reconstructed
+     * entity can render its real genetics without the live sync).
+     */
     public static void recomputeExpressed(TownsteadVillager.Life life) {
         Genotype genotype = life.genotype();
-        for (ResourceLocation locus : genotype.loci()) {
-            Allele[] pair = genotype.at(locus);
-            if (pair == null) continue;
-            Allele expressed = express(pair[0], pair[1]);
-            if (expressed.isWild() || expressed.variantId() == null) continue;
-            Gene gene = GeneRegistry.byId(expressed.geneId());
+        List<String> encodings = new java.util.ArrayList<>();
+        for (Allele allele : expressedAlleles(genotype)) {
+            encodings.add(allele.encode());
+            if (allele.variantId() == null) continue;
+            Gene gene = GeneRegistry.byId(allele.geneId());
             if (gene != null && gene.hasVariants()) {
-                life.setCarriedVariant(gene.id().toString(), expressed.variantId());
+                life.setCarriedVariant(gene.id().toString(), allele.variantId());
             }
         }
+        life.setExpressedAlleles(encodings);
     }
 
     // --- internals -------------------------------------------------------------

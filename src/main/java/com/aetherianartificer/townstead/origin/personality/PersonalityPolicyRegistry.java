@@ -25,8 +25,10 @@ public final class PersonalityPolicyRegistry {
     public static void setLineage(Map<ResourceLocation, Personalities> next) { LINEAGE = Map.copyOf(next); }
     public static void setOrigin(Map<ResourceLocation, Personalities> next) { ORIGIN = Map.copyOf(next); }
 
-    public static Personalities species(ResourceLocation id) { return SPECIES.getOrDefault(id, Personalities.EMPTY); }
-    public static Personalities ancestry(ResourceLocation id) { return ANCESTRY.getOrDefault(id, Personalities.EMPTY); }
-    public static Personalities lineage(ResourceLocation id) { return LINEAGE.getOrDefault(id, Personalities.EMPTY); }
-    public static Personalities origin(ResourceLocation id) { return ORIGIN.getOrDefault(id, Personalities.EMPTY); }
+    // get(null) throws on an immutable Map.copyOf (null.hashCode()), and tree nodes legitimately have
+    // a null lineage/ancestry/species, so null-guard before every lookup.
+    public static Personalities species(ResourceLocation id) { return id == null ? Personalities.EMPTY : SPECIES.getOrDefault(id, Personalities.EMPTY); }
+    public static Personalities ancestry(ResourceLocation id) { return id == null ? Personalities.EMPTY : ANCESTRY.getOrDefault(id, Personalities.EMPTY); }
+    public static Personalities lineage(ResourceLocation id) { return id == null ? Personalities.EMPTY : LINEAGE.getOrDefault(id, Personalities.EMPTY); }
+    public static Personalities origin(ResourceLocation id) { return id == null ? Personalities.EMPTY : ORIGIN.getOrDefault(id, Personalities.EMPTY); }
 }

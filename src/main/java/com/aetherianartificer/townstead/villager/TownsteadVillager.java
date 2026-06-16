@@ -779,6 +779,11 @@ public final class TownsteadVillager {
         // This is the dominant-resolved projection of {@link #genotype} that existing read
         // sites (sleep window, skin tint) consume; it is recomputed when the genotype changes.
         private final java.util.Map<String, String> carriedVariants = new java.util.HashMap<>();
+        // Expressed allele encodings ("geneId" or "geneId#variant") for EVERY expressed locus, the same
+        // list the per-entity render sync ships. Persisted so a reconstructed entity (CarryOn rebuilds
+        // from NBT with a fresh untracked id, never synced) can still render its real genetics
+        // (attachments, hidden features). Recomputed alongside carriedVariants whenever the genotype changes.
+        private java.util.List<String> expressedAlleles = new java.util.ArrayList<>();
         // The diploid heritable truth: two alleles per discrete locus. The expressed
         // phenotype above is derived from this; inheritance draws one allele per locus
         // from each parent. Continuous body floats live on MCA's genetics, not here.
@@ -970,6 +975,16 @@ public final class TownsteadVillager {
             markDirty();
         }
 
+        /** Expressed allele encodings for every expressed locus (render sync + persistence). */
+        public java.util.List<String> expressedAlleles() {
+            return java.util.Collections.unmodifiableList(expressedAlleles);
+        }
+
+        public void setExpressedAlleles(java.util.List<String> encodings) {
+            expressedAlleles = encodings == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(encodings);
+            markDirty();
+        }
+
         /** The diploid genotype (two alleles per locus); the heritable source of truth. */
         public com.aetherianartificer.townstead.origin.gene.Genotype genotype() {
             return genotype;
@@ -1033,6 +1048,11 @@ public final class TownsteadVillager {
                 }
                 tag.put("carriedVariants", cv);
             }
+            if (!expressedAlleles.isEmpty()) {
+                ListTag list = new ListTag();
+                for (String e : expressedAlleles) list.add(StringTag.valueOf(e));
+                tag.put("expressedAlleles", list);
+            }
             if (!genotype.isEmpty()) tag.put("genotype", genotype.toTag());
             if (!heritage.isEmpty()) tag.put("heritage", heritage.toTag());
             return tag;
@@ -1062,6 +1082,11 @@ public final class TownsteadVillager {
             if (tag.contains("carriedVariants")) {
                 CompoundTag cv = tag.getCompound("carriedVariants");
                 for (String k : cv.getAllKeys()) carriedVariants.put(k, cv.getString(k));
+            }
+            expressedAlleles.clear();
+            if (tag.contains("expressedAlleles")) {
+                ListTag list = tag.getList("expressedAlleles", Tag.TAG_STRING);
+                for (int i = 0; i < list.size(); i++) expressedAlleles.add(list.getString(i));
             }
             genotype = tag.contains("genotype")
                     ? com.aetherianartificer.townstead.origin.gene.Genotype.fromTag(tag.getCompound("genotype"))

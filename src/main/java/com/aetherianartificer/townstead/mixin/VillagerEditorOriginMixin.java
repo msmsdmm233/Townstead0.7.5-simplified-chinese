@@ -146,6 +146,9 @@ public abstract class VillagerEditorOriginMixin extends Screen {
             townstead$addTonePicker();
             townstead$trimInertBodySliders();
         }
+        if ("personality".equals(page)) {
+            townstead$replacePersonalityButtons();
+        }
 
         if (!"origins".equals(page)) return;
 
@@ -340,6 +343,79 @@ public abstract class VillagerEditorOriginMixin extends Screen {
             }
         }
         return null;
+    }
+
+    /**
+     * Replace MCA's full base-enum personality grid with this villager's origin-allowed pool (custom
+     * personalities by display name), synced on the life payload. No pool (origin defines none) leaves
+     * MCA's default picker alone. Clicking commits the chosen ref to the real target via C2S.
+     */
+    @Unique
+    private void townstead$replacePersonalityButtons() {
+        com.aetherianartificer.townstead.calendar.LifeClientStore.Snapshot life =
+                com.aetherianartificer.townstead.calendar.LifeClientStore.get(villager.getId());
+        if (life == null) return;
+        String[] pool = life.personalityPool();
+        if (pool.length == 0) return;
+
+        java.util.Set<String> enumNames = new java.util.HashSet<>();
+        for (net.conczin.mca.entity.ai.relationship.Personality p
+                : net.conczin.mca.entity.ai.relationship.Personality.values()) {
+            if (p != net.conczin.mca.entity.ai.relationship.Personality.UNASSIGNED) enumNames.add(p.getName().getString());
+        }
+        int col0X = Integer.MAX_VALUE;
+        int startY = Integer.MAX_VALUE;
+        int btnW = 0;
+        List<net.conczin.mca.util.compat.ButtonWidget> remove = new ArrayList<>();
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : children()) {
+            if (child instanceof net.conczin.mca.util.compat.ButtonWidget btn
+                    && enumNames.contains(btn.getMessage().getString())) {
+                remove.add(btn);
+                col0X = Math.min(col0X, btn.getX());
+                startY = Math.min(startY, btn.getY());
+                btnW = btn.getWidth();
+            }
+        }
+        if (remove.isEmpty()) return;
+        for (net.conczin.mca.util.compat.ButtonWidget b : remove) removeWidget(b);
+
+        int col1X = col0X + btnW;
+        String currentName = life.personalityName();
+        List<net.conczin.mca.util.compat.ButtonWidget> buttons = new ArrayList<>();
+        for (int i = 0; i < pool.length; i++) {
+            final String ref = pool[i];
+            String resolved = life.personalityPoolName(i);
+            if (resolved.isEmpty()) {
+                try {
+                    resolved = net.conczin.mca.entity.ai.relationship.Personality
+                            .valueOf(ref.toUpperCase(java.util.Locale.ROOT)).getName().getString();
+                } catch (IllegalArgumentException e) {
+                    resolved = ref;
+                }
+            }
+            final String label = resolved;
+            int x = (i % 2 == 0) ? col0X : col1X;
+            int y = startY + (i / 2) * 19;
+            net.conczin.mca.util.compat.ButtonWidget btn = new net.conczin.mca.util.compat.ButtonWidget(
+                    x, y, btnW, 20, Component.literal(label), b -> {
+                townstead$sendSetPersonality(townstead$target, ref);
+                buttons.forEach(v -> v.active = true);
+                b.active = false;
+            });
+            btn.active = !(label.equals(currentName) && !label.isEmpty());
+            buttons.add(addRenderableWidget(btn));
+        }
+    }
+
+    @Unique
+    private void townstead$sendSetPersonality(int target, String ref) {
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                new com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload(target, ref));
+        //?} else if forge {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToServer(
+                new com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload(target, ref));
+        *///?}
     }
 
     @Unique

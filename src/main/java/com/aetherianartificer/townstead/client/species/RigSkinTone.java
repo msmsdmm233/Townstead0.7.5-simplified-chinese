@@ -57,7 +57,7 @@ public final class RigSkinTone {
 
     /** The origin's {@code skin_tone} gene that carries a tinted-variant palette, or null if none. */
     public static GeneCatalogEntry paletteGene(LivingEntity entity) {
-        String originId = OriginClientStore.get(entity.getId());
+        String originId = OriginClientStore.resolve(entity);
         if (originId.isEmpty()) return null;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         if (origin == null) return null;
@@ -77,8 +77,8 @@ public final class RigSkinTone {
      * allele yet (a pre-existing villager, the editor preview) is still varied rather than blank.
      */
     private static int paletteTint(LivingEntity entity, GeneCatalogEntry palette) {
-        String rolled = OriginClientStore.carriedVariants(entity.getId()).get(palette.id());
-        if (rolled != null) {
+        String rolled = OriginClientStore.resolveCarriedVariant(entity, palette.id());
+        if (rolled != null && !rolled.isEmpty()) {
             for (GeneCatalogEntry.Variant variant : palette.variants()) {
                 if (variant.id().equals(rolled) && variant.tint() >= 0) return variant.tint();
             }

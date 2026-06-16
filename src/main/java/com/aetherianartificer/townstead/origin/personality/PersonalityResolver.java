@@ -62,6 +62,14 @@ public final class PersonalityResolver {
         return null;
     }
 
+    /**
+     * The ordered pool of personality refs an origin may roll. Empty when the origin has no policy.
+     * For the editor's dynamic picker (the order is the resolved allow order).
+     */
+    public static java.util.List<String> poolRefs(ResourceLocation originId) {
+        return new java.util.ArrayList<>(pool(originId).keySet());
+    }
+
     /** The custom definition for a ref, or {@code null} if the ref is a bare base-enum name (or unknown). */
     @Nullable
     public static PersonalityDef def(@Nullable String ref) {

@@ -10,6 +10,8 @@ import com.aetherianartificer.townstead.pheno.power.Power;
 import com.aetherianartificer.townstead.pheno.power.Powers;
 import com.aetherianartificer.townstead.origin.ability.GeneAbilityTicker;
 import com.aetherianartificer.townstead.origin.attribute.GeneAttributeApplier;
+import com.aetherianartificer.townstead.origin.personality.PersonalityResolver;
+import net.conczin.mca.entity.ai.relationship.Personality;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -84,6 +86,12 @@ public final class OriginServerLogic {
         if (changed || !state.life().hasGenotype()) {
             Heredity.seedFounder(state.life(), id, villager.getRandom());
         }
+        // Roll a personality from the new origin's allowlist (the natural-spawn path does this too).
+        // Also fill one in when the villager has none yet, so re-applying an origin to a pre-existing
+        // villager grants the personality it should have had.
+        if (changed || state.life().personalityId().isEmpty()) {
+            OriginSpawnHandler.assignPersonality(villager, state, id);
+        }
         // Flush now: the origin lives in a data attachment that only persists when
         // the snapshot is written, and the periodic flush may not run before the
         // world saves/exits — which lost the origin (and so the skin tint) on reload.
@@ -122,6 +130,22 @@ public final class OriginServerLogic {
         TownsteadVillager state = TownsteadVillagers.get(villager);
         state.life().genotype().set(locus, allele, allele);
         Heredity.recomputeExpressed(state.life());
+        TownsteadVillagers.flush(villager);
+        return villager.getId();
+    }
+
+    /**
+     * Set a villager's personality from the editor's dynamic picker. Stores the chosen ref on the Life
+     * (drives display + voice) and sets the MCA brain personality to the base enum it maps to. Returns
+     * the entity id so the caller can re-broadcast the life sync, or {@link OriginSetC2SPayload#NONE}.
+     */
+    public static int setPersonality(ServerPlayer sp, int entityId, String ref) {
+        Entity entity = sp.serverLevel().getEntity(entityId);
+        if (!(entity instanceof VillagerEntityMCA villager)) return OriginSetC2SPayload.NONE;
+        TownsteadVillager state = TownsteadVillagers.get(villager);
+        state.life().setPersonalityId(ref == null ? "" : ref);
+        Personality base = PersonalityResolver.baseOf(ref);
+        if (base != null) villager.getVillagerBrain().setPersonality(base);
         TownsteadVillagers.flush(villager);
         return villager.getId();
     }

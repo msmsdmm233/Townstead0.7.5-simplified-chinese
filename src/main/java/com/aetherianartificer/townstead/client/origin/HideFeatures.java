@@ -24,13 +24,12 @@ public final class HideFeatures {
     /** Part groups ({@code head}/{@code body}/{@code arms}/{@code legs}) the entity hides. */
     public static Set<String> hiddenGroups(LivingEntity entity) {
         Set<String> groups = new HashSet<>();
-        int id = entity.getId();
-        Set<String> expressed = OriginClientStore.expressedGenes(id);
+        Set<String> expressed = OriginClientStore.expressedGenes(entity);
         if (!expressed.isEmpty()) {
             for (String geneId : expressed) collect(OriginCatalogClient.gene(geneId), groups);
             return groups;
         }
-        String originId = OriginClientStore.get(id);
+        String originId = OriginClientStore.resolve(entity);
         if (originId.isEmpty()) return groups;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
         if (origin == null) return groups;

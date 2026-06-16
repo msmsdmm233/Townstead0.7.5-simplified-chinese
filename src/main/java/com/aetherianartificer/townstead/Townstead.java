@@ -2127,6 +2127,11 @@ public class Townstead {
                 this::handleSetGeneVariant
         );
         registrar.playToServer(
+                com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload.TYPE,
+                com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload.STREAM_CODEC,
+                this::handleSetPersonality
+        );
+        registrar.playToServer(
                 com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload.TYPE,
                 com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload.STREAM_CODEC,
                 this::handleActivateAbility
@@ -2319,6 +2324,26 @@ public class Townstead {
                         com.aetherianartificer.townstead.origin.ExpressedGenesS2CPayload.forEntity(target, living);
                 PacketDistributor.sendToPlayer(sp, genes);
                 PacketDistributor.sendToPlayersTrackingEntity(entity, genes);
+            }
+        });
+    }
+
+    private void handleSetPersonality(
+            com.aetherianartificer.townstead.origin.SetPersonalityC2SPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sp)) return;
+            int target = com.aetherianartificer.townstead.origin.OriginServerLogic.setPersonality(
+                    sp, payload.entityId(), payload.ref());
+            if (target == com.aetherianartificer.townstead.origin.OriginSetC2SPayload.NONE) return;
+            Entity entity = sp.serverLevel().getEntity(target);
+            if (entity instanceof VillagerEntityMCA villager) {
+                com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
+                if (lifeSync != null) {
+                    PacketDistributor.sendToPlayer(sp, lifeSync);
+                    PacketDistributor.sendToPlayersTrackingEntity(villager, lifeSync);
+                }
             }
         });
     }
@@ -3590,6 +3615,19 @@ public class Townstead {
         String personalityName = personality == null ? "" : personality.displayName().getString();
         String personalityDesc = personality == null ? "" : personality.description().getString();
 
+        // The personalities this villager's origin allows, for the editor's dynamic picker. Custom
+        // refs carry their resolved display name; a bare base-enum ref carries an empty name and the
+        // client resolves it via MCA's own Personality.getName().
+        java.util.List<String> poolList = com.aetherianartificer.townstead.origin.personality.PersonalityResolver
+                .poolRefs(com.aetherianartificer.townstead.data.DataPackLang.parseId(life.getString("originId")));
+        String[] personalityPoolRefs = poolList.toArray(new String[0]);
+        String[] personalityPoolNames = new String[personalityPoolRefs.length];
+        for (int i = 0; i < personalityPoolRefs.length; i++) {
+            com.aetherianartificer.townstead.origin.personality.PersonalityDef d =
+                    com.aetherianartificer.townstead.origin.personality.PersonalityResolver.def(personalityPoolRefs[i]);
+            personalityPoolNames[i] = d == null ? "" : d.displayName().getString();
+        }
+
         return new com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload(
                 villager.getId(),
                 birth.year(), birthMonthIndex, birthDayOfMonth,
@@ -3598,7 +3636,8 @@ public class Townstead {
                 bioAgeDays, immortal, ageless, currentStageIndex,
                 stageDays, stageKeys, stageFallbacks, narrativeAge, stageScales, stageModelAges,
                 stageNarrativeMin, stageNarrativeMax, narrativeRate, seniorStageIndex,
-                personalityName, personalityDesc
+                personalityName, personalityDesc,
+                personalityPoolRefs, personalityPoolNames
         );
     }
 
