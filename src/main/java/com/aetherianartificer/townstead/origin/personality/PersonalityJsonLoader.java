@@ -17,14 +17,14 @@ import org.slf4j.LoggerFactory;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Loads {@link PersonalityDef} from {@code data/<ns>/personalities/*.json}. */
+/** Loads {@link PersonalityDef} from {@code data/<ns>/personality/*.json}. */
 public final class PersonalityJsonLoader extends SimpleJsonResourceReloadListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Townstead.MOD_ID + "/PersonalityJsonLoader");
     private static final Gson GSON = new Gson();
 
     public PersonalityJsonLoader() {
-        super(GSON, "personalities");
+        super(GSON, "personality");
     }
 
     @Override
@@ -36,6 +36,7 @@ public final class PersonalityJsonLoader extends SimpleJsonResourceReloadListene
             ResourceLocation file = entry.getKey();
             try {
                 JsonObject obj = GsonHelper.convertToJsonObject(entry.getValue(), file.toString());
+                com.aetherianartificer.townstead.data.TownsteadSchema.validate(obj, "townstead:personality/v1");
                 String base = GsonHelper.getAsString(obj, "extends", "");
                 if (base.isBlank()) {
                     LOGGER.warn("Personality {} has no 'extends' base, skipping", file);

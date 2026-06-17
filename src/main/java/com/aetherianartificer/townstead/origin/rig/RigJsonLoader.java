@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.origin.rig;
 
 import com.aetherianartificer.townstead.Townstead;
+import com.aetherianartificer.townstead.data.TownsteadSchema;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -16,7 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Loads {@link RigDefinition}s from {@code data/<ns>/rigs/*.json} (server data pack), so a species'
+ * Loads {@link RigDefinition}s from {@code data/<ns>/rig/*.json} (server data pack), so a species'
  * {@code rig.base} resolves to a body model + texture + bone map + armor. Registered as a server
  * reload listener; the definitions are synced to clients with the origin catalog.
  */
@@ -26,7 +27,7 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
 
     public RigJsonLoader() {
-        super(GSON, "rigs");
+        super(GSON, "rig");
     }
 
     @Override
@@ -47,6 +48,7 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
     }
 
     private static RigDefinition parse(String id, JsonObject obj) {
+        TownsteadSchema.validate(obj, "townstead:rig/v1");
         JsonObject model = GsonHelper.getAsJsonObject(obj, "model");
         boolean geometry = "geometry".equals(GsonHelper.getAsString(model, "type", "entity_layer"));
         RigDefinition.ModelType modelType = geometry
