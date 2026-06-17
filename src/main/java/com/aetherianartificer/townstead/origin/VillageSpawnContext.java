@@ -90,7 +90,8 @@ public final class VillageSpawnContext {
 
         BuildingSpawnPolicy policy = resolveBuildingPolicy(server, pos);
         boolean check = policy == null || policy.checkDispositions();
-        ResourceLocation majorityOrigin = ResourceLocation.tryParse(plurality(originCounts));
+        String majorityOriginId = plurality(originCounts);   // null when all neighbours are originless
+        ResourceLocation majorityOrigin = majorityOriginId == null ? null : ResourceLocation.tryParse(majorityOriginId);
         return new VillageSpawnContext(true, check, policy, majorityGroup, majorityOrigin, bodyType);
     }
 
