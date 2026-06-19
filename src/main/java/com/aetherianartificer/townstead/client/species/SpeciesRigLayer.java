@@ -155,9 +155,9 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
                 ((tone >>> 24) & 0xFF) / 255f);
         *///?}
         SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick);
-        // Worn boots laid across the rig's legs (e.g. one per spider leg), fitted with full vanilla
-        // armor fidelity. The leg bones are now posed by the setupAnim above, so the boots track.
-        SpiderBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
+        // Worn boots laid across the rig's named bones (e.g. one per leg of a multi-legged rig), fitted
+        // with full vanilla armor fidelity. The bones are now posed by the setupAnim above, so they track.
+        RigBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
         pose.popPose();
     }
 
