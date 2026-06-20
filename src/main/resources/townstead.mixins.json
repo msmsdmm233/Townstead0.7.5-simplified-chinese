@@ -34,6 +34,7 @@
     "LivingEntityElytraKeepMixin",
     "InventoryKeepInventoryMixin",
     "LivingEntityWalkOnFluidMixin",
+    "LivingEntityClimbMixin",
     "LivingEntityPhasingMixin",
     "EntityFluidPushMixin",
     "EntityCollisionPreventMixin",
@@ -90,7 +91,8 @@
     "VillagerScaleRendererMixin",
     "DestinyScreenMixin",
     "LivingEntityMobTypeMixin",
-    "LivingEntityInvertedHealMixin"
+    "LivingEntityInvertedHealMixin",
+    "EntityClimbLookMixin"
   ],
   "minVersion": "0.8"
 }

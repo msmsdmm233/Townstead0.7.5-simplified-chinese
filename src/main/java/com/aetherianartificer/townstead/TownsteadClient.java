@@ -55,6 +55,12 @@ public final class TownsteadClient {
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onGatherTooltipComponents);
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onClientTick);
             NeoForge.EVENT_BUS.addListener(FishermanLineRenderer::onRenderLevel);
+            NeoForge.EVENT_BUS.addListener(
+                    com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPre);
+            NeoForge.EVENT_BUS.addListener(
+                    com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPost);
+            NeoForge.EVENT_BUS.addListener(
+                    com.aetherianartificer.townstead.client.species.ClimbView::onComputeCameraAngles);
             hooksRegistered = true;
         }
         //?} else if forge {
@@ -69,6 +75,12 @@ public final class TownsteadClient {
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientDisconnect);
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientTick);
             MinecraftForge.EVENT_BUS.addListener(FishermanLineRenderer::onRenderLevel);
+            MinecraftForge.EVENT_BUS.addListener(
+                    com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPre);
+            MinecraftForge.EVENT_BUS.addListener(
+                    com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPost);
+            MinecraftForge.EVENT_BUS.addListener(
+                    com.aetherianartificer.townstead.client.species.ClimbView::onComputeCameraAngles);
             hooksRegistered = true;
         }
         *///?}
@@ -144,6 +156,7 @@ public final class TownsteadClient {
         TownsteadKeybinds.onClientTick();
         FishermanLineRenderer.onClientTick();
         tryWarmSpiritIndex();
+        com.aetherianartificer.townstead.client.species.ClimbAnim.tick();
         com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge.ensureRegistered();
     }
     //?} else if forge {
@@ -152,6 +165,7 @@ public final class TownsteadClient {
         TownsteadKeybinds.onClientTick();
         FishermanLineRenderer.onClientTick();
         tryWarmSpiritIndex();
+        com.aetherianartificer.townstead.client.species.ClimbAnim.tick();
         com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge.ensureRegistered();
     }
     *///?}

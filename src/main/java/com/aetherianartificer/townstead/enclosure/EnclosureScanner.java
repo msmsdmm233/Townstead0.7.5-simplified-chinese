@@ -5,7 +5,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.slf4j.Logger;
@@ -124,9 +123,9 @@ public final class EnclosureScanner {
         int walls = 0;
         for (BlockPos p : perimeter) {
             BlockState s = level.getBlockState(p);
-            if (s.is(BlockTags.FENCE_GATES)) gates++;
-            else if (s.is(BlockTags.FENCES)) fences++;
-            else if (s.is(BlockTags.WALLS)) walls++;
+            if (EnclosureBlocks.isFenceGate(s)) gates++;
+            else if (EnclosureBlocks.isFence(s)) fences++;
+            else if (EnclosureBlocks.isWall(s)) walls++;
         }
         // An enclosure with no fence-like perimeter blocks at all is some
         // random crevice in terrain; require at least one fence/gate/wall.
@@ -174,9 +173,7 @@ public final class EnclosureScanner {
     }
 
     private static boolean isPerimeterBlock(BlockState state) {
-        return state.is(BlockTags.FENCES)
-                || state.is(BlockTags.FENCE_GATES)
-                || state.is(BlockTags.WALLS);
+        return EnclosureBlocks.isPerimeter(state);
     }
 
     private static Map<String, Integer> tallyInteriorContent(ServerLevel level,

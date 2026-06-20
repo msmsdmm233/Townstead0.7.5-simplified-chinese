@@ -386,13 +386,8 @@ public final class GeneAbilityTicker {
             }
             case INVISIBILITY -> entity.addEffect(hidden(MobEffects.INVISIBILITY));
             case SWIMMING -> entity.addEffect(hidden(MobEffects.DOLPHINS_GRACE));
-            case CLIMBING -> {
-                if (entity.horizontalCollision) {
-                    Vec3 m = entity.getDeltaMovement();
-                    entity.setDeltaMovement(m.x, 0.2, m.z);
-                    entity.fallDistance = 0f;
-                }
-            }
+            // CLIMBING is handled per physics tick by LivingEntityClimbMixin (onClimbable), not here:
+            // a once-per-interval velocity nudge can't overcome gravity, so it lived in the wrong clock.
             case CREATIVE_FLIGHT -> {
                 if (entity instanceof Player player && !player.getAbilities().mayfly) {
                     player.getAbilities().mayfly = true;
