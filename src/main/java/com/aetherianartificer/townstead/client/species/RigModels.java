@@ -225,15 +225,13 @@ public final class RigModels {
     }
 
     /**
-     * The species' authored grip for the main or off hand, or null when that hand cannot hold (so
-     * its item should not render). Null also when the entity has no synced species.
+     * The rig's authored grip for the main or off hand, or null when that hand cannot hold (so its item
+     * should not render). Null also when the entity has no synced rig.
      */
     public static Hold.Grip holdGrip(LivingEntity entity, boolean offHand) {
-        String originId = OriginClientStore.resolve(entity);
-        if (originId == null || originId.isEmpty()) return null;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
-        if (origin == null || origin.hold() == null) return null;
-        return offHand ? origin.hold().offhand() : origin.hold().mainhand();
+        RigDefinition def = OriginCatalogClient.rig(rigBaseFor(entity));
+        if (def == null || def.hold() == null) return null;
+        return offHand ? def.hold().offhand() : def.hold().mainhand();
     }
 
     public static ResourceLocation texture(String rigBase) {

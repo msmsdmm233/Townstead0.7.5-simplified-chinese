@@ -14,11 +14,19 @@ public record Hold(Grip mainhand, Grip offhand) {
 
     public static final Hold NONE = new Hold(null, null);
 
-    /** One hand's grip: the anchor bone plus an offset (pixels) and rotation (degrees) nudge. */
-    public record Grip(String bone, float[] offset, float[] rotation) {
+    /**
+     * One hand's grip: the anchor bone plus an offset (pixels) and rotation (degrees) nudge for the
+     * third-person item, and a separate {@code fpOffset}/{@code fpRotation} that seat the bone into the
+     * first-person view when a non-humanoid rig draws it as the held-item arm (a humanoid rig ignores
+     * them, drawing its own arm). Authored as {@code "first_person": { "offset": [x,y,z], "rotation":
+     * [x,y,z] }} inside the hand's grip object.
+     */
+    public record Grip(String bone, float[] offset, float[] rotation, float[] fpOffset, float[] fpRotation) {
         public Grip {
             offset = offset == null || offset.length < 3 ? new float[]{0f, 0f, 0f} : offset;
             rotation = rotation == null || rotation.length < 3 ? new float[]{0f, 0f, 0f} : rotation;
+            fpOffset = fpOffset == null || fpOffset.length < 3 ? new float[]{0f, 0f, 0f} : fpOffset;
+            fpRotation = fpRotation == null || fpRotation.length < 3 ? new float[]{0f, 0f, 0f} : fpRotation;
         }
     }
 }

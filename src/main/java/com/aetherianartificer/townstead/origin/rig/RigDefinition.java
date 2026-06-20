@@ -1,5 +1,7 @@
 package com.aetherianartificer.townstead.origin.rig;
 
+import com.aetherianartificer.townstead.origin.Hold;
+
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +47,10 @@ public record RigDefinition(
         // Worn boots placed on a non-humanoid rig's legs: one entry per leg bone (vanilla only draws
         // two boots). Empty when the rig declares none.
         List<Boot> boots,
+        // Which bone each hand grips a held item from (e.g. a front leg), with per-hand third-person and
+        // first-person nudges. A rig property, not a soul one: the grip is a function of the body's bones,
+        // so it lives here next to the other bone-anchored wearables. Hold.NONE when the rig can't hold.
+        Hold hold,
         // Whether this rig uses MCA hair. False by default (a custom rig draws its own head and a
         // skeleton has no hair, so the editor hides the hair controls); set true to opt back in.
         boolean hair

@@ -78,8 +78,6 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             buf.writeUtf(e.lineageNameKey());
             buf.writeUtf(e.rigBase());
             buf.writeFloat(e.rigScale());
-            writeGrip(buf, e.hold().mainhand());
-            writeGrip(buf, e.hold().offhand());
             writeAnimations(buf, e.animations());
             buf.writeBoolean(e.breasts());
         }
@@ -156,7 +154,6 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             String lineageNameKey = buf.readUtf();
             String rigBase = buf.readUtf();
             float rigScale = buf.readFloat();
-            Hold hold = new Hold(readGrip(buf), readGrip(buf));
             Animations animations = readAnimations(buf);
             boolean breasts = buf.readBoolean();
             entries.add(new OriginCatalogEntry(id,
@@ -170,7 +167,7 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
                     inherited, ranges,
                     nameKey, singularKey, pluralKey, backstoryKey,
                     speciesNameKey, ancestryNameKey, lineageNameKey,
-                    rigBase, rigScale, hold, animations, breasts));
+                    rigBase, rigScale, animations, breasts));
         }
         int m = buf.readVarInt();
         List<GeneCatalogEntry> genes = new ArrayList<>(m);
@@ -263,6 +260,8 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             buf.writeFloat(boot.scale());
             writeAdjust(buf, boot.seat());
         }
+        writeGrip(buf, r.hold().mainhand());
+        writeGrip(buf, r.hold().offhand());
         buf.writeBoolean(r.hair());
     }
 
@@ -313,8 +312,9 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             float scale = buf.readFloat();
             boots.add(new RigDefinition.Boot(bone, left, scale, readAdjust(buf)));
         }
+        Hold hold = new Hold(readGrip(buf), readGrip(buf));
         boolean hair = buf.readBoolean();
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hair);
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair);
     }
 
     private static void writeNullableUtf(FriendlyByteBuf buf, String value) {
@@ -326,13 +326,15 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
         return buf.readBoolean() ? buf.readUtf() : null;
     }
 
-    /** Write one hand's grip: a present flag, then (if present) bone + offset vec3 + rotation vec3. */
+    /** Write one hand's grip: a present flag, then (if present) bone + third-person and first-person vecs. */
     private static void writeGrip(FriendlyByteBuf buf, Hold.Grip grip) {
         buf.writeBoolean(grip != null);
         if (grip == null) return;
         buf.writeUtf(grip.bone());
         for (int k = 0; k < 3; k++) buf.writeFloat(grip.offset()[k]);
         for (int k = 0; k < 3; k++) buf.writeFloat(grip.rotation()[k]);
+        for (int k = 0; k < 3; k++) buf.writeFloat(grip.fpOffset()[k]);
+        for (int k = 0; k < 3; k++) buf.writeFloat(grip.fpRotation()[k]);
     }
 
     /** Read one hand's grip, or null when the present flag is false (hand cannot hold). */
@@ -341,7 +343,9 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
         String bone = buf.readUtf();
         float[] offset = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
         float[] rotation = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
-        return new Hold.Grip(bone, offset, rotation);
+        float[] fpOffset = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+        float[] fpRotation = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+        return new Hold.Grip(bone, offset, rotation, fpOffset, fpRotation);
     }
 
     /** Write each animation state's resolved source (one byte) then the provider chain. */

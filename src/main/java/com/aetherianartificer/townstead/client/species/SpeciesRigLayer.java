@@ -125,8 +125,9 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
     /**
      * Render a non-humanoid rig: bake/instantiate the vanilla model (e.g. a spider), let its own
      * {@code setupAnim} pose the body plan from the entity's walk state, and draw it with the per-entity
-     * tint. No humanoid extras (arm pose, crouch, held items, fitted armor) apply; a custom face still
-     * draws if the rig declares one, since it resolves its bone by name from the baked root.
+     * tint. Humanoid extras that assume an arm rig (arm pose, crouch, fitted armor) do not apply, but a
+     * custom face, worn boots, and held items still draw, each resolving its bone by name from the baked
+     * root and tracking the posed body.
      */
     private void renderGeneric(PoseStack pose, MultiBufferSource buffers, int light, T entity,
                                float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
@@ -158,6 +159,10 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         // Worn boots laid across the rig's named bones (e.g. one per leg of a multi-legged rig), fitted
         // with full vanilla armor fidelity. The bones are now posed by the setupAnim above, so they track.
         RigBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
+        // Held items, anchored to the bone the species names for each hand (e.g. a front leg), inside the
+        // same scaled pose. The vanilla item layer is suppressed for alternate rigs by HeldItemSuppressMixin.
+        renderHeld(entity, rigBase, entity.getMainHandItem(), pose, buffers, light, scale, false);
+        renderHeld(entity, rigBase, entity.getOffhandItem(), pose, buffers, light, scale, true);
         pose.popPose();
     }
 
@@ -236,14 +241,23 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         if (stack.isEmpty()) return;
         Hold.Grip grip = RigModels.holdGrip(entity, offHand);
         if (grip == null) return;
-        ModelPart bone = RigModels.bone(rigBase, grip.bone());
+        boolean generic = RigModels.isGeneric(rigBase);
+        ModelPart bone = generic ? RigModels.bakedBone(rigBase, grip.bone()) : RigModels.bone(rigBase, grip.bone());
         if (bone == null) return;
         boolean left = grip.bone().contains("left");
         pose.pushPose();
         bone.translateAndRotate(pose);
-        pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-90f));
-        pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f));
-        pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
+        if (generic) {
+            // The grip bone is a leg, not an arm: carry out to its tip (the claw end) in the bone's
+            // local frame, like the boots, so the item sits at the foot of the leg instead of at its
+            // body-end pivot. The authored offset/rotation then dial the item onto the tip.
+            org.joml.Vector3f tip = RigBootsRenderer.boneTip(bone);
+            pose.translate(tip.x() / 16f, tip.y() / 16f, tip.z() / 16f);
+        } else {
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-90f));
+            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f));
+            pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
+        }
         // Undo the rig scale only now, AFTER reaching the (scaled) bone, so the item lands at the
         // bone at normal size instead of being pulled up toward the bone's pivot.
         if (rigScale != 1f) pose.scale(1f / rigScale, 1f / rigScale, 1f / rigScale);

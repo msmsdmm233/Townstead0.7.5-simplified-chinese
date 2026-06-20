@@ -38,8 +38,6 @@ public record OriginCatalogEntry(
         String rigBase,
         // The species' uniform render scale for that rig.
         float rigScale,
-        // The species' held-item anchoring (per-hand bone + offset/rotation, or null grips).
-        Hold hold,
         // The species' per-state animation sources, so the client rig renderer poses crouch/sleep/fly.
         Animations animations,
         // Whether this species' body shows breasts (false hides MCA's breast part for it).

@@ -78,7 +78,6 @@ public final class OriginCatalog {
                     keyOf(lin != null ? lin.displayName() : null),
                     spc != null ? spc.rig().base() : Rig.VILLAGER.base(),
                     spc != null ? spc.rig().scale() : Rig.VILLAGER.scale(),
-                    spc != null ? spc.hold() : Hold.NONE,
                     spc != null ? spc.animations() : Animations.DEFAULT,
                     spc == null || spc.breasts()));
         }

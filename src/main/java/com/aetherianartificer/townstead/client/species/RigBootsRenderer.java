@@ -95,7 +95,7 @@ public final class RigBootsRenderer {
                 if (root != null) root.translateAndRotate(pose);
                 bone.translateAndRotate(pose);
                 // Out to the bone's tip (its cube's far corner), in the bone's own frame.
-                org.joml.Vector3f tip = legTip(bone);
+                org.joml.Vector3f tip = boneTip(bone);
                 pose.translate(tip.x() / 16f, tip.y() / 16f, tip.z() / 16f);
                 // Authored orientation, then offset, in the tip frame: dial each boot onto its bone.
                 RigDefinition.Adjust seat = boot.seat();
@@ -138,7 +138,7 @@ public final class RigBootsRenderer {
     }
 
     /** The bone's tip in its local frame: the corner of its (representative) cube farthest from the pivot. */
-    private static org.joml.Vector3f legTip(ModelPart leg) {
+    public static org.joml.Vector3f boneTip(ModelPart leg) {
         if (leg == null) return new org.joml.Vector3f();
         try {
             ModelPart.Cube cube = leg.getRandomCube(CUBE_PICK);

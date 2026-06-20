@@ -45,7 +45,6 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
                 JsonObject obj = GsonHelper.convertToJsonObject(entry.getValue(), file.toString());
                 Component displayName = DataPackLang.parseComponent(obj.get("display_name"), file.toString(), lang);
                 Rig rig = parseRig(obj);
-                Hold hold = parseHold(obj);
                 Animations animations = parseAnimations(obj);
                 // Breasts default to the rig: MCA's villager body has the part and shows it, so a
                 // villager-derived species keeps it without saying so; any other rig defaults to none.
@@ -55,7 +54,7 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
                         : rig.base().equals(Rig.VILLAGER.base());
                 float admixture = Math.max(0f, Math.min(1f, GsonHelper.getAsFloat(obj, "admixture_chance", 0f)));
                 Genome genome = OriginJsonParsing.genes(obj, file.toString(), LOGGER);
-                parsed.put(file, new Species(file, displayName, rig, hold, animations, breasts, admixture, genome));
+                parsed.put(file, new Species(file, displayName, rig, animations, breasts, admixture, genome));
                 policies.put(file, PersonalityPolicies.parse(obj));
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse species {}: {}", file, ex.getMessage());
@@ -81,25 +80,6 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
     }
 
     /**
-     * {@code "hold": { "mainhand": { "bone": "right_arm", "offset": [x,y,z], "rotation": [x,y,z] }, ... }}
-     * -> per-hand anchor bone + offset (pixels) + rotation (degrees). A hand key omitted (null grip)
-     * means that hand cannot hold; an absent {@code hold} block means the rig holds nothing.
-     */
-    private static Hold parseHold(JsonObject obj) {
-        if (!obj.has("hold") || !obj.get("hold").isJsonObject()) return Hold.NONE;
-        JsonObject hold = obj.getAsJsonObject("hold");
-        return new Hold(parseGrip(hold, "mainhand"), parseGrip(hold, "offhand"));
-    }
-
-    /** One hand's grip, or null when the hand is absent (cannot hold). */
-    private static Hold.Grip parseGrip(JsonObject hold, String key) {
-        if (!hold.has(key) || !hold.get(key).isJsonObject()) return null;
-        JsonObject grip = hold.getAsJsonObject(key);
-        String bone = GsonHelper.getAsString(grip, "bone", "");
-        return new Hold.Grip(bone, readVec3(grip, "offset"), readVec3(grip, "rotation"));
-    }
-
-    /**
      * {@code "animations": { "crouch": "humanoid", "sleep": "humanoid", "fly": "humanoid" }} -> a
      * per-state source. Unknown states/sources are skipped; unlisted states default to humanoid
      * (opt-out), so the block is written to disable a state or redirect it.
@@ -119,14 +99,5 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
         }
         return map.isEmpty() && providers.isEmpty() ? Animations.DEFAULT
                 : new Animations(Map.copyOf(map), List.copyOf(providers));
-    }
-
-    private static float[] readVec3(JsonObject obj, String key) {
-        float[] out = new float[]{0f, 0f, 0f};
-        if (obj.has(key) && obj.get(key).isJsonArray()) {
-            var arr = obj.getAsJsonArray(key);
-            for (int i = 0; i < 3 && i < arr.size(); i++) out[i] = arr.get(i).getAsFloat();
-        }
-        return out;
     }
 }

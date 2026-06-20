@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.origin.rig;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.data.TownsteadSchema;
+import com.aetherianartificer.townstead.origin.Hold;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -133,9 +134,37 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
             }
         }
 
+        // Held-item grips: which bone each hand holds from, plus third- and first-person nudges. A body
+        // property (the grip is a function of the rig's bones), so it lives in the rig, not the species.
+        Hold hold = parseHold(obj);
+
         boolean hair = GsonHelper.getAsBoolean(obj, "hair", false);
 
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hair);
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair);
+    }
+
+    /**
+     * {@code "hold": { "mainhand": { "bone": "right_front_leg", "offset": [x,y,z], "rotation": [x,y,z],
+     * "first_person": { "offset": [x,y,z], "rotation": [x,y,z] } }, "offhand": { ... } }} -> per-hand
+     * grip bone + third-person nudge + first-person seating. A hand key omitted (null grip) means that
+     * hand cannot hold; an absent {@code hold} block means the rig holds nothing.
+     */
+    private static Hold parseHold(JsonObject obj) {
+        if (!obj.has("hold") || !obj.get("hold").isJsonObject()) return Hold.NONE;
+        JsonObject hold = obj.getAsJsonObject("hold");
+        return new Hold(parseGrip(hold, "mainhand"), parseGrip(hold, "offhand"));
+    }
+
+    /** One hand's grip, or null when the hand is absent (cannot hold). */
+    private static Hold.Grip parseGrip(JsonObject hold, String key) {
+        if (!hold.has(key) || !hold.get(key).isJsonObject()) return null;
+        JsonObject grip = hold.getAsJsonObject(key);
+        String bone = GsonHelper.getAsString(grip, "bone", "");
+        JsonObject fp = grip.has("first_person") && grip.get("first_person").isJsonObject()
+                ? grip.getAsJsonObject("first_person") : new JsonObject();
+        float[] zero = {0f, 0f, 0f};
+        return new Hold.Grip(bone, vec(grip, "offset", 3, zero), vec(grip, "rotation", 3, zero),
+                vec(fp, "offset", 3, zero), vec(fp, "rotation", 3, zero));
     }
 
     /** Read an offset+rotation transform (both optional vec3, default zero) from an object. */
