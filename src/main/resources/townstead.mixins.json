@@ -92,7 +92,8 @@
     "DestinyScreenMixin",
     "LivingEntityMobTypeMixin",
     "LivingEntityInvertedHealMixin",
-    "EntityClimbLookMixin"
+    "EntityClimbLookMixin",
+    "LivingEntityClimbTravelMixin"
   ],
   "minVersion": "0.8"
 }

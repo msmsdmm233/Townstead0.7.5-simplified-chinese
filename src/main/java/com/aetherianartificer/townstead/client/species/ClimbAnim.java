@@ -22,6 +22,10 @@ public final class ClimbAnim {
     // Per-tick ramp step: ~7 ticks (~0.35 s) from upright to fully on the wall.
     private static final float STEP = 0.15f;
 
+    // Per-tick low-pass on the surface normal, so crossing block edges on blocky terrain swings the surface
+    // rather than snapping it between faces.
+    private static final float NORMAL_EASE = 0.25f;
+
     private static final Map<Integer, State> STATES = new HashMap<>();
 
     private static final class State {
@@ -44,7 +48,13 @@ public final class ClimbAnim {
                     s = new State();
                     STATES.put(e.getId(), s);
                 }
-                s.normal = n;
+                if (s.normal == null) {
+                    s.normal = n;
+                } else {
+                    s.normal.lerp(n, NORMAL_EASE);
+                    if (s.normal.lengthSquared() < 1.0e-4f) s.normal.set(n);
+                    else s.normal.normalize();
+                }
                 s.factor = Math.min(1f, s.factor + STEP);
             } else if (s != null) {
                 s.factor = Math.max(0f, s.factor - STEP);
@@ -52,6 +62,9 @@ public final class ClimbAnim {
             }
         }
         STATES.keySet().removeIf(id -> mc.level.getEntity(id) == null);
+        // Track the local player's attach/detach here (runs every tick, regardless of camera perspective)
+        // so the wall-frame look resets correctly even if the player attaches while in third person.
+        if (mc.player != null) ClimbLook.updateClungState(factor(mc.player.getId()));
     }
 
     /** Eased reorientation amount for an entity, 0 (upright) to 1 (fully on the surface). */

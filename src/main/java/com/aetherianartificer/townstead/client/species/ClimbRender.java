@@ -43,17 +43,23 @@ public final class ClimbRender {
         return null;
     }
 
-    /** The climbed surface's outward normal (the rig's new "up"), or null when not on a surface. */
+    /**
+     * The climbed surface's outward normal (the rig's new "up"), or null when not on a surface. Averages the
+     * outward normals of every solid face around the entity (the horizontal walls plus a ceiling overhead) so
+     * inside corners and blocky/stepped terrain give a stable resultant normal instead of flipping between
+     * faces. A single flat wall returns exactly that wall's normal.
+     */
     public static Vector3f wallNormal(LivingEntity entity) {
-        Direction wall = wallDir(entity);
-        if (wall != null) return new Vector3f(-wall.getStepX(), 0f, -wall.getStepZ());
-        // No side wall: a solid block directly overhead is a ceiling (normal points straight down). Same
-        // airborne + climbing gate as wallDir, which has already returned null when those don't hold.
         if (entity.onGround()) return null;
         if (!ClientAbilities.isActive(entity, Ability.CLIMBING)) return null;
         AABB box = entity.getBoundingBox();
-        if (!entity.level().noCollision(entity, box.move(0.0, 0.12, 0.0))) return new Vector3f(0f, -1f, 0f);
-        return null;
+        Vector3f sum = new Vector3f();
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            if (solidToward(entity, box, d)) sum.add(-d.getStepX(), 0f, -d.getStepZ());
+        }
+        if (!entity.level().noCollision(entity, box.move(0.0, 0.12, 0.0))) sum.add(0f, -1f, 0f);
+        if (sum.lengthSquared() < 1.0e-4f) return null;
+        return sum.normalize();
     }
 
     private static boolean solidToward(LivingEntity entity, AABB box, Direction d) {

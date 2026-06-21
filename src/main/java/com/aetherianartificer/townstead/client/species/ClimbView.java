@@ -32,7 +32,6 @@ public final class ClimbView {
         if (!mc.options.getCameraType().isFirstPerson()) return;
         if (!(event.getCamera().getEntity() instanceof LivingEntity entity)) return;
         float f = ClimbAnim.factor(entity.getId());
-        ClimbLook.updateClungState(f);
         if (f <= 0f) return;
         Vector3f up = ClimbAnim.normal(entity.getId());
         if (up == null) return;
@@ -57,6 +56,5 @@ public final class ClimbView {
         event.setYaw(outYaw);
         event.setPitch(outPitch);
         event.setRoll(outRoll);
-        ClimbLook.debug("view f=" + f + " out yaw=" + outYaw + " pitch=" + outPitch + " roll=" + outRoll);
     }
 }
