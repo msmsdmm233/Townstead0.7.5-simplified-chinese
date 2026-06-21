@@ -34,6 +34,15 @@ public final class ClimbRender {
     // model whose geometry sits around its origin (e.g. the spider body) does not clip into the surface.
     private static final float SURFACE_CLEARANCE = 0.05f;
 
+    /**
+     * The intent to START a climb: the entity is blocked horizontally and there is a solid block in the
+     * direction it faces, so it is pushing into a wall rather than just brushing past walls in a narrow gap.
+     */
+    public static boolean startIntent(LivingEntity entity) {
+        if (!entity.horizontalCollision) return false;
+        return solidToward(entity, entity.getBoundingBox(), entity.getDirection());
+    }
+
     /** The horizontal direction toward the wall a climbing entity is on (the one it faces first), or null. */
     public static Direction wallDir(LivingEntity entity) {
         if (entity.onGround()) return null;

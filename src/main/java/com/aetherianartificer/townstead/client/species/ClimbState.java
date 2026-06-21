@@ -36,9 +36,9 @@ public final class ClimbState {
     private static final float NEUTRAL_DOWN = 0.4f;
     private static final float RAD_TO_DEG = (float) (180.0 / Math.PI);
 
-    // Flip to true to also tip the third-person orbit camera (and its controls) onto the surface like first
-    // person. Default false = stable third-person orbit; first person always reorients.
-    public static final boolean REORIENT_THIRD_PERSON = false;
+    // Whether to also tip the third-person orbit camera (and its controls) onto the surface like first
+    // person. False = stable third-person orbit; first person always reorients regardless.
+    public static final boolean REORIENT_THIRD_PERSON = true;
 
     private static final Map<Integer, Surface> SURFACES = new HashMap<>();
 
@@ -64,6 +64,14 @@ public final class ClimbState {
             if (!(e instanceof LivingEntity le)) continue;
             Vector3f n = ClimbRender.wallNormal(le);
             Surface s = SURFACES.get(e.getId());
+            // Starting a climb needs intent: the local player must be blocked by a wall it faces, so merely
+            // squeezing past walls in a narrow hole/doorway does not latch. Holding (already on) stays on
+            // proximity, and other entities (whose horizontalCollision is not simulated for the observer)
+            // keep proximity so their climbing models still tilt.
+            boolean alreadyOn = s != null && s.factor > 0f;
+            if (n != null && le == mc.player && !alreadyOn && !ClimbRender.startIntent(le)) {
+                n = null;
+            }
             if (n != null) {
                 if (s == null) {
                     s = new Surface();

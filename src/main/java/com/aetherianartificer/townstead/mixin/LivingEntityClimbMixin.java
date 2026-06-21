@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.origin.ability.Ability;
 import com.aetherianartificer.townstead.origin.ability.MovementAbilities;
+import net.minecraft.core.Direction;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
@@ -70,9 +71,13 @@ public abstract class LivingEntityClimbMixin {
         if (!self.horizontalCollision && grounded) return;
         if (!MovementAbilities.isActive(self, Ability.CLIMBING)) return;
 
+        // Intent to climb = pushing into a wall the entity FACES, not just brushing walls while squeezing
+        // through a narrow hole/doorway (where the collisions are on the sides, not ahead).
+        boolean pushingIntoWall = self.horizontalCollision && townstead$facingWall(self);
+
         // Villagers keep the basic push-to-climb (no cling) so they never freeze latched to a wall mid-path.
         if (!(self instanceof Player)) {
-            if (self.horizontalCollision) cir.setReturnValue(true);
+            if (pushingIntoWall) cir.setReturnValue(true);
             return;
         }
         // Jump = deliberate release: let go of the wall and fall.
@@ -82,8 +87,8 @@ public abstract class LivingEntityClimbMixin {
         }
         boolean beside = townstead$wallBeside(self);
         if (!beside) townstead$clinging = false;
-        if (self.horizontalCollision) {
-            // Pushing into a wall: this is the intent signal, so arm the cling and climb up.
+        if (pushingIntoWall) {
+            // Pushing into a wall it faces: this is the intent signal, so arm the cling and climb up.
             townstead$clinging = true;
             cir.setReturnValue(true);
         } else if (!grounded && beside && townstead$clinging) {
@@ -110,5 +115,12 @@ public abstract class LivingEntityClimbMixin {
     private static boolean townstead$wallBeside(LivingEntity self) {
         AABB box = self.getBoundingBox().inflate(0.08, 0.0, 0.08);
         return !self.level().noCollision(self, box);
+    }
+
+    /** True when a solid block sits in the direction the entity faces (pushing into a wall, not past one). */
+    private static boolean townstead$facingWall(LivingEntity self) {
+        Direction d = self.getDirection();
+        AABB box = self.getBoundingBox();
+        return !self.level().noCollision(self, box.move(d.getStepX() * 0.1, 0.0, d.getStepZ() * 0.1));
     }
 }
