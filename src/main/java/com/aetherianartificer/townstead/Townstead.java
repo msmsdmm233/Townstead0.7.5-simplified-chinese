@@ -567,6 +567,7 @@ public class Townstead {
                 return;
             }
             com.aetherianartificer.townstead.origin.trigger.GeneTriggers.onDeath(e.getEntity(), e.getSource());
+            com.aetherianartificer.townstead.origin.loot.DeathLoot.onDeath(e.getEntity());
             if (!(e.getEntity() instanceof net.minecraft.world.entity.player.Player)) {
                 com.aetherianartificer.townstead.profession.skill.LearnedSkills.clear(e.getEntity().getUUID());
                 com.aetherianartificer.townstead.origin.collection.CollectionValues.onDeath(e.getEntity());
@@ -577,6 +578,11 @@ public class Townstead {
                     com.aetherianartificer.townstead.origin.gene.types.PreventGeneType.What.ITEM_USE, e.getItem())) {
                 e.setCanceled(true);
             }
+        });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.EntityEvent.Size e) -> {
+            net.minecraft.world.entity.EntityDimensions d =
+                    com.aetherianartificer.townstead.origin.rig.RigHitboxes.dimensionsFor(e.getEntity(), e.getPose());
+            if (d != null) e.setNewSize(d);
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.CanPlayerSleepEvent e) -> {
             if (e.getProblem() == null && com.aetherianartificer.townstead.origin.prevent.Prevents.prevents(e.getEntity(),
@@ -846,6 +852,7 @@ public class Townstead {
                 return;
             }
             com.aetherianartificer.townstead.origin.trigger.GeneTriggers.onDeath(e.getEntity(), e.getSource());
+            com.aetherianartificer.townstead.origin.loot.DeathLoot.onDeath(e.getEntity());
             if (!(e.getEntity() instanceof net.minecraft.world.entity.player.Player)) {
                 com.aetherianartificer.townstead.profession.skill.LearnedSkills.clear(e.getEntity().getUUID());
                 com.aetherianartificer.townstead.origin.collection.CollectionValues.onDeath(e.getEntity());
@@ -856,6 +863,11 @@ public class Townstead {
                     com.aetherianartificer.townstead.origin.gene.types.PreventGeneType.What.ITEM_USE, e.getItem())) {
                 e.setCanceled(true);
             }
+        });
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.EntityEvent.Size e) -> {
+            net.minecraft.world.entity.EntityDimensions d =
+                    com.aetherianartificer.townstead.origin.rig.RigHitboxes.dimensionsFor(e.getEntity(), e.getPose());
+            if (d != null) e.setNewSize(d);
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerSleepInBedEvent e) -> {
             if (e.getResultStatus() == null && com.aetherianartificer.townstead.origin.prevent.Prevents.prevents(e.getEntity(),
@@ -1019,6 +1031,10 @@ public class Townstead {
                     new com.aetherianartificer.townstead.origin.gene.types.LifeCycleGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.FertilityGeneType());
+            com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.origin.gene.types.LitterSizeGeneType());
+            com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.origin.gene.types.GestationLengthGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.origin.gene.types.AttributeGeneType());
             com.aetherianartificer.townstead.origin.gene.GeneTypes.register(
@@ -1589,6 +1605,7 @@ public class Townstead {
         event.addListener(new com.aetherianartificer.townstead.profession.def.ProfessionDataLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.trait.TraitJsonLoader());
         event.addListener(new com.aetherianartificer.townstead.origin.attachment.AttachmentServerLoader());
+        event.addListener(new com.aetherianartificer.townstead.origin.loot.DeathLootLoader());
         com.aetherianartificer.townstead.farming.CropProductResolver.invalidate();
     }
 
@@ -2436,7 +2453,7 @@ public class Townstead {
     ) {
         context.enqueueWork(() ->
                 com.aetherianartificer.townstead.client.attachment.AttachmentClient.onManifest(
-                        payload.defs(), payload.slots(), payload.namedTextures()));
+                        payload.defs(), payload.slots(), payload.namedTextures(), payload.namedGeo()));
     }
 
     private void handleAttachmentChunk(

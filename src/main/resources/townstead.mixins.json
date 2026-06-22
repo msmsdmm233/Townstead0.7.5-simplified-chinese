@@ -26,6 +26,7 @@
     "PathNavigationFenceGateMixin",
     "PregnancyInheritanceMixin",
     "FertilityPregnancyMixin",
+    "LitterGestationMixin",
     "MessengerVoiceMixin",
     "VillagerHungerMixin",
     "VillagerServerTickMixin",

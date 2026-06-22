@@ -397,7 +397,7 @@ public final class TownsteadNetwork {
     }
 
     private static void handleAttachmentManifest(com.aetherianartificer.townstead.origin.attachment.AttachmentManifestS2CPayload payload) {
-        com.aetherianartificer.townstead.client.attachment.AttachmentClient.onManifest(payload.defs(), payload.slots(), payload.namedTextures());
+        com.aetherianartificer.townstead.client.attachment.AttachmentClient.onManifest(payload.defs(), payload.slots(), payload.namedTextures(), payload.namedGeo());
     }
 
     private static void handleAttachmentChunk(com.aetherianartificer.townstead.origin.attachment.AttachmentChunkS2CPayload payload) {

@@ -159,7 +159,16 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
             }
         }
 
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses));
+        // Optional collision/interaction box: { "hitbox": { "width": 1.0, "height": 1.0 } }, in blocks.
+        RigDefinition.Hitbox hitbox = null;
+        if (obj.has("hitbox") && obj.get("hitbox").isJsonObject()) {
+            JsonObject hb = obj.getAsJsonObject("hitbox");
+            float w = GsonHelper.getAsFloat(hb, "width", 0.6f);
+            float h = GsonHelper.getAsFloat(hb, "height", 2.0f);
+            if (w > 0f && h > 0f) hitbox = new RigDefinition.Hitbox(w, h);
+        }
+
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox);
     }
 
     /**

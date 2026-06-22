@@ -79,10 +79,29 @@ public final class OriginCatalog {
                     spc != null ? spc.rig().base() : Rig.VILLAGER.base(),
                     spc != null ? spc.rig().scale() : Rig.VILLAGER.scale(),
                     spc != null ? spc.animations() : Animations.DEFAULT,
-                    spc == null || spc.breasts()));
+                    spc == null || spc.breasts(),
+                    stageRigsFor(origin.id())));
         }
         return new Snapshot(origins, new ArrayList<>(genes.values()), traits,
                 com.aetherianartificer.townstead.origin.rig.RigRegistry.all());
+    }
+
+    /**
+     * The per-stage rig overrides for an origin's effective life cycle (one entry per stage, empty string
+     * = species rig). Returns an empty list when no stage overrides the rig, so only origins that actually
+     * use a per-stage model (e.g. an egg-laying species) ship the array.
+     */
+    private static List<String> stageRigsFor(net.minecraft.resources.ResourceLocation originId) {
+        LifeCycle cycle = OriginRegistry.effectiveLifeCycle(originId);
+        if (cycle == null || cycle.isEmpty()) return List.of();
+        List<String> rigs = new ArrayList<>(cycle.size());
+        boolean any = false;
+        for (LifeStage stage : cycle.stages()) {
+            String r = stage.rig() == null ? "" : stage.rig();
+            rigs.add(r);
+            if (!r.isEmpty()) any = true;
+        }
+        return any ? rigs : List.of();
     }
 
     private static GeneCatalogEntry toGeneEntry(ResourceLocation geneId) {

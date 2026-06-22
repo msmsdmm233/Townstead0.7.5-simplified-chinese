@@ -35,9 +35,11 @@ import java.util.Optional;
 public final class AttachmentServerLoader implements ResourceManagerReloadListener {
 
     private static final int MAX_TEXTURE_BYTES = 8 * 1024 * 1024;
+    private static final int MAX_GEO_BYTES = 4 * 1024 * 1024;
     private static final String DIR = "attachment";
     private static final String SLOT_DIR = "attachment_point";
     private static final String TEX_DIR = "textures";
+    private static final String GEO_DIR = "geo";
 
     @Override
     public void onResourceManagerReload(ResourceManager manager) {
@@ -84,7 +86,23 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
             }
         });
 
-        AttachmentServerData.set(defs, slots, blobs, namedTextures);
+        // Named datapack geometry ("data/<ns>/geo/**.geo.json"): a custom-geometry rig's model, shipped to
+        // the client over the same blob sync. Logical id == the ResourceLocation string a rig's
+        // model.file references, e.g. "townstead_spider:geo/egg.geo.json".
+        Map<String, String> namedGeo = new LinkedHashMap<>();
+        manager.listResources(GEO_DIR, rl -> rl.getPath().endsWith(".geo.json")).forEach((file, resource) -> {
+            byte[] bytes = readBytes(manager, file, MAX_GEO_BYTES);
+            if (bytes == null) return;
+            try {
+                String sha = sha1(bytes);
+                blobs.put(sha, new AttachmentServerData.Blob(bytes, AttachmentServerData.KIND_GEO));
+                namedGeo.put(file.toString(), sha);
+            } catch (Exception e) {
+                Townstead.LOGGER.error("Failed to hash datapack geometry {}", file, e);
+            }
+        });
+
+        AttachmentServerData.set(defs, slots, blobs, namedTextures, namedGeo);
         PhenoDiagnostics.replace("attachment", diagnostics.all());
         int errors = diagnostics.count(Severity.ERROR);
         Townstead.LOGGER.info("Loaded {} attachment definitions, {} points, {} blobs ({} diagnostic{})",

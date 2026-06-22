@@ -196,6 +196,35 @@ public final class LifeStageProgression {
     }
 
     /**
+     * The villager's current life stage (from its recorded {@code currentStageId}), or null when it has no
+     * cycle or hasn't resolved a stage yet. Server-side; used to gate per-stage behavior (movement, needs,
+     * dialogue) without a client round-trip. {@code currentStageId} is committed by {@code setAgeState} and
+     * the daily ticker, so it is set shortly after spawn.
+     */
+    @org.jetbrains.annotations.Nullable
+    public static LifeStage currentStage(VillagerEntityMCA villager) {
+        TownsteadVillager.Life life = TownsteadVillagers.get(villager).life();
+        LifeCycle cycle = resolveCycle(life);
+        if (cycle == null || cycle.isEmpty()) return null;
+        String id = life.currentStageId();
+        if (id == null || id.isEmpty()) return null;
+        return cycle.findById(id).orElse(null);
+    }
+
+    /**
+     * True when this villager is at a stage flagged {@code talkable:false} (e.g. an egg). Drives MCA's
+     * {@code isToYoungToSpeak} so the stage's dialogue comes out as babble (like a baby) instead of real
+     * lines, while the inspect GUI, the editor, and trading all still work. Runs on both sides (the
+     * client TTS path and the server message transform both consult MCA's speech gate), so unlike a
+     * server-only interaction block it does not guard on {@code isClientSide}.
+     */
+    public static boolean isMuteStage(VillagerEntityMCA villager) {
+        if (villager == null) return false;
+        LifeStage stage = currentStage(villager);
+        return stage != null && !stage.talkable();
+    }
+
+    /**
      * Freeze an immortal villager's appearance at the given cycle index,
      * committing that stage's senior/fertility state and MCA age model without
      * touching the date of birth (calendar age keeps climbing). No-op for an out

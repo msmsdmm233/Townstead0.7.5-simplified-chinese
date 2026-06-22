@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.origin.rig;
 
 import com.aetherianartificer.townstead.origin.Hold;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -57,9 +58,17 @@ public record RigDefinition(
         // Per-state bone poses (e.g. "crouch"): each state names bones to rotate/offset on top of the
         // model's own setupAnim, so a pack authors a rig's crouch (a spider splays its legs) as data
         // instead of engine code. Empty when the rig declares none.
-        Map<String, List<PoseBone>> poses
+        Map<String, List<PoseBone>> poses,
+        // The collision/interaction box this rig gives the entity, in blocks, or null to keep MCA's
+        // scale-derived default (0.6 x 2.0). Absolute (not gene-scaled): the number you write is the box
+        // you get, so a full-block egg rig declares 1 x 1 instead of inheriting a 2-tall humanoid column.
+        // Applied via the EntityEvent.Size hook for whichever rig the entity currently renders as.
+        @Nullable Hitbox hitbox
 ) {
     public enum ModelType { ENTITY_LAYER, GEOMETRY }
+
+    /** The collision/interaction box a rig imposes, in blocks (width is the square footprint side). */
+    public record Hitbox(float width, float height) {}
 
     /**
      * One bone in a named pose: the {@code bone}'s geo name, an additive {@code rotation} in degrees

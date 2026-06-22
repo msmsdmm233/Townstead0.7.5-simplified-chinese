@@ -55,5 +55,11 @@ public final class LifeStageTicker {
         } else {
             SeniorEffects.clearSenior(villager);
         }
+
+        // Per-stage movement: a non-mobile stage (e.g. an egg) freezes the villager's AI so it sits still
+        // instead of wandering. noAi persists across save/load, so we just keep it in sync with the stage.
+        com.aetherianartificer.townstead.origin.LifeStage stage = LifeStageProgression.currentStage(villager);
+        boolean immobile = stage != null && !stage.mobile();
+        if (villager.isNoAi() != immobile) villager.setNoAi(immobile);
     }
 }

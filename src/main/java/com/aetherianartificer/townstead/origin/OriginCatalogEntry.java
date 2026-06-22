@@ -41,7 +41,11 @@ public record OriginCatalogEntry(
         // The species' per-state animation sources, so the client rig renderer poses crouch/sleep/fly.
         Animations animations,
         // Whether this species' body shows breasts (false hides MCA's breast part for it).
-        boolean breasts
+        boolean breasts,
+        // Per-life-stage rig override, one entry per stage of this origin's effective life cycle (empty
+        // string = species rig). Empty list when no stage overrides the rig. Lets a stage (e.g. "egg")
+        // render a different model; the client renderer indexes it by the villager's current stage.
+        List<String> stageRigs
 ) {
     /** A gene this origin inherits, with its base occurrence (presence probability). */
     public record Inherited(String geneId, float occurrence) {}

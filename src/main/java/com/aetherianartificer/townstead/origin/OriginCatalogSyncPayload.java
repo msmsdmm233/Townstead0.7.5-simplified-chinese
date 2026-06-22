@@ -80,6 +80,8 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             buf.writeFloat(e.rigScale());
             writeAnimations(buf, e.animations());
             buf.writeBoolean(e.breasts());
+            buf.writeVarInt(e.stageRigs().size());
+            for (String r : e.stageRigs()) buf.writeUtf(r == null ? "" : r);
         }
         buf.writeVarInt(genes.size());
         for (GeneCatalogEntry g : genes) {
@@ -156,6 +158,9 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             float rigScale = buf.readFloat();
             Animations animations = readAnimations(buf);
             boolean breasts = buf.readBoolean();
+            int stageRigCount = buf.readVarInt();
+            List<String> stageRigs = new ArrayList<>(stageRigCount);
+            for (int s = 0; s < stageRigCount; s++) stageRigs.add(buf.readUtf());
             entries.add(new OriginCatalogEntry(id,
                     localize(nameKey, name),
                     localize(singularKey, singular),
@@ -167,7 +172,7 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
                     inherited, ranges,
                     nameKey, singularKey, pluralKey, backstoryKey,
                     speciesNameKey, ancestryNameKey, lineageNameKey,
-                    rigBase, rigScale, animations, breasts));
+                    rigBase, rigScale, animations, breasts, stageRigs));
         }
         int m = buf.readVarInt();
         List<GeneCatalogEntry> genes = new ArrayList<>(m);
@@ -273,6 +278,12 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
                 for (int k = 0; k < 3; k++) buf.writeFloat(p.offset()[k]);
             }
         }
+        RigDefinition.Hitbox hb = r.hitbox();
+        buf.writeBoolean(hb != null);
+        if (hb != null) {
+            buf.writeFloat(hb.width());
+            buf.writeFloat(hb.height());
+        }
     }
 
     private static void writeAdjust(FriendlyByteBuf buf, RigDefinition.Adjust a) {
@@ -338,7 +349,11 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             }
             poses.put(state, List.copyOf(list));
         }
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses));
+        RigDefinition.Hitbox hitbox = null;
+        if (buf.readBoolean()) {
+            hitbox = new RigDefinition.Hitbox(buf.readFloat(), buf.readFloat());
+        }
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox);
     }
 
     private static void writeNullableUtf(FriendlyByteBuf buf, String value) {

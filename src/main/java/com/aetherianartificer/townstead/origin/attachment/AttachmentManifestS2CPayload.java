@@ -18,11 +18,13 @@ import java.util.List;
  */
 //? if neoforge {
 public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<AttachmentPointDef> slots,
-                                           java.util.Map<String, String> namedTextures)
+                                           java.util.Map<String, String> namedTextures,
+                                           java.util.Map<String, String> namedGeo)
         implements CustomPacketPayload {
 //?} else {
 /*public record AttachmentManifestS2CPayload(java.util.List<AttachmentDef> defs, java.util.List<AttachmentPointDef> slots,
-                                           java.util.Map<String, String> namedTextures) {
+                                           java.util.Map<String, String> namedTextures,
+                                           java.util.Map<String, String> namedGeo) {
 *///?}
 
     //? if neoforge {
@@ -69,6 +71,11 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             buf.writeUtf(e.getKey());
             buf.writeUtf(e.getValue());
         }
+        buf.writeVarInt(namedGeo.size());
+        for (java.util.Map.Entry<String, String> e : namedGeo.entrySet()) {
+            buf.writeUtf(e.getKey());
+            buf.writeUtf(e.getValue());
+        }
     }
 
     public static AttachmentManifestS2CPayload read(FriendlyByteBuf buf) {
@@ -105,7 +112,13 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             String key = buf.readUtf();
             namedTextures.put(key, buf.readUtf());
         }
-        return new AttachmentManifestS2CPayload(defs, slots, namedTextures);
+        int geoCount = buf.readVarInt();
+        java.util.Map<String, String> namedGeo = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < geoCount; i++) {
+            String key = buf.readUtf();
+            namedGeo.put(key, buf.readUtf());
+        }
+        return new AttachmentManifestS2CPayload(defs, slots, namedTextures, namedGeo);
     }
 
     private static void writeVec(FriendlyByteBuf buf, float[] v) {

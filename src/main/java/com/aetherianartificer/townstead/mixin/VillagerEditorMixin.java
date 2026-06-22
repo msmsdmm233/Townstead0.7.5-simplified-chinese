@@ -399,6 +399,8 @@ public abstract class VillagerEditorMixin extends Screen {
                     townstead$previewAge(townstead$modelAgeForBio(snap, bio),
                             LifeStageScale.interpolate(snap.stageScales(), snap.stageDays(), bio));
                     SeniorHairDesat.setPreviewProgress(villager.getId(), snap.seniorProgressForBio(bio));
+                    com.aetherianartificer.townstead.client.species.RigModels.setPreviewStage(
+                            villager.getId(), snap.stageIndexForBioAge(bio));
                 });
         addRenderableWidget(slider);
         int bio0 = townstead$bioForSliderValue(snap, slider.sliderValue());
@@ -406,6 +408,8 @@ public abstract class VillagerEditorMixin extends Screen {
         townstead$previewAge(townstead$modelAgeForBio(snap, bio0),
                 LifeStageScale.interpolate(snap.stageScales(), snap.stageDays(), bio0));
         SeniorHairDesat.setPreviewProgress(villager.getId(), snap.seniorProgressForBio(bio0));
+        com.aetherianartificer.townstead.client.species.RigModels.setPreviewStage(
+                villager.getId(), snap.stageIndexForBioAge(bio0));
         ageRefresh.run();
 
         // Editable "< Month > < Day >" birthday row — celebrated date only, decoupled
@@ -498,10 +502,12 @@ public abstract class VillagerEditorMixin extends Screen {
                     ageRefresh.run();
                     townstead$previewAge(townstead$modelAgeAtIndex(snap, idx), townstead$scaleAtIndex(snap, idx));
                     SeniorHairDesat.setPreviewProgress(villager.getId(), townstead$frozenSeniorProgress(snap, idx));
+                    com.aetherianartificer.townstead.client.species.RigModels.setPreviewStage(villager.getId(), idx);
                 });
         addRenderableWidget(slider);
         townstead$previewAge(townstead$modelAgeAtIndex(snap, start), townstead$scaleAtIndex(snap, start));
         SeniorHairDesat.setPreviewProgress(villager.getId(), townstead$frozenSeniorProgress(snap, start));
+        com.aetherianartificer.townstead.client.species.RigModels.setPreviewStage(villager.getId(), start);
         ageRefresh.run();
 
         townstead$shiftBelow(sy + sh + 2, TOWNSTEAD_LIFE_SHIFT);
@@ -642,6 +648,7 @@ public abstract class VillagerEditorMixin extends Screen {
         FatigueClientStore.clearOnChange();
         LifeClientStore.clearOnChange();
         LifeStageScale.clearPreviewOverride(villager.getId());
+        com.aetherianartificer.townstead.client.species.RigModels.clearPreviewStage(villager.getId());
         SeniorHairDesat.clearPreviewProgress(villager.getId());
         townstead$hungerDisplay = null;
         townstead$thirstDisplay = null;

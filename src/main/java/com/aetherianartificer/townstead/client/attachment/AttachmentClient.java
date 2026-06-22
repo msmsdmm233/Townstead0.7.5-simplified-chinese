@@ -37,6 +37,9 @@ public final class AttachmentClient {
     // Named datapack textures: logical id ("ns:textures/...") -> SHA-1, so rig/face textures resolve
     // to a synced DynamicTexture without a resource pack.
     private static final Map<String, String> NAMED = new ConcurrentHashMap<>();
+    // Named datapack geometry: logical id ("ns:geo/...") -> SHA-1, so a custom-geometry rig model resolves
+    // to a synced baked ModelPart (twin of NAMED).
+    private static final Map<String, String> NAMED_GEO = new ConcurrentHashMap<>();
 
     private AttachmentClient() {}
 
@@ -54,13 +57,15 @@ public final class AttachmentClient {
     }
 
     public static void onManifest(List<AttachmentDef> defs, List<AttachmentPointDef> slots,
-                                  Map<String, String> namedTextures) {
+                                  Map<String, String> namedTextures, Map<String, String> namedGeo) {
         DEFS.clear();
         SLOTS.clear();
         NAMED.clear();
+        NAMED_GEO.clear();
         for (AttachmentDef def : defs) DEFS.put(def.id(), def);
         for (AttachmentPointDef slot : slots) SLOTS.put(slot.id(), slot);
         NAMED.putAll(namedTextures);
+        NAMED_GEO.putAll(namedGeo);
 
         Map<String, Integer> needed = new LinkedHashMap<>();
         for (AttachmentDef def : defs) {
@@ -69,6 +74,9 @@ public final class AttachmentClient {
         }
         for (String sha1 : namedTextures.values()) {
             needed.putIfAbsent(sha1, AttachmentServerData.KIND_TEXTURE);
+        }
+        for (String sha1 : namedGeo.values()) {
+            needed.putIfAbsent(sha1, AttachmentServerData.KIND_GEO);
         }
 
         List<String> request = new ArrayList<>();
@@ -154,10 +162,21 @@ public final class AttachmentClient {
         return sha1 == null ? null : TEXTURES.get(sha1);
     }
 
+    /**
+     * Resolve a named datapack geometry ("ns:geo/...") to its synced baked {@link ModelPart}, or
+     * {@code null} if it isn't a datapack geo or hasn't materialized yet (the caller leaves the rig
+     * un-cached so it retries once the blob arrives).
+     */
+    public static ModelPart namedGeo(String id) {
+        String sha1 = NAMED_GEO.get(id);
+        return sha1 == null ? null : GEO.get(sha1);
+    }
+
     public static void clear() {
         DEFS.clear();
         SLOTS.clear();
         NAMED.clear();
+        NAMED_GEO.clear();
         BUFFERS.clear();
         // Baked geometry and registered textures are kept: they're content-addressed
         // and reused if the same blobs appear again next session.

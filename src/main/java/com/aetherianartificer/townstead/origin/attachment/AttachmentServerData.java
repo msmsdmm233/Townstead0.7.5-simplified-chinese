@@ -22,15 +22,19 @@ public final class AttachmentServerData {
     // Named datapack textures: logical id ("ns:textures/...") -> SHA-1 of the PNG, so rig/face
     // textures ship over the same blob sync instead of needing a resource pack.
     private static volatile Map<String, String> namedTextures = Map.of();
+    // Named datapack geometry: logical id ("ns:geo/...") -> SHA-1 of the .geo.json, so a custom-geometry
+    // rig model ships over the same blob sync (twin of namedTextures).
+    private static volatile Map<String, String> namedGeo = Map.of();
 
     private AttachmentServerData() {}
 
     public static void set(List<AttachmentDef> defs, List<AttachmentPointDef> slotDefs, Map<String, Blob> blobStore,
-                           Map<String, String> textureIds) {
+                           Map<String, String> textureIds, Map<String, String> geoIds) {
         definitions = List.copyOf(defs);
         slots = List.copyOf(slotDefs);
         blobs = Map.copyOf(blobStore);
         namedTextures = Map.copyOf(textureIds);
+        namedGeo = Map.copyOf(geoIds);
     }
 
     public static List<AttachmentDef> definitions() {
@@ -48,5 +52,10 @@ public final class AttachmentServerData {
     /** Named datapack textures (logical id -> SHA-1), shipped in the manifest. */
     public static Map<String, String> namedTextures() {
         return namedTextures;
+    }
+
+    /** Named datapack geometry (logical id -> SHA-1), shipped in the manifest. */
+    public static Map<String, String> namedGeo() {
+        return namedGeo;
     }
 }

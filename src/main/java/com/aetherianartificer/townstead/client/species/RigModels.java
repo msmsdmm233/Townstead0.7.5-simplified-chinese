@@ -45,23 +45,63 @@ public final class RigModels {
 
     private RigModels() {}
 
-    /** The species rig.base for an entity, resolved through its synced origin (villager default). */
+    /**
+     * The rig.base for an entity: a life-stage rig override (e.g. an "egg" stage renders an egg model)
+     * when the current stage has one, else the species rig, else the villager default. Resolved through
+     * the synced origin catalog + the client life store's current stage index.
+     */
     public static String rigBaseFor(LivingEntity entity) {
         String originId = OriginClientStore.resolve(entity);
         if (originId == null || originId.isEmpty()) return VILLAGER;
         OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
-        return origin == null || origin.rigBase() == null || origin.rigBase().isEmpty()
-                ? VILLAGER : origin.rigBase();
+        if (origin == null) return VILLAGER;
+        String stageRig = stageRigFor(entity, origin);
+        if (stageRig != null && !stageRig.isEmpty()) return stageRig;
+        return origin.rigBase() == null || origin.rigBase().isEmpty() ? VILLAGER : origin.rigBase();
+    }
+
+    // Editor preview: the editor's villager is a throwaway client entity with no synced life snapshot, so
+    // the age slider pushes the previewed stage index here (keyed by entity id) while it drags, so the rig
+    // swaps live (egg <-> spider) as the slider crosses a stage. Mirrors LifeStageScale's scale preview.
+    private static final Map<Integer, Integer> PREVIEW_STAGE = new HashMap<>();
+
+    /** Editor: set the previewed life-stage index for an entity id (drives the per-stage rig swap). */
+    public static void setPreviewStage(int entityId, int stageIndex) {
+        PREVIEW_STAGE.put(entityId, stageIndex);
+    }
+
+    public static void clearPreviewStage(int entityId) {
+        PREVIEW_STAGE.remove(entityId);
+    }
+
+    /** The current life stage's rig override for this entity (editor preview, else per-origin catalog), or null. */
+    private static String stageRigFor(LivingEntity entity, OriginCatalogEntry origin) {
+        java.util.List<String> rigs = origin.stageRigs();
+        if (rigs == null || rigs.isEmpty()) return null;
+        int idx;
+        Integer preview = PREVIEW_STAGE.get(entity.getId());
+        if (preview != null) {
+            idx = preview;
+        } else {
+            com.aetherianartificer.townstead.calendar.LifeClientStore.Snapshot snap =
+                    com.aetherianartificer.townstead.calendar.LifeClientStore.get(entity.getId());
+            if (snap == null) return null;
+            idx = snap.currentStageIndex();
+        }
+        return idx >= 0 && idx < rigs.size() ? rigs.get(idx) : null;
     }
 
     /**
-     * True when the rig resolves to a renderable alternate definition, so the swap engages. Limited to
-     * {@code entity_layer} rigs for now: a {@code geometry} rig has no bakeable model until that loader
-     * lands, and treating it as alternate would suppress the villager body and render nothing.
+     * True when the rig resolves to a renderable alternate definition, so the swap engages. Covers both
+     * {@code entity_layer} rigs (vanilla model layers) and {@code geometry} rigs (custom Bedrock
+     * {@code .geo.json}, baked + synced via the attachment blob pipeline and rendered through the generic
+     * static path). A geometry rig that hasn't materialized yet renders nothing for a frame, like a
+     * not-yet-synced texture — acceptable for the sync window.
      */
     public static boolean isAlternate(String rigBase) {
         RigDefinition def = OriginCatalogClient.rig(rigBase);
-        return def != null && def.modelType() == RigDefinition.ModelType.ENTITY_LAYER;
+        return def != null && (def.modelType() == RigDefinition.ModelType.ENTITY_LAYER
+                || def.modelType() == RigDefinition.ModelType.GEOMETRY);
     }
 
     /** The resolved rig definition for a rig id (vanilla aliases applied), or null if unknown. */
@@ -90,7 +130,10 @@ public final class RigModels {
      */
     public static boolean isGeneric(String rigBase) {
         RigDefinition def = OriginCatalogClient.rig(rigBase);
-        return def != null && def.modelType() == RigDefinition.ModelType.ENTITY_LAYER
+        if (def == null) return false;
+        // A custom-geometry rig is always generic (static body, no humanoid assumptions).
+        if (def.modelType() == RigDefinition.ModelType.GEOMETRY) return true;
+        return def.modelType() == RigDefinition.ModelType.ENTITY_LAYER
                 && GENERIC_FACTORIES.containsKey(def.modelRef());
     }
 
@@ -102,9 +145,10 @@ public final class RigModels {
      */
     public static EntityModel<LivingEntity> genericModel(String rigBase) {
         if (GENERIC_MODELS.containsKey(rigBase)) return GENERIC_MODELS.get(rigBase);
-        EntityModel<LivingEntity> model = null;
         RigDefinition def = OriginCatalogClient.rig(rigBase);
-        if (def != null && def.modelType() == RigDefinition.ModelType.ENTITY_LAYER) {
+        if (def == null) return null;
+        EntityModel<LivingEntity> model = null;
+        if (def.modelType() == RigDefinition.ModelType.ENTITY_LAYER) {
             Function<ModelPart, EntityModel<LivingEntity>> factory = GENERIC_FACTORIES.get(def.modelRef());
             if (factory != null) {
                 ModelPart part = bakeLayer(new ModelLayerLocation(DataPackLang.parseId(def.modelRef()), def.modelLayer()));
@@ -113,8 +157,19 @@ public final class RigModels {
                     ROOTS.put(rigBase, part);
                 }
             }
+            // The vanilla-layer bake is deterministic, so cache the result (even null = unsupported).
+            GENERIC_MODELS.put(rigBase, model);
+        } else if (def.modelType() == RigDefinition.ModelType.GEOMETRY) {
+            // Custom Bedrock model, baked + synced through the attachment blob pipeline (modelRef is the
+            // geo's logical id, e.g. "townstead_spider:geo/egg.geo.json"). It may not have materialized
+            // yet, so only cache once it's ready — otherwise leave it out so the next frame retries.
+            ModelPart part = com.aetherianartificer.townstead.client.attachment.AttachmentClient.namedGeo(def.modelRef());
+            if (part != null) {
+                model = new StaticRigModel<>(part);
+                ROOTS.put(rigBase, part);
+                GENERIC_MODELS.put(rigBase, model);
+            }
         }
-        GENERIC_MODELS.put(rigBase, model);
         return model;
     }
 

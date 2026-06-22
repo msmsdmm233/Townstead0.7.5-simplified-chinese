@@ -37,7 +37,17 @@ public record LifeStage(
         float narrativeEnd,
         @Nullable StageEndAction onEnd,
         float scale,
-        boolean explicitNarrative
+        boolean explicitNarrative,
+        // Optional rig id this stage renders as, overriding the species rig (e.g. an "egg" stage rendering
+        // an egg model). Null/empty = use the species rig. Reaches the client per-origin via the origin
+        // catalog (OriginCatalogEntry.stageRigs).
+        @Nullable String rig,
+        // Server-side stage behavior flags (all default true). An "egg" stage sets them false: it can't
+        // move (frozen AI), has no needs (hunger/thirst pinned), and can't be talked to (interaction
+        // blocked). Resolved server-side from the gene, so no client sync.
+        boolean mobile,
+        boolean needs,
+        boolean talkable
 ) {
     public LifeStage {
         if (id == null || id.isBlank()) throw new IllegalArgumentException("stage id is required");
@@ -58,7 +68,7 @@ public record LifeStage(
                                int days, @Nullable StageEndAction onEnd) {
         return new LifeStage(id, label, presentsAs, days,
                 presentsAs.defaultNarrativeStart(), presentsAs.defaultNarrativeEnd(), onEnd,
-                presentsAs.defaultScale(), false);
+                presentsAs.defaultScale(), false, null, true, true, true);
     }
 
     /** Apparent ("life years") age at {@code delta} (0..1) through this stage. */

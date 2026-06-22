@@ -132,7 +132,14 @@ public final class LifeCycleGeneType implements GeneType {
                 narrStart = presentsAs.defaultNarrativeStart();
                 narrEnd = presentsAs.defaultNarrativeEnd();
             }
-            stages.add(new LifeStage(id, label, presentsAs, days, narrStart, narrEnd, onEnd, scale, explicitNarrative));
+            // Optional per-stage rig override (e.g. "rig": "townstead_spider:egg" for an egg stage).
+            String rig = GsonHelper.getAsString(s, "rig", "");
+            // Per-stage behavior flags (default true): an egg sets these false (frozen, no needs, no talk).
+            boolean mobile = GsonHelper.getAsBoolean(s, "mobile", true);
+            boolean needs = GsonHelper.getAsBoolean(s, "needs", true);
+            boolean talkable = GsonHelper.getAsBoolean(s, "talkable", true);
+            stages.add(new LifeStage(id, label, presentsAs, days, narrStart, narrEnd, onEnd, scale, explicitNarrative,
+                    rig.isEmpty() ? null : rig, mobile, needs, talkable));
         }
         return stages;
     }
