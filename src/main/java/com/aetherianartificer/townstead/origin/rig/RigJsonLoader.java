@@ -155,7 +155,29 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
             if (w > 0f && h > 0f) hitbox = new RigDefinition.Hitbox(w, h);
         }
 
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox);
+        // Equipment slots this body refuses: { "equipment": { "disabled": ["head","chest", ...] } }.
+        java.util.Set<net.minecraft.world.entity.EquipmentSlot> disabledSlots = parseDisabledSlots(obj);
+
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox, disabledSlots);
+    }
+
+    /** Parse {@code equipment.disabled} into a set of vanilla equipment slots (unknown names skipped). */
+    private static java.util.Set<net.minecraft.world.entity.EquipmentSlot> parseDisabledSlots(JsonObject obj) {
+        if (!obj.has("equipment") || !obj.get("equipment").isJsonObject()) return java.util.Set.of();
+        JsonObject equipment = obj.getAsJsonObject("equipment");
+        if (!equipment.has("disabled") || !equipment.get("disabled").isJsonArray()) return java.util.Set.of();
+        java.util.EnumSet<net.minecraft.world.entity.EquipmentSlot> slots =
+                java.util.EnumSet.noneOf(net.minecraft.world.entity.EquipmentSlot.class);
+        for (JsonElement e : equipment.getAsJsonArray("disabled")) {
+            if (!e.isJsonPrimitive()) continue;
+            try {
+                slots.add(net.minecraft.world.entity.EquipmentSlot.byName(
+                        e.getAsString().toLowerCase(java.util.Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+                // Unknown slot name in the pack; skip it rather than fail the whole rig.
+            }
+        }
+        return java.util.Set.copyOf(slots);
     }
 
     /**

@@ -1,10 +1,12 @@
 package com.aetherianartificer.townstead.origin.rig;
 
 import com.aetherianartificer.townstead.origin.Hold;
+import net.minecraft.world.entity.EquipmentSlot;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A data-pack rig: the body model a species renders as, its texture, the bone that plays each
@@ -65,7 +67,12 @@ public record RigDefinition(
         // scale-derived default (0.6 x 2.0). Absolute (not gene-scaled): the number you write is the box
         // you get, so a full-block egg rig declares 1 x 1 instead of inheriting a 2-tall humanoid column.
         // Applied via the EntityEvent.Size hook for whichever rig the entity currently renders as.
-        @Nullable Hitbox hitbox
+        @Nullable Hitbox hitbox,
+        // Vanilla equipment slots this rig refuses (head/chest/legs/feet/mainhand/offhand): a body that
+        // can't wear or hold gear in a slot, e.g. an egg wears nothing. The equip backstop strips anything
+        // placed in a disabled slot back to the wearer; since the slot then stays empty, nothing renders
+        // there either. Empty = the rig allows every slot (the default).
+        Set<EquipmentSlot> disabledSlots
 ) {
     public enum ModelType { ENTITY_LAYER, GEOMETRY }
 

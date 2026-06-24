@@ -792,6 +792,7 @@
   "itemGroup.townstead": "Townstead",
   "item.townstead.scarf": "Spidersilk Scarf",
   "message.townstead.scarf_arthropod_only": "Only spider-folk can wear this.",
+  "message.townstead.equip_slot_unavailable": "This body can't wear that.",
   "block.townstead.calendar": "Calendar",
   "block.townstead.field_post": "Oak Field Post",
   "block.townstead.field_post_spruce": "Spruce Field Post",

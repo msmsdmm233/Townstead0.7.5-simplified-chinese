@@ -274,6 +274,8 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             buf.writeFloat(hb.width());
             buf.writeFloat(hb.height());
         }
+        buf.writeVarInt(r.disabledSlots().size());
+        for (net.minecraft.world.entity.EquipmentSlot slot : r.disabledSlots()) buf.writeByte(slot.ordinal());
     }
 
     private static void writeWornAnchor(FriendlyByteBuf buf, RigDefinition.WornAnchor anchor) {
@@ -356,7 +358,14 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
         if (buf.readBoolean()) {
             hitbox = new RigDefinition.Hitbox(buf.readFloat(), buf.readFloat());
         }
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox);
+        int disabledCount = buf.readVarInt();
+        java.util.Set<net.minecraft.world.entity.EquipmentSlot> disabledSlots = disabledCount == 0
+                ? java.util.Set.of()
+                : java.util.EnumSet.noneOf(net.minecraft.world.entity.EquipmentSlot.class);
+        for (int i = 0; i < disabledCount; i++) {
+            disabledSlots.add(net.minecraft.world.entity.EquipmentSlot.values()[buf.readByte()]);
+        }
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox, java.util.Set.copyOf(disabledSlots));
     }
 
     private static void writeNullableUtf(FriendlyByteBuf buf, String value) {

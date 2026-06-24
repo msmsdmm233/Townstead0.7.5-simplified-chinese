@@ -449,8 +449,11 @@ public class Townstead {
             b.addMix(AGELESSNESS_POTION,
                     net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, AGING_POTION);
         });
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent e) ->
-                com.aetherianartificer.townstead.item.ScarfEquip.enforce(e.getEntity(), e.getSlot(), e.getTo()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent e) -> {
+            if (!com.aetherianartificer.townstead.item.ScarfEquip.enforce(e.getEntity(), e.getSlot(), e.getTo())) {
+                com.aetherianartificer.townstead.origin.rig.RigEquipment.enforce(e.getEntity(), e.getSlot(), e.getTo());
+            }
+        });
         if (com.aetherianartificer.townstead.compat.ModCompat.isLoaded("curios")) {
             NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.tick.PlayerTickEvent.Post e) -> {
                 if (e.getEntity().tickCount % 20 == 0) {
@@ -738,8 +741,11 @@ public class Townstead {
                 }
             }
         });
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent e) ->
-                com.aetherianartificer.townstead.item.ScarfEquip.enforce(e.getEntity(), e.getSlot(), e.getTo()));
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent e) -> {
+            if (!com.aetherianartificer.townstead.item.ScarfEquip.enforce(e.getEntity(), e.getSlot(), e.getTo())) {
+                com.aetherianartificer.townstead.origin.rig.RigEquipment.enforce(e.getEntity(), e.getSlot(), e.getTo());
+            }
+        });
         if (com.aetherianartificer.townstead.compat.ModCompat.isLoaded("curios")) {
             MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.TickEvent.PlayerTickEvent e) -> {
                 if (e.phase == net.minecraftforge.event.TickEvent.Phase.END && e.player.tickCount % 20 == 0) {

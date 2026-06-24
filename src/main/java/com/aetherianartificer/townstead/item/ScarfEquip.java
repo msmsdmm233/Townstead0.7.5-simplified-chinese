@@ -47,10 +47,10 @@ public final class ScarfEquip {
      * right-click gates refuse cleanly; this catches every other path so the rule holds everywhere. Returns
      * the removed scarf to a player's inventory (with the deny message), or drops it for a non-player.
      */
-    public static void enforce(LivingEntity entity, EquipmentSlot slot, ItemStack to) {
-        if (slot != EquipmentSlot.HEAD || entity.level().isClientSide) return;
-        if (!(to.getItem() instanceof ScarfItem)) return;
-        if (EntityGroups.isArthropod(entity)) return;
+    public static boolean enforce(LivingEntity entity, EquipmentSlot slot, ItemStack to) {
+        if (slot != EquipmentSlot.HEAD || entity.level().isClientSide) return false;
+        if (!(to.getItem() instanceof ScarfItem)) return false;
+        if (EntityGroups.isArthropod(entity)) return false;
 
         // Setting the slot empty re-fires the change with an empty stack, which this method ignores.
         entity.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
@@ -61,6 +61,7 @@ public final class ScarfEquip {
         } else {
             entity.spawnAtLocation(returned);
         }
+        return true;
     }
 
     /**

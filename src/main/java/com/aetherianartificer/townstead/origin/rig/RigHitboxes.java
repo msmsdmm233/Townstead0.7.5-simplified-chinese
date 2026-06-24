@@ -3,15 +3,8 @@ package com.aetherianartificer.townstead.origin.rig;
 import com.aetherianartificer.townstead.calendar.LifeClientStore;
 import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
 import com.aetherianartificer.townstead.client.origin.OriginClientStore;
-import com.aetherianartificer.townstead.origin.LifeStage;
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
 import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
-import com.aetherianartificer.townstead.origin.OriginRegistry;
-import com.aetherianartificer.townstead.origin.Species;
-import com.aetherianartificer.townstead.origin.SpeciesRegistry;
-import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.LivingEntity;
@@ -44,17 +37,8 @@ public final class RigHitboxes {
     }
 
     private static RigDefinition.Hitbox forServer(VillagerEntityMCA villager) {
-        RigDefinition def = RigRegistry.byId(serverRigId(villager));
+        RigDefinition def = ServerRig.defFor(villager);
         return def == null ? null : def.hitbox();
-    }
-
-    private static String serverRigId(VillagerEntityMCA villager) {
-        LifeStage stage = LifeStageProgression.currentStage(villager);
-        if (stage != null && stage.rig() != null && !stage.rig().isEmpty()) return stage.rig();
-        ResourceLocation originId = ResourceLocation.tryParse(TownsteadVillagers.get(villager).life().originId());
-        ResourceLocation speciesId = OriginRegistry.effectiveSpecies(originId);
-        Species species = speciesId == null ? null : SpeciesRegistry.byId(speciesId);
-        return species == null ? null : species.rig().base();
     }
 
     private static RigDefinition.Hitbox forClient(LivingEntity entity) {
