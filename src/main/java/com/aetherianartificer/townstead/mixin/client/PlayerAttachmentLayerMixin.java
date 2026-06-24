@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.mixin.client;
 
 import com.aetherianartificer.townstead.client.attachment.AttachmentRenderLayer;
+import com.aetherianartificer.townstead.client.species.WornItemLayer;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -30,5 +31,6 @@ public abstract class PlayerAttachmentLayerMixin
     @Inject(method = "<init>(Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;Z)V", at = @At("TAIL"))
     private void townstead$addAttachmentLayer(EntityRendererProvider.Context ctx, boolean slim, CallbackInfo ci) {
         this.addLayer(new AttachmentRenderLayer<>(this));
+        this.addLayer(new WornItemLayer<>(this));
     }
 }

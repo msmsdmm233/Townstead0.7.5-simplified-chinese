@@ -73,7 +73,7 @@ public final class RigWearables {
             posed = true;
         }
         if (def.head() != null) {
-            poseAt(host.head, RigModels.bakedBone(def.id(), def.boneFor("head")), def.head(), true, headYaw, headPitch);
+            poseAt(host.head, RigModels.bakedBone(def.id(), def.boneFor("head")), def.head().base(), true, headYaw, headPitch);
             posed = true;
         }
         return posed;

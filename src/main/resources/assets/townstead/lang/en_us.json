@@ -790,6 +790,8 @@
   "townstead.dialogue.first.settling": "I'm looking for a place to settle.",
   "townstead.dialogue.first.spent_night": "I stayed at the inn last night.",
   "itemGroup.townstead": "Townstead",
+  "item.townstead.scarf": "Spidersilk Scarf",
+  "message.townstead.scarf_arthropod_only": "Only spider-folk can wear this.",
   "block.townstead.calendar": "Calendar",
   "block.townstead.field_post": "Oak Field Post",
   "block.townstead.field_post_spruce": "Spruce Field Post",

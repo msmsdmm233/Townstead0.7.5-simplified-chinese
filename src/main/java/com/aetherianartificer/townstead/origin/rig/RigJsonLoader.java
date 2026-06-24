@@ -105,22 +105,9 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
         JsonObject worn = obj.has("wearables") && obj.get("wearables").isJsonObject()
                 ? obj.getAsJsonObject("wearables") : obj;
 
-        RigDefinition.Back back = null;
-        if (worn.has("back") && worn.get("back").isJsonObject()) {
-            JsonObject b = worn.getAsJsonObject("back");
-            Map<String, RigDefinition.Adjust> items = new LinkedHashMap<>();
-            if (b.has("items") && b.get("items").isJsonObject()) {
-                for (Map.Entry<String, JsonElement> e : b.getAsJsonObject("items").entrySet()) {
-                    if (e.getValue().isJsonObject()) items.put(e.getKey(), adjust(e.getValue().getAsJsonObject()));
-                }
-            }
-            back = new RigDefinition.Back(adjust(b), Map.copyOf(items));
-        }
-
-        RigDefinition.Adjust head = null;
-        if (worn.has("head") && worn.get("head").isJsonObject()) {
-            head = adjust(worn.getAsJsonObject("head"));
-        }
+        // head/back are worn-anchors (base re-pose + per-item placement deltas keyed by item id).
+        RigDefinition.WornAnchor back = wornAnchor(worn, "back");
+        RigDefinition.WornAnchor head = wornAnchor(worn, "head");
 
         java.util.List<RigDefinition.Boot> boots = new java.util.ArrayList<>();
         if (worn.has("boots") && worn.get("boots").isJsonArray()) {
@@ -200,6 +187,19 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
         return new RigDefinition.Adjust(
                 vec(obj, "offset", 3, new float[]{0f, 0f, 0f}),
                 vec(obj, "rotation", 3, new float[]{0f, 0f, 0f}));
+    }
+
+    /** Parse a worn-anchor ({@code base} offset/rotation + per-item-id {@code items} deltas) under {@code key}. */
+    private static RigDefinition.WornAnchor wornAnchor(JsonObject parent, String key) {
+        if (!parent.has(key) || !parent.get(key).isJsonObject()) return null;
+        JsonObject o = parent.getAsJsonObject(key);
+        Map<String, RigDefinition.Adjust> items = new LinkedHashMap<>();
+        if (o.has("items") && o.get("items").isJsonObject()) {
+            for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("items").entrySet()) {
+                if (e.getValue().isJsonObject()) items.put(e.getKey(), adjust(e.getValue().getAsJsonObject()));
+            }
+        }
+        return new RigDefinition.WornAnchor(adjust(o), Map.copyOf(items));
     }
 
     /** Read a fixed-length float array from a JSON array key, falling back to {@code def}. */

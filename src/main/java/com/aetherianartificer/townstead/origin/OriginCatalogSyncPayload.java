@@ -246,18 +246,8 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             for (float v : f.size()) buf.writeFloat(v);
             buf.writeFloat(f.forward());
         }
-        buf.writeBoolean(r.back() != null);
-        if (r.back() != null) {
-            RigDefinition.Back b = r.back();
-            writeAdjust(buf, b.base());
-            buf.writeVarInt(b.items().size());
-            for (Map.Entry<String, RigDefinition.Adjust> e : b.items().entrySet()) {
-                buf.writeUtf(e.getKey());
-                writeAdjust(buf, e.getValue());
-            }
-        }
-        buf.writeBoolean(r.head() != null);
-        if (r.head() != null) writeAdjust(buf, r.head());
+        writeWornAnchor(buf, r.back());
+        writeWornAnchor(buf, r.head());
         buf.writeVarInt(r.boots().size());
         for (RigDefinition.Boot boot : r.boots()) {
             buf.writeUtf(boot.bone());
@@ -284,6 +274,26 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             buf.writeFloat(hb.width());
             buf.writeFloat(hb.height());
         }
+    }
+
+    private static void writeWornAnchor(FriendlyByteBuf buf, RigDefinition.WornAnchor anchor) {
+        buf.writeBoolean(anchor != null);
+        if (anchor == null) return;
+        writeAdjust(buf, anchor.base());
+        buf.writeVarInt(anchor.items().size());
+        for (Map.Entry<String, RigDefinition.Adjust> e : anchor.items().entrySet()) {
+            buf.writeUtf(e.getKey());
+            writeAdjust(buf, e.getValue());
+        }
+    }
+
+    private static RigDefinition.WornAnchor readWornAnchor(FriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return null;
+        RigDefinition.Adjust base = readAdjust(buf);
+        int n = buf.readVarInt();
+        Map<String, RigDefinition.Adjust> items = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < n; i++) items.put(buf.readUtf(), readAdjust(buf));
+        return new RigDefinition.WornAnchor(base, Map.copyOf(items));
     }
 
     private static void writeAdjust(FriendlyByteBuf buf, RigDefinition.Adjust a) {
@@ -316,15 +326,8 @@ public record OriginCatalogSyncPayload(List<OriginCatalogEntry> entries, List<Ge
             float[] size = {buf.readFloat(), buf.readFloat()};
             face = new RigDefinition.Face(bone, center, size, buf.readFloat());
         }
-        RigDefinition.Back back = null;
-        if (buf.readBoolean()) {
-            RigDefinition.Adjust base = readAdjust(buf);
-            int in = buf.readVarInt();
-            Map<String, RigDefinition.Adjust> items = new java.util.LinkedHashMap<>();
-            for (int i = 0; i < in; i++) items.put(buf.readUtf(), readAdjust(buf));
-            back = new RigDefinition.Back(base, Map.copyOf(items));
-        }
-        RigDefinition.Adjust head = buf.readBoolean() ? readAdjust(buf) : null;
+        RigDefinition.WornAnchor back = readWornAnchor(buf);
+        RigDefinition.WornAnchor head = readWornAnchor(buf);
         int bootCount = buf.readVarInt();
         java.util.List<RigDefinition.Boot> boots = new ArrayList<>(bootCount);
         for (int i = 0; i < bootCount; i++) {

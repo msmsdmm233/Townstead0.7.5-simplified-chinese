@@ -40,11 +40,13 @@ public record RigDefinition(
         // the host humanoid body bone; for a non-humanoid rig that bone is invisible and stuck at the
         // default humanoid chest, so the item floats. This re-poses that bone onto the rig's actual
         // back. Only consulted for non-humanoid rigs (a humanoid rig drives the bone from the rig).
-        Back back,
-        // Where head-worn render layers (helmet, worn mob head/pumpkin) sit, or null. They anchor to
-        // the host head bone, which for a non-humanoid rig floats at the default humanoid head; this
-        // re-poses it onto the rig's real head. Only consulted for non-humanoid rigs.
-        Adjust head,
+        WornAnchor back,
+        // Where head-worn render layers (helmet, worn mob head/pumpkin) AND Townstead head wearables (the
+        // scarf) sit, or null. The {@code base} re-poses the host head bone onto a non-humanoid rig's real
+        // head (helmets); {@code items} holds per-item placement deltas keyed by item id (e.g.
+        // {@code townstead:scarf}) that the worn-item layer applies on top, so a scarf sits as a collar
+        // rather than where a helmet sits.
+        WornAnchor head,
         // Worn boots placed on a non-humanoid rig's legs: one entry per leg bone (vanilla only draws
         // two boots). Empty when the rig declares none.
         List<Boot> boots,
@@ -95,12 +97,12 @@ public record RigDefinition(
     }
 
     /**
-     * The anchor for back-worn render layers (backpack, cape, elytra), which all read the host body
-     * bone. {@code base} re-poses that bone onto the rig's real back; {@code items} holds optional
-     * per-layer deltas (keyed {@code backpack}/{@code cape}/{@code elytra}) for items that need a
-     * slightly different placement. Tuned per rig by eye.
+     * A worn-anchor on a non-humanoid rig: {@code base} re-poses the host body/head bone onto the rig's
+     * real back/head (so vanilla back/head layers land on it), and {@code items} holds optional per-item
+     * placement deltas keyed by item id ({@code backpack}/{@code cape}/{@code elytra} for back;
+     * {@code townstead:scarf} for head). Tuned per rig by eye.
      */
-    public record Back(Adjust base, Map<String, Adjust> items) {
+    public record WornAnchor(Adjust base, Map<String, Adjust> items) {
         /** The transform for a layer key: base plus its delta, or just base when none is declared. */
         public Adjust forItem(String key) {
             Adjust delta = items.get(key);

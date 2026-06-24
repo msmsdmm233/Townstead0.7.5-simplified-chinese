@@ -39,6 +39,10 @@ public final class ClimbState {
     // Whether to also tip the third-person orbit camera (and its controls) onto the surface like first
     // person. False = stable third-person orbit; first person always reorients regardless.
     public static final boolean REORIENT_THIRD_PERSON = true;
+    // In third person, only reorient onto floor/ceiling (a near-vertical surface normal); on walls and
+    // intermediate angles keep the normal orbit camera + controls (easier to navigate). |normal.y| above
+    // this counts as floor/ceiling (~32 deg of vertical). First person always reorients regardless.
+    private static final float THIRD_PERSON_VERTICAL = 0.85f;
 
     private static final Map<Integer, Surface> SURFACES = new HashMap<>();
 
@@ -96,9 +100,17 @@ public final class ClimbState {
         ClimbMove.tickGrace();
     }
 
-    /** Whether the view is reoriented onto the surface (always first person; third person only if enabled). */
+    /**
+     * Whether the local player's view is reoriented onto the surface. First person: always. Third person:
+     * only when enabled AND the surface is floor/ceiling (near-vertical normal); walls and intermediate
+     * angles keep the normal orbit (camera + controls), which all readers respect uniformly.
+     */
     public static boolean reorientedView() {
-        return REORIENT_THIRD_PERSON || Minecraft.getInstance().options.getCameraType().isFirstPerson();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options.getCameraType().isFirstPerson()) return true;
+        if (!REORIENT_THIRD_PERSON || mc.player == null) return false;
+        Vector3f n = normal(mc.player.getId());
+        return n != null && Math.abs(n.y()) >= THIRD_PERSON_VERTICAL;
     }
 
     private static void updateAttach(float f) {

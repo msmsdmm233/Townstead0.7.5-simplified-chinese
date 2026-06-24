@@ -276,6 +276,11 @@ public class Townstead {
     public static final Supplier<Item> CALENDAR_ITEM = ITEMS.register("calendar",
             () -> new BlockItem(CALENDAR_BLOCK.get(), new Item.Properties()));
 
+    // ── Scarf (wearable, dyeable cosmetic; head slot, or a Curios slot when present) ──
+
+    public static final Supplier<Item> SCARF = ITEMS.register("scarf",
+            () -> new com.aetherianartificer.townstead.item.ScarfItem(new Item.Properties().stacksTo(1)));
+
     // ── Agelessness / aging potions ──
     // Brewed like vanilla potions (Awkward + Enchanted Golden Apple -> Agelessness;
     // Agelessness + Fermented Spider Eye -> Aging) and thrown as splash potions at MCA
@@ -341,6 +346,7 @@ public class Townstead {
                                     output.accept(variant.get());
                                 }
                                 output.accept(CALENDAR_ITEM.get());
+                                output.accept(SCARF.get());
                                 townstead$addLifePotions(output);
                             })
                             .build());
@@ -410,6 +416,7 @@ public class Townstead {
         townstead$registerKeybinds(modBus);
         townstead$registerHudOverlays(modBus);
         townstead$registerClientTooltipFactory(modBus);
+        townstead$registerScarfColor(modBus);
         townstead$registerMenuScreens(modBus);
         townstead$registerAnimationReloadListener(modBus);
         townstead$registerBlockEntityRenderers(modBus);
@@ -442,7 +449,23 @@ public class Townstead {
             b.addMix(AGELESSNESS_POTION,
                     net.minecraft.world.item.Items.FERMENTED_SPIDER_EYE, AGING_POTION);
         });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent e) ->
+                com.aetherianartificer.townstead.item.ScarfEquip.enforce(e.getEntity(), e.getSlot(), e.getTo()));
+        if (com.aetherianartificer.townstead.compat.ModCompat.isLoaded("curios")) {
+            NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.tick.PlayerTickEvent.Post e) -> {
+                if (e.getEntity().tickCount % 20 == 0) {
+                    com.aetherianartificer.townstead.item.ScarfEquip.enforceCurios(e.getEntity());
+                }
+            });
+        }
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
+            if (e.getTarget() instanceof VillagerEntityMCA villager
+                    && e.getItemStack().getItem() instanceof com.aetherianartificer.townstead.item.ScarfItem) {
+                e.setCanceled(true);
+                e.setCancellationResult(net.minecraft.world.InteractionResult.sidedSuccess(villager.level().isClientSide));
+                com.aetherianartificer.townstead.item.ScarfEquip.tryEquip(e.getEntity(), villager, e.getItemStack());
+                return;
+            }
             if (e.getTarget() instanceof VillagerEntityMCA villager
                     && com.aetherianartificer.townstead.item.VillagerPotionFeeding.isFeedable(e.getItemStack())) {
                 e.setCanceled(true);
@@ -685,6 +708,7 @@ public class Townstead {
         townstead$registerKeybinds(modBus);
         townstead$registerHudOverlays(modBus);
         townstead$registerClientTooltipFactory(modBus);
+        townstead$registerScarfColor(modBus);
         townstead$registerMenuScreens(modBus);
         townstead$registerAnimationReloadListener(modBus);
         townstead$registerBlockEntityRenderers(modBus);
@@ -714,7 +738,23 @@ public class Townstead {
                 }
             }
         });
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent e) ->
+                com.aetherianartificer.townstead.item.ScarfEquip.enforce(e.getEntity(), e.getSlot(), e.getTo()));
+        if (com.aetherianartificer.townstead.compat.ModCompat.isLoaded("curios")) {
+            MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.TickEvent.PlayerTickEvent e) -> {
+                if (e.phase == net.minecraftforge.event.TickEvent.Phase.END && e.player.tickCount % 20 == 0) {
+                    com.aetherianartificer.townstead.item.ScarfEquip.enforceCurios(e.player);
+                }
+            });
+        }
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract e) -> {
+            if (e.getTarget() instanceof VillagerEntityMCA villager
+                    && e.getItemStack().getItem() instanceof com.aetherianartificer.townstead.item.ScarfItem) {
+                e.setCanceled(true);
+                e.setCancellationResult(net.minecraft.world.InteractionResult.sidedSuccess(villager.level().isClientSide));
+                com.aetherianartificer.townstead.item.ScarfEquip.tryEquip(e.getEntity(), villager, e.getItemStack());
+                return;
+            }
             if (e.getTarget() instanceof VillagerEntityMCA villager
                     && com.aetherianartificer.townstead.item.VillagerPotionFeeding.isFeedable(e.getItemStack())) {
                 e.setCanceled(true);
@@ -1816,6 +1856,32 @@ public class Townstead {
             });
         } catch (Exception ignored) {
             // Dedicated server: no HUD.
+        }
+    }
+    *///?}
+
+    //? if neoforge {
+    private static void townstead$registerScarfColor(IEventBus modBus) {
+        try {
+            Class.forName("net.minecraft.client.Minecraft");
+            modBus.addListener((net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Item event) ->
+                    event.register((stack, tintIndex) ->
+                                    tintIndex == 0 ? (0xFF000000 | com.aetherianartificer.townstead.item.ScarfColor.get(stack)) : -1,
+                            SCARF.get()));
+        } catch (Exception ignored) {
+            // Dedicated server: no item colors.
+        }
+    }
+    //?} else {
+    /*private static void townstead$registerScarfColor(IEventBus modBus) {
+        try {
+            Class.forName("net.minecraft.client.Minecraft");
+            modBus.addListener((net.minecraftforge.client.event.RegisterColorHandlersEvent.Item event) ->
+                    event.register((stack, tintIndex) ->
+                                    tintIndex == 0 ? (0xFF000000 | com.aetherianartificer.townstead.item.ScarfColor.get(stack)) : -1,
+                            SCARF.get()));
+        } catch (Exception ignored) {
+            // Dedicated server: no item colors.
         }
     }
     *///?}
