@@ -2,10 +2,10 @@ package com.aetherianartificer.townstead.client.attachment;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.client.attachment.geo.BedrockGeometryLoader;
-import com.aetherianartificer.townstead.origin.attachment.AttachmentDef;
-import com.aetherianartificer.townstead.origin.attachment.AttachmentRequestC2SPayload;
-import com.aetherianartificer.townstead.origin.attachment.AttachmentServerData;
-import com.aetherianartificer.townstead.origin.attachment.AttachmentPointDef;
+import com.aetherianartificer.townstead.root.attachment.AttachmentDef;
+import com.aetherianartificer.townstead.root.attachment.AttachmentRequestC2SPayload;
+import com.aetherianartificer.townstead.root.attachment.AttachmentServerData;
+import com.aetherianartificer.townstead.root.attachment.AttachmentPointDef;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;

@@ -9,7 +9,7 @@ import com.google.gson.JsonObject;
  */
 public interface ActionType {
 
-    /** Wire key matched against an action JSON's {@code "type"} (e.g. {@code townstead_origins:heal}). */
+    /** Wire key matched against an action JSON's {@code "type"} (e.g. {@code townstead_roots:heal}). */
     String key();
 
     /** Parse this type's config into a runnable action; {@code null} if invalid. */

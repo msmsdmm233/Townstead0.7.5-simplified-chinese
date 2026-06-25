@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.relationship.AgeState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /**
  * Substitutes MCA's {@code setAgeState} parameter with the canonical AgeState
- * Townstead derives from the villager's {@link com.aetherianartificer.townstead.origin.LifeCycle}
+ * Townstead derives from the villager's {@link com.aetherianartificer.townstead.root.LifeCycle}
  * (per-villager stage durations + Lifespan gene). MCA's downstream brain/clothes
  * refresh runs unchanged with our substituted state. The Senior canonical
  * collapses to MCA's ADULT (with {@code Life.isSenior} flipped) so MCA's

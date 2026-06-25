@@ -70,7 +70,7 @@ public final class TownsteadQueryCommands {
                                 .executes(c -> query(c.getSource(),
                                         TownsteadAPI.calendar(c.getSource().getServer()),
                                         StringArgumentType.getString(c, "path")))))
-                .then(Commands.literal("origin")
+                .then(Commands.literal("root")
                         .then(Commands.argument("id", StringArgumentType.string())
                                 .then(Commands.argument("path", StringArgumentType.string())
                                         .executes(c -> query(c.getSource(),

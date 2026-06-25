@@ -1,12 +1,12 @@
 package com.aetherianartificer.townstead.client.species;
 
-import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
-import com.aetherianartificer.townstead.client.origin.OriginClientStore;
+import com.aetherianartificer.townstead.client.root.RootCatalogClient;
+import com.aetherianartificer.townstead.client.root.RootClientStore;
 import com.aetherianartificer.townstead.data.DataPackLang;
-import com.aetherianartificer.townstead.origin.Animations;
-import com.aetherianartificer.townstead.origin.Hold;
-import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
-import com.aetherianartificer.townstead.origin.rig.RigDefinition;
+import com.aetherianartificer.townstead.root.Animations;
+import com.aetherianartificer.townstead.root.Hold;
+import com.aetherianartificer.townstead.root.RootCatalogEntry;
+import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.SpiderModel;
@@ -51,9 +51,9 @@ public final class RigModels {
      * the synced origin catalog + the client life store's current stage index.
      */
     public static String rigBaseFor(LivingEntity entity) {
-        String originId = OriginClientStore.resolve(entity);
-        if (originId == null || originId.isEmpty()) return VILLAGER;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        if (rootId == null || rootId.isEmpty()) return VILLAGER;
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         if (origin == null) return VILLAGER;
         String stageRig = stageRigFor(entity, origin);
         if (stageRig != null && !stageRig.isEmpty()) return stageRig;
@@ -75,7 +75,7 @@ public final class RigModels {
     }
 
     /** The current life stage's rig override for this entity (editor preview, else per-origin catalog), or null. */
-    private static String stageRigFor(LivingEntity entity, OriginCatalogEntry origin) {
+    private static String stageRigFor(LivingEntity entity, RootCatalogEntry origin) {
         java.util.List<String> rigs = origin.stageRigs();
         if (rigs == null || rigs.isEmpty()) return null;
         int idx;
@@ -99,14 +99,14 @@ public final class RigModels {
      * not-yet-synced texture — acceptable for the sync window.
      */
     public static boolean isAlternate(String rigBase) {
-        RigDefinition def = OriginCatalogClient.rig(rigBase);
+        RigDefinition def = RootCatalogClient.rig(rigBase);
         return def != null && (def.modelType() == RigDefinition.ModelType.ENTITY_LAYER
                 || def.modelType() == RigDefinition.ModelType.GEOMETRY);
     }
 
     /** The resolved rig definition for a rig id (vanilla aliases applied), or null if unknown. */
     public static RigDefinition definition(String rigBase) {
-        return OriginCatalogClient.rig(rigBase);
+        return RootCatalogClient.rig(rigBase);
     }
 
     /** The cached humanoid model for a rig, baked from its vanilla model layer; null if unsupported. */
@@ -129,7 +129,7 @@ public final class RigModels {
      * (e.g. {@code minecraft:spider}) takes the generic branch.
      */
     public static boolean isGeneric(String rigBase) {
-        RigDefinition def = OriginCatalogClient.rig(rigBase);
+        RigDefinition def = RootCatalogClient.rig(rigBase);
         if (def == null) return false;
         // A custom-geometry rig is always generic (static body, no humanoid assumptions).
         if (def.modelType() == RigDefinition.ModelType.GEOMETRY) return true;
@@ -145,7 +145,7 @@ public final class RigModels {
      */
     public static EntityModel<LivingEntity> genericModel(String rigBase) {
         if (GENERIC_MODELS.containsKey(rigBase)) return GENERIC_MODELS.get(rigBase);
-        RigDefinition def = OriginCatalogClient.rig(rigBase);
+        RigDefinition def = RootCatalogClient.rig(rigBase);
         if (def == null) return null;
         EntityModel<LivingEntity> model = null;
         if (def.modelType() == RigDefinition.ModelType.ENTITY_LAYER) {
@@ -179,7 +179,7 @@ public final class RigModels {
      * {@code geometry} rig (custom {@code .geo.json}) is a later phase and bakes nothing yet.
      */
     private static ModelPart bakeRoot(String rigBase) {
-        RigDefinition def = OriginCatalogClient.rig(rigBase);
+        RigDefinition def = RootCatalogClient.rig(rigBase);
         if (def == null || def.modelType() != RigDefinition.ModelType.ENTITY_LAYER) return null;
         return bakeLayer(new ModelLayerLocation(DataPackLang.parseId(def.modelRef()), def.modelLayer()));
     }
@@ -271,25 +271,25 @@ public final class RigModels {
 
     /** The species' authored uniform render scale for this entity (from the data pack; 1.0 default). */
     public static float scaleFor(LivingEntity entity) {
-        String originId = OriginClientStore.resolve(entity);
-        if (originId == null || originId.isEmpty()) return 1.0f;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        if (rootId == null || rootId.isEmpty()) return 1.0f;
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         return origin == null || origin.rigScale() <= 0f ? 1.0f : origin.rigScale();
     }
 
     /** Whether this entity's species shows breasts (true unless a species opts out). */
     public static boolean breasts(LivingEntity entity) {
-        String originId = OriginClientStore.resolve(entity);
-        if (originId == null || originId.isEmpty()) return true;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        if (rootId == null || rootId.isEmpty()) return true;
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         return origin == null || origin.breasts();
     }
 
     /** The species' per-state animation sources for this entity (humanoid default; never null). */
     public static Animations animations(LivingEntity entity) {
-        String originId = OriginClientStore.resolve(entity);
-        if (originId == null || originId.isEmpty()) return Animations.DEFAULT;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        if (rootId == null || rootId.isEmpty()) return Animations.DEFAULT;
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         return origin == null || origin.animations() == null ? Animations.DEFAULT : origin.animations();
     }
 
@@ -298,13 +298,13 @@ public final class RigModels {
      * should not render). Null also when the entity has no synced rig.
      */
     public static Hold.Grip holdGrip(LivingEntity entity, boolean offHand) {
-        RigDefinition def = OriginCatalogClient.rig(rigBaseFor(entity));
+        RigDefinition def = RootCatalogClient.rig(rigBaseFor(entity));
         if (def == null || def.hold() == null) return null;
         return offHand ? def.hold().offhand() : def.hold().mainhand();
     }
 
     public static ResourceLocation texture(String rigBase) {
-        RigDefinition def = OriginCatalogClient.rig(rigBase);
+        RigDefinition def = RootCatalogClient.rig(rigBase);
         if (def == null || def.texture() == null || def.texture().isEmpty()) return null;
         // Prefer a datapack-synced texture (no resource pack needed); fall back to a plain resource
         // location for vanilla / resource-pack textures (e.g. minecraft:textures/entity/skeleton).
@@ -324,7 +324,7 @@ public final class RigModels {
      * leaving the caller to fall back to a generic humanoid armor mesh.
      */
     public static ModelPart bakeArmorPart(String rigBase, boolean inner) {
-        RigDefinition def = OriginCatalogClient.rig(rigBase);
+        RigDefinition def = RootCatalogClient.rig(rigBase);
         if (def == null || def.armorType() != RigDefinition.ArmorType.LAYERS) return null;
         return bakeLayerRef(inner ? def.armorInner() : def.armorOuter());
     }

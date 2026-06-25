@@ -49,7 +49,7 @@ public final class EmptyContainerDropoff {
     // When the inventory is this close to full, stop holding for the origin and dump at the nearest
     // storage so rations/work items aren't blocked.
     private static final int INVENTORY_PRESSURE_FREE_SLOTS = 4;
-    private static final int MAX_LEDGER_ORIGINS = 8;
+    private static final int MAX_LEDGER_ROOTS = 8;
 
     private record PendingReturn(BlockPos origin, long heldSince) {}
     // villager id -> origin containers it's carrying empties back to. In-memory by design: on
@@ -128,7 +128,7 @@ public final class EmptyContainerDropoff {
         for (PendingReturn e : list) {
             if (e.origin().equals(origin)) return; // already tracking this origin
         }
-        if (list.size() >= MAX_LEDGER_ORIGINS) list.remove(0); // evict oldest as origin-less
+        if (list.size() >= MAX_LEDGER_ROOTS) list.remove(0); // evict oldest as origin-less
         list.add(new PendingReturn(origin.immutable(), villager.level().getGameTime()));
     }
 

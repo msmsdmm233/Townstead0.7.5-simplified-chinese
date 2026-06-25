@@ -4,7 +4,7 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.client.attachment.geo.BedrockGeometryLoader;
 import com.aetherianartificer.townstead.compat.curios.CuriosCompat;
 import com.aetherianartificer.townstead.item.Wearable;
-import com.aetherianartificer.townstead.origin.rig.RigDefinition;
+import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;

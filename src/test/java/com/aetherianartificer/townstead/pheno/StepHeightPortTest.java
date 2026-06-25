@@ -1,8 +1,8 @@
 package com.aetherianartificer.townstead.pheno;
 
-import com.aetherianartificer.townstead.origin.port.PowerToGeneConverter;
-import com.aetherianartificer.townstead.origin.port.PowerToGeneConverter.ConvertedGene;
-import com.aetherianartificer.townstead.origin.port.PowerToGeneConverter.Skip;
+import com.aetherianartificer.townstead.root.port.PowerToGeneConverter;
+import com.aetherianartificer.townstead.root.port.PowerToGeneConverter.ConvertedGene;
+import com.aetherianartificer.townstead.root.port.PowerToGeneConverter.Skip;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.resources.ResourceLocation;
@@ -31,7 +31,7 @@ class StepHeightPortTest {
         List<ConvertedGene> genes = new ArrayList<>();
         List<Skip> skips = new ArrayList<>();
         Map<ResourceLocation, JsonObject> recipes = new HashMap<>();
-        PowerToGeneConverter.convert("townstead_origins", ResourceLocation.tryParse("test:tall_step"),
+        PowerToGeneConverter.convert("townstead_roots", ResourceLocation.tryParse("test:tall_step"),
                 obj(powerJson), genes, skips, recipes);
         return genes;
     }

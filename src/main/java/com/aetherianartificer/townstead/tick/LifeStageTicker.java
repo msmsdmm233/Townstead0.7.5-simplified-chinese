@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.tick;
 
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
-import com.aetherianartificer.townstead.origin.SeniorEffects;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
+import com.aetherianartificer.townstead.root.SeniorEffects;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -66,7 +66,7 @@ public final class LifeStageTicker {
 
         // Per-stage movement: a non-mobile stage (e.g. an egg) freezes the villager's AI so it sits still
         // instead of wandering. noAi persists across save/load, so we just keep it in sync with the stage.
-        com.aetherianartificer.townstead.origin.LifeStage stage = LifeStageProgression.currentStage(villager);
+        com.aetherianartificer.townstead.root.LifeStage stage = LifeStageProgression.currentStage(villager);
         boolean immobile = stage != null && !stage.mobile();
         if (villager.isNoAi() != immobile) villager.setNoAi(immobile);
     }

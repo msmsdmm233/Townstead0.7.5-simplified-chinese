@@ -1,0 +1,13 @@
+{
+  "schema": "townstead:gene/v2",
+  "type": "townstead_roots:chronotype",
+  "display_name": { "translate": "chronotype.mix.diurnal" },
+  "category": "Activity",
+  "locus": "townstead_roots:chronotypes",
+  "variants": {
+    "early_bird": { "weight": 20 },
+    "standard":   { "weight": 55 },
+    "night_owl":  { "weight": 20 },
+    "nocturnal":  { "weight": 5 }
+  }
+}

@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.pheno;
 
-import com.aetherianartificer.townstead.origin.gene.types.ReachHook;
+import com.aetherianartificer.townstead.root.gene.types.ReachHook;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

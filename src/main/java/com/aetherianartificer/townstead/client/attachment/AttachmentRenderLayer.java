@@ -1,12 +1,12 @@
 package com.aetherianartificer.townstead.client.attachment;
 
 import com.aetherianartificer.townstead.client.animation.AnimationTargetMap;
-import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
-import com.aetherianartificer.townstead.client.origin.OriginClientStore;
-import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
-import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
-import com.aetherianartificer.townstead.origin.attachment.AttachmentDef;
-import com.aetherianartificer.townstead.origin.attachment.AttachmentPointDef;
+import com.aetherianartificer.townstead.client.root.RootCatalogClient;
+import com.aetherianartificer.townstead.client.root.RootClientStore;
+import com.aetherianartificer.townstead.root.GeneCatalogEntry;
+import com.aetherianartificer.townstead.root.RootCatalogEntry;
+import com.aetherianartificer.townstead.root.attachment.AttachmentDef;
+import com.aetherianartificer.townstead.root.attachment.AttachmentPointDef;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -114,21 +114,21 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
     /** The attachment defs the entity expresses (per-entity set first, origin grant list as fallback). */
     private static List<AttachmentDef> resolve(LivingEntity entity) {
         List<AttachmentDef> out = new ArrayList<>();
-        Set<String> expressed = OriginClientStore.expressedGenes(entity);
+        Set<String> expressed = RootClientStore.expressedGenes(entity);
         if (!expressed.isEmpty()) {
             for (String geneId : expressed) collect(geneId, out);
             return out;
         }
-        String originId = OriginClientStore.resolve(entity);
-        if (originId.isEmpty()) return out;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        if (rootId.isEmpty()) return out;
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         if (origin == null) return out;
-        for (OriginCatalogEntry.Inherited inherited : origin.inheritedGenes()) collect(inherited.geneId(), out);
+        for (RootCatalogEntry.Inherited inherited : origin.inheritedGenes()) collect(inherited.geneId(), out);
         return out;
     }
 
     private static void collect(String geneId, List<AttachmentDef> out) {
-        GeneCatalogEntry gene = OriginCatalogClient.gene(geneId);
+        GeneCatalogEntry gene = RootCatalogClient.gene(geneId);
         if (gene == null || !gene.isAttachment()) return;
         AttachmentDef def = AttachmentClient.def(gene.attachmentId());
         if (def != null) out.add(def);

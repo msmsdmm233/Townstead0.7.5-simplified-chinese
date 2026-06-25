@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
  */
 public interface ConditionType {
 
-    /** Wire key matched against a condition JSON's {@code "type"} (e.g. {@code townstead_origins:in_rain}). */
+    /** Wire key matched against a condition JSON's {@code "type"} (e.g. {@code townstead_roots:in_rain}). */
     String key();
 
     /** Parse this type's config into a predicate; return {@code null} if invalid. */

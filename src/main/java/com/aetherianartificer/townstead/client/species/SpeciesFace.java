@@ -1,10 +1,10 @@
 package com.aetherianartificer.townstead.client.species;
 
-import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
-import com.aetherianartificer.townstead.client.origin.OriginClientStore;
+import com.aetherianartificer.townstead.client.root.RootCatalogClient;
+import com.aetherianartificer.townstead.client.root.RootClientStore;
 import com.aetherianartificer.townstead.data.DataPackLang;
-import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
-import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
+import com.aetherianartificer.townstead.root.GeneCatalogEntry;
+import com.aetherianartificer.townstead.root.RootCatalogEntry;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -52,18 +52,18 @@ public final class SpeciesFace {
                        int light, float partialTick, boolean babyHead) {
         // Face placement is data-driven per rig (no humanoid-head assumption): a rig with no `face`
         // block has no overlay face.
-        com.aetherianartificer.townstead.origin.rig.RigDefinition def = RigModels.definition(rigBase);
+        com.aetherianartificer.townstead.root.rig.RigDefinition def = RigModels.definition(rigBase);
         if (def == null || def.face() == null) return;
-        com.aetherianartificer.townstead.origin.rig.RigDefinition.Face face = def.face();
+        com.aetherianartificer.townstead.root.rig.RigDefinition.Face face = def.face();
         ModelPart head = RigModels.bone(rigBase, face.bone());
         if (head == null) return;
 
-        String originId = OriginClientStore.resolve(entity);
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         if (origin == null) return;
         GeneCatalogEntry eyesGene = null, mouthGene = null, colorGene = null;
-        for (OriginCatalogEntry.Inherited inh : origin.inheritedGenes()) {
-            GeneCatalogEntry g = OriginCatalogClient.gene(inh.geneId());
+        for (RootCatalogEntry.Inherited inh : origin.inheritedGenes()) {
+            GeneCatalogEntry g = RootCatalogClient.gene(inh.geneId());
             if (g == null) continue;
             if (g.isEyes()) eyesGene = g;
             else if (g.isMouth()) mouthGene = g;
@@ -120,7 +120,7 @@ public final class SpeciesFace {
     /** The entity's carried variant for a face gene, else a stable UUID pick so it varies before sync. */
     private static GeneCatalogEntry.Variant variantOf(LivingEntity entity, GeneCatalogEntry gene) {
         if (gene == null || gene.variants().isEmpty()) return null;
-        String rolled = OriginClientStore.resolveCarriedVariant(entity, gene.id());
+        String rolled = RootClientStore.resolveCarriedVariant(entity, gene.id());
         if (rolled != null && !rolled.isEmpty()) {
             for (GeneCatalogEntry.Variant v : gene.variants()) {
                 if (v.id().equals(rolled)) return v;
@@ -171,7 +171,7 @@ public final class SpeciesFace {
      * Forward {@code -1} faces the bone's -Z (a vanilla humanoid head front); {@code +1} faces +Z.
      */
     private static void quad(VertexConsumer vc, PoseStack pose,
-                             com.aetherianartificer.townstead.origin.rig.RigDefinition.Face face,
+                             com.aetherianartificer.townstead.root.rig.RigDefinition.Face face,
                              float eps, int frames, int f, int color, int light) {
         float fwd = face.forward() >= 0 ? 1f : -1f;
         float cx = face.center()[0] / 16f, cy = face.center()[1] / 16f;

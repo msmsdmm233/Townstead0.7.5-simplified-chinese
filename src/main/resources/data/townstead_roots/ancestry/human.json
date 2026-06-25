@@ -1,0 +1,17 @@
+{
+  "schema": "townstead:ancestry/v1",
+  "display_name": { "translate": "origin.townstead_roots.ancestry.human" },
+  "species": "townstead_roots:humanoid",
+  "demonym": {
+    "singular": { "translate": "origin.townstead_roots.ancestry.human.demonym.singular" },
+    "plural": { "translate": "origin.townstead_roots.ancestry.human.demonym.plural" }
+  },
+  "backstory": { "translate": "origin.townstead_roots.ancestry.human.backstory" },
+  "genes": [
+    "townstead_roots:warm_skin",
+    "townstead_roots:omnivore",
+    "townstead_roots:water_drinker",
+    "townstead_roots:human_chronotype",
+    "townstead_roots:human_life_cycle"
+  ]
+}

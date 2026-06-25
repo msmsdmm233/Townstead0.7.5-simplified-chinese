@@ -8,7 +8,7 @@ import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
 import com.aetherianartificer.townstead.hunger.HungerData;
 import com.aetherianartificer.townstead.hunger.VillagerConsumptionManager;
-import com.aetherianartificer.townstead.origin.needs.NeedSuppression;
+import com.aetherianartificer.townstead.root.needs.NeedSuppression;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;

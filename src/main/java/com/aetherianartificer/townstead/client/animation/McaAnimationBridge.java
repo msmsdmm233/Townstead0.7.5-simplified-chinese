@@ -22,7 +22,7 @@ import java.util.List;
 
 public final class McaAnimationBridge {
     private static final EmfAnimationSourceAdapter EMF_ADAPTER = new EmfAnimationSourceAdapter();
-    private static final OriginAnimationSourceAdapter ORIGIN_ADAPTER = new OriginAnimationSourceAdapter();
+    private static final RootAnimationSourceAdapter ROOT_ADAPTER = new RootAnimationSourceAdapter();
     private static final EmotecraftAnimationSourceAdapter EMOTE_ADAPTER = new EmotecraftAnimationSourceAdapter();
     // NOTE: DebugAnimationSourceAdapter is intentionally NOT registered here. It waves every
     // villager's right arm and keys off DEBUG_VILLAGER_AI, which is the general AI-logging flag —
@@ -32,7 +32,7 @@ public final class McaAnimationBridge {
     // (crouch/...) overrides it, and an Emotecraft emote overrides that on the bones it animates.
     private static final List<AnimationSourceAdapter> SOURCES = List.of(
             EMF_ADAPTER,
-            ORIGIN_ADAPTER,
+            ROOT_ADAPTER,
             EMOTE_ADAPTER
     );
 
@@ -75,7 +75,7 @@ public final class McaAnimationBridge {
             T entity,
             HumanoidModel<T> model,
             ModelPart rigRoot,
-            com.aetherianartificer.townstead.origin.rig.RigDefinition rigDef,
+            com.aetherianartificer.townstead.root.rig.RigDefinition rigDef,
             float limbAngle,
             float limbDistance,
             float animationProgress,
@@ -89,7 +89,7 @@ public final class McaAnimationBridge {
             T entity,
             HumanoidModel<T> model,
             ModelPart rigRoot,
-            com.aetherianartificer.townstead.origin.rig.RigDefinition rigDef,
+            com.aetherianartificer.townstead.root.rig.RigDefinition rigDef,
             float limbAngle,
             float limbDistance,
             float animationProgress,
@@ -102,6 +102,12 @@ public final class McaAnimationBridge {
             model.body.x = 0f;
             model.body.y = 0f;
             model.body.z = 0f;
+            // A non-humanoid rig anchors the host head bone onto its own head via
+            // RigWearables.poseAt, which leaves head.xyz offset on the shared model.
+            // Clear it too, or switching back to a humanoid root renders a detached head.
+            model.head.x = 0f;
+            model.head.y = 0f;
+            model.head.z = 0f;
             ModelPart editorBreasts = breastsPart(model);
             float ox = 0f, oy = 0f, oz = 0f;
             if (editorBreasts != null) {

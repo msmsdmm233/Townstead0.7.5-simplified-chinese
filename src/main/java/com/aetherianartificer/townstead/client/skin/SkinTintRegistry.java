@@ -18,7 +18,7 @@ public final class SkinTintRegistry {
     private static final List<SkinTintProvider> PROVIDERS = new ArrayList<>();
 
     static {
-        register(new OriginSkinTintProvider());
+        register(new RootSkinTintProvider());
     }
 
     private SkinTintRegistry() {}

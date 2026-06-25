@@ -1,9 +1,9 @@
 package com.aetherianartificer.townstead.client.species;
 
 import com.aetherianartificer.townstead.client.animation.McaAnimationBridge;
-import com.aetherianartificer.townstead.origin.Animations;
-import com.aetherianartificer.townstead.origin.Hold;
-import com.aetherianartificer.townstead.origin.rig.RigDefinition;
+import com.aetherianartificer.townstead.root.Animations;
+import com.aetherianartificer.townstead.root.Hold;
+import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.EntityModel;
@@ -256,7 +256,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
      * Fully pose the rig model from the entity: the per-frame render state ({@link #prepareModel}),
      * the model's own {@code setupAnim} (walk/idle/crouch base pose), then the shared animation bridge
      * so Fresh-Animations/EMF (resolved via the species' provider chain), the origin pose layer, and
-     * Emotecraft land on its bones, layered EMF -&gt; Origin -&gt; Emote. The rig is a plain
+     * Emotecraft land on its bones, layered EMF -&gt; Root -&gt; Emote. The rig is a plain
      * {@link HumanoidModel}, which the bridge handles. Shared with {@link RigArmorSync} so the host
      * body model (the armor's pose source) can be driven from this exact pose.
      */

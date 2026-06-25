@@ -1,0 +1,14 @@
+{
+  "schema": "townstead:origin/v1",
+  "display_name": { "translate": "origin.townstead_roots.origin.overworlder" },
+  "species": "townstead_roots:humanoid",
+  "ancestry": "townstead_roots:human",
+  "demonym": {
+    "singular": { "translate": "origin.townstead_roots.origin.overworlder.demonym.singular" },
+    "plural": { "translate": "origin.townstead_roots.origin.overworlder.demonym.plural" }
+  },
+  "backstory": { "translate": "origin.townstead_roots.origin.overworlder.backstory" },
+  "spawn_bias": {
+    "default": 8
+  }
+}

@@ -19,7 +19,7 @@ import com.aetherianartificer.townstead.calendar.LifeClientStore;
 import com.aetherianartificer.townstead.calendar.LifeData;
 import com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider;
 import com.aetherianartificer.townstead.client.skin.SeniorHairDesat;
-import com.aetherianartificer.townstead.origin.LifeStageScale;
+import com.aetherianartificer.townstead.root.LifeStageScale;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -497,13 +497,13 @@ public abstract class VillagerEditorMixin extends Screen {
      */
     @Unique
     private int townstead$bioForSliderValue(LifeClientStore.Snapshot snap, double v) {
-        return com.aetherianartificer.townstead.origin.LifeStageBar.bioForSliderValue(snap.stageDays(), v);
+        return com.aetherianartificer.townstead.root.LifeStageBar.bioForSliderValue(snap.stageDays(), v);
     }
 
     /** Inverse of {@link #townstead$bioForSliderValue}: slider position for a biological age. */
     @Unique
     private double townstead$sliderValueForBio(LifeClientStore.Snapshot snap, int bio) {
-        return com.aetherianartificer.townstead.origin.LifeStageBar.sliderValueForBio(snap.stageDays(), bio);
+        return com.aetherianartificer.townstead.root.LifeStageBar.sliderValueForBio(snap.stageDays(), bio);
     }
 
     /**

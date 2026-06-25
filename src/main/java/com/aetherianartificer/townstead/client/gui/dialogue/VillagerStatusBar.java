@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.client.gui.dialogue;
 
 import com.aetherianartificer.townstead.TownsteadConfig;
-import com.aetherianartificer.townstead.client.origin.ClientNeeds;
+import com.aetherianartificer.townstead.client.root.ClientNeeds;
 import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import com.aetherianartificer.townstead.compat.thirst.ThirstCompatBridge;
 import com.aetherianartificer.townstead.fatigue.FatigueClientStore;

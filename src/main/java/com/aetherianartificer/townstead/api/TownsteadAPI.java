@@ -4,13 +4,13 @@ import com.aetherianartificer.townstead.calendar.CalendarDate;
 import com.aetherianartificer.townstead.calendar.CalendarProfile;
 import com.aetherianartificer.townstead.calendar.TownsteadCalendar;
 import com.aetherianartificer.townstead.calendar.WorldCalendarSavedData;
-import com.aetherianartificer.townstead.origin.LifeCycle;
-import com.aetherianartificer.townstead.origin.Origin;
-import com.aetherianartificer.townstead.origin.OriginRegistry;
-import com.aetherianartificer.townstead.origin.PlayerOrigin;
-import com.aetherianartificer.townstead.origin.gene.Gene;
-import com.aetherianartificer.townstead.origin.gene.GeneRegistry;
-import com.aetherianartificer.townstead.origin.gene.InheritedGene;
+import com.aetherianartificer.townstead.root.LifeCycle;
+import com.aetherianartificer.townstead.root.Root;
+import com.aetherianartificer.townstead.root.RootRegistry;
+import com.aetherianartificer.townstead.root.PlayerRoot;
+import com.aetherianartificer.townstead.root.gene.Gene;
+import com.aetherianartificer.townstead.root.gene.GeneRegistry;
+import com.aetherianartificer.townstead.root.gene.InheritedGene;
 import com.aetherianartificer.townstead.shift.ShiftData;
 import com.aetherianartificer.townstead.shift.template.ShiftTemplate;
 import com.aetherianartificer.townstead.shift.template.ShiftTemplateRegistry;
@@ -60,7 +60,7 @@ public final class TownsteadAPI {
                 villager.getUUID().toString(),
                 villager.getName().getString(),
                 villager.getType().toString(),
-                life.originId(),
+                life.rootId(),
                 life.currentStageId(),
                 ageDays,
                 ageYears,
@@ -97,12 +97,12 @@ public final class TownsteadAPI {
     }
 
     public static TownsteadVillagerSnapshot player(Player player) {
-        String originId = PlayerOrigin.getOriginId(player);
+        String rootId = PlayerRoot.getRootId(player);
         return new TownsteadVillagerSnapshot(
                 player.getUUID().toString(),
                 player.getName().getString(),
                 player.getType().toString(),
-                originId,
+                rootId,
                 "",
                 0L,
                 0,
@@ -141,14 +141,14 @@ public final class TownsteadAPI {
         );
     }
 
-    public static TownsteadOriginSnapshot origin(ResourceLocation id) {
-        Origin origin = OriginRegistry.byId(id);
+    public static TownsteadRootSnapshot origin(ResourceLocation id) {
+        Root origin = RootRegistry.byId(id);
         if (origin == null) return null;
         List<String> genes = new ArrayList<>();
-        for (InheritedGene inherited : OriginRegistry.effectiveInheritedGenes(id)) {
+        for (InheritedGene inherited : RootRegistry.effectiveInheritedGenes(id)) {
             genes.add(inherited.geneId().toString());
         }
-        LifeCycle cycle = OriginRegistry.effectiveLifeCycle(id);
+        LifeCycle cycle = RootRegistry.effectiveLifeCycle(id);
         List<TownsteadLifeStageSnapshot> stages = new ArrayList<>();
         if (cycle != null) {
             for (int i = 0; i < cycle.size(); i++) {
@@ -163,8 +163,8 @@ public final class TownsteadAPI {
                         stage.narrativeEnd()));
             }
         }
-        ResourceLocation effectiveSpecies = OriginRegistry.effectiveSpecies(id);
-        return new TownsteadOriginSnapshot(
+        ResourceLocation effectiveSpecies = RootRegistry.effectiveSpecies(id);
+        return new TownsteadRootSnapshot(
                 origin.id().toString(),
                 origin.displayName().getString(),
                 string(origin.species()),

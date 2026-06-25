@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.client.species;
 
-import com.aetherianartificer.townstead.client.origin.ClientAbilities;
-import com.aetherianartificer.townstead.origin.ability.Ability;
+import com.aetherianartificer.townstead.client.root.ClientAbilities;
+import com.aetherianartificer.townstead.root.ability.Ability;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.MoverType;

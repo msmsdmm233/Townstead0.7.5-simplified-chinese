@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.reproduction.GestationLength;
-import com.aetherianartificer.townstead.origin.reproduction.LitterSize;
+import com.aetherianartificer.townstead.root.reproduction.GestationLength;
+import com.aetherianartificer.townstead.root.reproduction.LitterSize;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.Pregnancy;
 import net.conczin.mca.entity.ai.relationship.Gender;

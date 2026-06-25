@@ -4,7 +4,7 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.calendar.LifeData;
 import com.aetherianartificer.townstead.calendar.TownsteadCalendar;
 import com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload;
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;

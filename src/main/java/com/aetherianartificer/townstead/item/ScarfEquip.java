@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.item;
 
 import com.aetherianartificer.townstead.compat.curios.CuriosCompat;
-import com.aetherianartificer.townstead.origin.EntityGroups;
+import com.aetherianartificer.townstead.root.EntityGroups;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;

@@ -150,7 +150,7 @@ public final class WorldCalendarTicker {
             ShiftScheduleApplier.reapplyWeeklySchedules(server);
             Townstead.townstead$broadcastCalendarSync(server);
             // Push fresh senior-progress to every tracking client so hair desat lerps daily.
-            com.aetherianartificer.townstead.origin.LifeStageProgression.broadcastDailyUpdates(server);
+            com.aetherianartificer.townstead.root.LifeStageProgression.broadcastDailyUpdates(server);
         }
     }
 }

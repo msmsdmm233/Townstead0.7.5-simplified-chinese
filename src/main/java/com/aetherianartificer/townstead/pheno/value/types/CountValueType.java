@@ -9,7 +9,7 @@ import com.google.gson.JsonObject;
 /**
  * The number of targets an {@code on} selection yields, usable anywhere a number is (damage equal
  * to nearby allies, a resource cost scaled by a collection's size). The same
- * {@code townstead_origins:count} id is a condition in a condition slot.
+ * {@code townstead_roots:count} id is a condition in a condition slot.
  */
 public final class CountValueType implements ValueType {
 

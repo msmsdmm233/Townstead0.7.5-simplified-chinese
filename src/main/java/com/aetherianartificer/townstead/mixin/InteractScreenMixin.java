@@ -150,7 +150,7 @@ public abstract class InteractScreenMixin extends Screen {
         if (button != 0) return;
         if (((AbstractDynamicScreenAccessor) this).townstead$invokeHoveringOverIcon("genes")) {
             townstead$transitioning = true;
-            com.aetherianartificer.townstead.client.gui.origin.HeritageScreen.open(villager);
+            com.aetherianartificer.townstead.client.gui.root.HeritageScreen.open(villager);
             cir.setReturnValue(true);
         }
     }

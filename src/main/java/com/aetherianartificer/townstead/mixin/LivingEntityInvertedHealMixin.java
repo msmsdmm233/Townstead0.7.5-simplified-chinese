@@ -17,7 +17,7 @@ public abstract class LivingEntityInvertedHealMixin {
         if (cir.getReturnValueZ()) return;
         net.minecraft.world.entity.LivingEntity self = (net.minecraft.world.entity.LivingEntity) (Object) this;
         if (self.level().isClientSide) return;
-        if (com.aetherianartificer.townstead.origin.EntityGroups.isUndead(self)) cir.setReturnValue(true);
+        if (com.aetherianartificer.townstead.root.EntityGroups.isUndead(self)) cir.setReturnValue(true);
     }
     //?}
 }

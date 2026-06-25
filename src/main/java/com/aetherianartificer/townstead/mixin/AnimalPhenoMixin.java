@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.hook.PhenoHooks;
+import com.aetherianartificer.townstead.root.hook.PhenoHooks;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.animal.Animal;
 import org.spongepowered.asm.mixin.Mixin;

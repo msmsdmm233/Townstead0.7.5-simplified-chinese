@@ -986,7 +986,7 @@ public class CalendarScreen extends Screen {
         enableVirtualScissor(g, contentX, gridTop, contentX + contentW, gridBottom);
         for (CalendarStamp s : all) {
             if (s.year() != viewYear || s.monthIndex() != viewMonth) continue;
-            int[] o = stampScreenOrigin(snap, s);
+            int[] o = stampScreenRoot(snap, s);
             if (o == null) continue;
             int sx = o[0], sy = o[1];
             if (s == hovered) drawStampGlow(g, sx, sy);
@@ -1263,7 +1263,7 @@ public class CalendarScreen extends Screen {
         if (hit != null) {
             selectStamp(hit);
             if (canEditLocal(hit)) {
-                int[] o = stampScreenOrigin(snap, hit);
+                int[] o = stampScreenRoot(snap, hit);
                 draggingId = hit.id();
                 dragVX = vx;
                 dragVY = vy;
@@ -1288,7 +1288,7 @@ public class CalendarScreen extends Screen {
         if (day < 0) return;
         List<StampCatalog.Entry> list = StampCatalog.list();
         if (selectedPaletteIndex < 0 || selectedPaletteIndex >= list.size()) return;
-        int[] cell = cellOrigin(snap, day);
+        int[] cell = cellRoot(snap, day);
         if (cell == null) return;
         float offX = (float) (vx - cell[0] - STAMP_SIZE / 2.0);
         float offY = (float) (vy - cell[1] - STAMP_SIZE / 2.0);
@@ -1307,7 +1307,7 @@ public class CalendarScreen extends Screen {
         int newY = (int) Math.round(vy - dragGrabDY);
         int day = dayAtPoint(snap, newX + STAMP_SIZE / 2.0, newY + STAMP_SIZE / 2.0);
         if (day < 0) return; // dropped off the grid; leave it where it was
-        int[] cell = cellOrigin(snap, day);
+        int[] cell = cellRoot(snap, day);
         if (cell == null) return;
         sendAction(CalendarStampActionC2SPayload.move(
                 id, viewYear, viewMonth, day, (float) (newX - cell[0]), (float) (newY - cell[1])));
@@ -1373,20 +1373,20 @@ public class CalendarScreen extends Screen {
 
     /** Screen origin (virtual coords) of a stamp, honouring an in-progress drag. */
     @Nullable
-    private int[] stampScreenOrigin(CalendarClientStore.Snapshot snap, CalendarStamp s) {
+    private int[] stampScreenRoot(CalendarClientStore.Snapshot snap, CalendarStamp s) {
         if (s.id().equals(draggingId)) {
             return new int[]{
                     (int) Math.round(dragVX - dragGrabDX),
                     (int) Math.round(dragVY - dragGrabDY)};
         }
-        int[] cell = cellOrigin(snap, s.dayOfMonth());
+        int[] cell = cellRoot(snap, s.dayOfMonth());
         if (cell == null) return null;
         return new int[]{cell[0] + Math.round(s.offX()), cell[1] + Math.round(s.offY())};
     }
 
     /** Top-left (virtual coords) of the given 1-based day's cell, or null if out of range. */
     @Nullable
-    private int[] cellOrigin(CalendarClientStore.Snapshot snap, int day) {
+    private int[] cellRoot(CalendarClientStore.Snapshot snap, int day) {
         java.util.List<com.aetherianartificer.townstead.calendar.MonthDef> yearMonths = snap.monthsForYear(viewYear);
         if (yearMonths.isEmpty()) return null;
         int safeMonthIdx = Math.max(0, Math.min(viewMonth - 1, yearMonths.size() - 1));
@@ -1429,7 +1429,7 @@ public class CalendarScreen extends Screen {
         CalendarStamp found = null;
         for (CalendarStamp s : CalendarStampClientStore.get()) {
             if (s.year() != viewYear || s.monthIndex() != viewMonth) continue;
-            int[] o = stampScreenOrigin(snap, s);
+            int[] o = stampScreenRoot(snap, s);
             if (o == null) continue;
             if (vx >= o[0] && vx < o[0] + STAMP_SIZE && vy >= o[1] && vy < o[1] + STAMP_SIZE) {
                 found = s; // last match wins -> topmost

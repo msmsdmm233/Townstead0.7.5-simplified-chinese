@@ -26,7 +26,7 @@ public final class PhenoSchemas {
                 .primaryChild("action").build());
 
         NodeSchemas.register(NodeSchema.of("pheno:active_ability", NodeDomain.GENE)
-                .doc("An action the holder triggers from an Origin Ability key slot.")
+                .doc("An action the holder triggers from an Root Ability key slot.")
                 .field(required("action", PhenoType.ACTION))
                 .field(of("condition", PhenoType.CONDITION))
                 .field(of("cooldown", PhenoType.DURATION))

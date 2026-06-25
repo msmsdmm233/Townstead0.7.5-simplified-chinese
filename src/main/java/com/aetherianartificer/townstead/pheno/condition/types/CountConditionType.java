@@ -12,7 +12,7 @@ import net.minecraft.util.GsonHelper;
 /**
  * Compares how many targets an {@code on} selection yields against {@code compare_to} using
  * {@code comparison} (generalizes {@code entity_in_radius} and {@code collection_size}). The same
- * {@code townstead_origins:count} id is a value in a numeric slot.
+ * {@code townstead_roots:count} id is a value in a numeric slot.
  */
 public final class CountConditionType implements ConditionType {
 

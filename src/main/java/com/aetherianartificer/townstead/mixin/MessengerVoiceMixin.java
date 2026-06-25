@@ -2,7 +2,7 @@ package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.dialogue.McaVoiceFallback;
 import com.aetherianartificer.townstead.dialogue.SpeciesVoice;
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.relationship.AgeState;
 import net.minecraft.network.chat.MutableComponent;

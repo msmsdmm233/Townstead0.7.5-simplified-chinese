@@ -8,7 +8,7 @@ import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.compat.thirst.ThirstCompatBridge;
 import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import com.aetherianartificer.townstead.hunger.VillagerConsumptionManager;
-import com.aetherianartificer.townstead.origin.needs.NeedSuppression;
+import com.aetherianartificer.townstead.root.needs.NeedSuppression;
 import com.aetherianartificer.townstead.thirst.ThirstData;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;

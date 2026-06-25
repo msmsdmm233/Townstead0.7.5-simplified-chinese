@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.item.RelationshipItem;
 import net.minecraft.server.level.ServerPlayer;

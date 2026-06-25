@@ -2,7 +2,7 @@ package com.aetherianartificer.townstead.mixin.client;
 
 import com.aetherianartificer.townstead.client.species.RigModels;
 import com.aetherianartificer.townstead.client.species.RigSkinTone;
-import com.aetherianartificer.townstead.origin.Hold;
+import com.aetherianartificer.townstead.root.Hold;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.EntityModel;

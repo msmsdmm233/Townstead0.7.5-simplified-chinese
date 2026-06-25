@@ -8,7 +8,7 @@ import java.util.Map;
  * Small path resolver over Townstead snapshot records.
  *
  * <p>Paths are dot-separated record/map/list lookups, for example
- * {@code originId}, {@code needs.hunger}, or {@code variants.0.id}.</p>
+ * {@code rootId}, {@code needs.hunger}, or {@code variants.0.id}.</p>
  */
 public final class TownsteadQuery {
     private TownsteadQuery() {}

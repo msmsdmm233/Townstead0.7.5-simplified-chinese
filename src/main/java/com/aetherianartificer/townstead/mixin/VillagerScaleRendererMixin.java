@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.LifeStageScale;
+import com.aetherianartificer.townstead.root.LifeStageScale;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.conczin.mca.client.render.VillagerLikeEntityMCARenderer;
 import net.minecraft.world.entity.Mob;

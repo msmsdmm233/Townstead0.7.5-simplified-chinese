@@ -58,7 +58,7 @@ public final class EnclosureScanner {
 
     public static @Nullable Enclosure scan(ServerLevel level, BlockPos from) {
         if (level == null || from == null) return null;
-        BlockPos origin = pickScanOrigin(level, from);
+        BlockPos origin = pickScanRoot(level, from);
         if (origin == null) {
             LOG.debug("[EnclosureScan] reject at {} — no passable origin", from);
             return null;
@@ -149,7 +149,7 @@ public final class EnclosureScanner {
      * tile. Returns {@code null} if neither feet-level nor adjacent Y is
      * valid (the player probably isn't inside anything pen-shaped).
      */
-    private static @Nullable BlockPos pickScanOrigin(ServerLevel level, BlockPos near) {
+    private static @Nullable BlockPos pickScanRoot(ServerLevel level, BlockPos near) {
         BlockPos here = new BlockPos(near.getX(), near.getY(), near.getZ());
         if (isPassableInterior(level.getBlockState(here))) return here;
         BlockPos up = here.above();

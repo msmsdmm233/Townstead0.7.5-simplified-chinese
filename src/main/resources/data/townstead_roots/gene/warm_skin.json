@@ -1,0 +1,10 @@
+{
+  "schema": "townstead:gene/v2",
+  "type": "townstead_roots:skin_tone",
+  "display_name": { "translate": "gene.townstead_roots.warm_skin" },
+  "description": { "translate": "gene.townstead_roots.warm_skin.desc" },
+  "category": "Appearance",
+  "dominance": "dominant",
+  "locus": "townstead_roots:skin",
+  "tint": "#FFFFFF"
+}

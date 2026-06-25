@@ -91,7 +91,7 @@
     "compat.backpacked.BackpackLayerWearableMixin",
     "InteractScreenMixin",
     "VillagerEditorMixin",
-    "VillagerEditorOriginMixin",
+    "VillagerEditorRootMixin",
     "VillagerScaleRendererMixin",
     "DestinyScreenMixin",
     "LivingEntityMobTypeMixin",

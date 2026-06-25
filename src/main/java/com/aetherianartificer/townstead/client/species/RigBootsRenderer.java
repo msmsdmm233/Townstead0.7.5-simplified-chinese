@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.client.species;
 
-import com.aetherianartificer.townstead.origin.rig.RigDefinition;
+import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;

@@ -758,7 +758,7 @@ public final class TownsteadVillager {
         // Editing month/day in the editor changes only this, never the age.
         private int birthMonth;
         private int birthDay;
-        private String originId = "";
+        private String rootId = "";
         private String personalityId = "";
         private int[] stageDays = EMPTY_INT_ARRAY;
         private int cycleFingerprint;
@@ -787,13 +787,13 @@ public final class TownsteadVillager {
         // The diploid heritable truth: two alleles per discrete locus. The expressed
         // phenotype above is derived from this; inheritance draws one allele per locus
         // from each parent. Continuous body floats live on MCA's genetics, not here.
-        private com.aetherianartificer.townstead.origin.gene.Genotype genotype =
-                new com.aetherianartificer.townstead.origin.gene.Genotype();
+        private com.aetherianartificer.townstead.root.gene.Genotype genotype =
+                new com.aetherianartificer.townstead.root.gene.Genotype();
         // Realized ancestry composition (the "23andMe" vector) that drives the displayed
         // race name via the HeritageRegistry; a founder is seeded from its origin, a child
         // blends its parents.
-        private com.aetherianartificer.townstead.origin.Heritage heritage =
-                com.aetherianartificer.townstead.origin.Heritage.EMPTY;
+        private com.aetherianartificer.townstead.root.Heritage heritage =
+                com.aetherianartificer.townstead.root.Heritage.EMPTY;
 
         public long birthWorldDay() {
             return birthWorldDay;
@@ -828,17 +828,17 @@ public final class TownsteadVillager {
             markDirty();
         }
 
-        /** The villager's origin id (e.g. {@code townstead_origins:overworlder}); empty until assigned. */
-        public String originId() {
-            return originId;
+        /** The villager's origin id (e.g. {@code townstead_roots:overworlder}); empty until assigned. */
+        public String rootId() {
+            return rootId;
         }
 
-        public boolean hasOrigin() {
-            return !originId.isEmpty();
+        public boolean hasRoot() {
+            return !rootId.isEmpty();
         }
 
-        public void setOrigin(String id) {
-            originId = id == null ? "" : id;
+        public void setRoot(String id) {
+            rootId = id == null ? "" : id;
             markDirty();
         }
 
@@ -859,7 +859,7 @@ public final class TownsteadVillager {
 
         /**
          * Per-stage day durations rolled at spawn, aligned to the origin's
-         * {@link com.aetherianartificer.townstead.origin.LifeCycle} stage order.
+         * {@link com.aetherianartificer.townstead.root.LifeCycle} stage order.
          * Length 0 until the spawn handler rolls; mismatch with the current
          * cycle length means the origin was reassigned and a re-roll is due.
          */
@@ -880,7 +880,7 @@ public final class TownsteadVillager {
             markDirty();
         }
 
-        /** Hash of the cycle shape the {@code stageDays} were rolled against; see {@link com.aetherianartificer.townstead.origin.LifeCycle#fingerprint()}. */
+        /** Hash of the cycle shape the {@code stageDays} were rolled against; see {@link com.aetherianartificer.townstead.root.LifeCycle#fingerprint()}. */
         public int cycleFingerprint() {
             return cycleFingerprint;
         }
@@ -986,7 +986,7 @@ public final class TownsteadVillager {
         }
 
         /** The diploid genotype (two alleles per locus); the heritable source of truth. */
-        public com.aetherianartificer.townstead.origin.gene.Genotype genotype() {
+        public com.aetherianartificer.townstead.root.gene.Genotype genotype() {
             return genotype;
         }
 
@@ -994,13 +994,13 @@ public final class TownsteadVillager {
             return !genotype.isEmpty();
         }
 
-        public void setGenotype(com.aetherianartificer.townstead.origin.gene.Genotype value) {
-            genotype = value == null ? new com.aetherianartificer.townstead.origin.gene.Genotype() : value;
+        public void setGenotype(com.aetherianartificer.townstead.root.gene.Genotype value) {
+            genotype = value == null ? new com.aetherianartificer.townstead.root.gene.Genotype() : value;
             markDirty();
         }
 
         /** The villager's realized ancestry composition (drives the displayed race name). */
-        public com.aetherianartificer.townstead.origin.Heritage heritage() {
+        public com.aetherianartificer.townstead.root.Heritage heritage() {
             return heritage;
         }
 
@@ -1008,8 +1008,8 @@ public final class TownsteadVillager {
             return !heritage.isEmpty();
         }
 
-        public void setHeritage(com.aetherianartificer.townstead.origin.Heritage value) {
-            heritage = value == null ? com.aetherianartificer.townstead.origin.Heritage.EMPTY : value;
+        public void setHeritage(com.aetherianartificer.townstead.root.Heritage value) {
+            heritage = value == null ? com.aetherianartificer.townstead.root.Heritage.EMPTY : value;
             markDirty();
         }
 
@@ -1021,8 +1021,8 @@ public final class TownsteadVillager {
             }
             if (birthMonth > 0) tag.putInt("birthMonth", birthMonth);
             if (birthDay > 0) tag.putInt("birthDay", birthDay);
-            if (hasOrigin()) {
-                tag.putString("originId", originId);
+            if (hasRoot()) {
+                tag.putString("rootId", rootId);
             }
             if (!personalityId.isEmpty()) {
                 tag.putString("personalityId", personalityId);
@@ -1068,7 +1068,7 @@ public final class TownsteadVillager {
             }
             birthMonth = tag.getInt("birthMonth");
             birthDay = tag.getInt("birthDay");
-            originId = tag.getString("originId");
+            rootId = tag.contains("rootId") ? tag.getString("rootId") : tag.getString("originId"); // legacy fallback
             personalityId = tag.getString("personalityId");
             stageDays = tag.contains("stageDays") ? tag.getIntArray("stageDays") : EMPTY_INT_ARRAY;
             cycleFingerprint = tag.getInt("cycleFingerprint");
@@ -1089,11 +1089,11 @@ public final class TownsteadVillager {
                 for (int i = 0; i < list.size(); i++) expressedAlleles.add(list.getString(i));
             }
             genotype = tag.contains("genotype")
-                    ? com.aetherianartificer.townstead.origin.gene.Genotype.fromTag(tag.getCompound("genotype"))
-                    : new com.aetherianartificer.townstead.origin.gene.Genotype();
+                    ? com.aetherianartificer.townstead.root.gene.Genotype.fromTag(tag.getCompound("genotype"))
+                    : new com.aetherianartificer.townstead.root.gene.Genotype();
             heritage = tag.contains("heritage")
-                    ? com.aetherianartificer.townstead.origin.Heritage.fromTag(tag.getCompound("heritage"))
-                    : com.aetherianartificer.townstead.origin.Heritage.EMPTY;
+                    ? com.aetherianartificer.townstead.root.Heritage.fromTag(tag.getCompound("heritage"))
+                    : com.aetherianartificer.townstead.root.Heritage.EMPTY;
             markDirty();
         }
     }

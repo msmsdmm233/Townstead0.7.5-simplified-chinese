@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.item;
 
-import com.aetherianartificer.townstead.origin.EntityGroups;
+import com.aetherianartificer.townstead.root.EntityGroups;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;

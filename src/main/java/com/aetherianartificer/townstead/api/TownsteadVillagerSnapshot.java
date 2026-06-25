@@ -8,7 +8,7 @@ public record TownsteadVillagerSnapshot(
         String uuid,
         String name,
         String entityType,
-        String originId,
+        String rootId,
         String lifeStage,
         long biologicalAgeDays,
         int apparentAgeYears,

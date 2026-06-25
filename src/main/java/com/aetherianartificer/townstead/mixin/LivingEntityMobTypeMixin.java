@@ -17,7 +17,7 @@ public abstract class LivingEntityMobTypeMixin {
     private void townstead$mobType(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<net.minecraft.world.entity.MobType> cir) {
         net.minecraft.world.entity.LivingEntity self = (net.minecraft.world.entity.LivingEntity) (Object) this;
         if (self.level().isClientSide) return;
-        net.minecraft.world.entity.MobType type = com.aetherianartificer.townstead.origin.EntityGroups.mobType(self);
+        net.minecraft.world.entity.MobType type = com.aetherianartificer.townstead.root.EntityGroups.mobType(self);
         if (type != null) cir.setReturnValue(type);
     }
     *///?}

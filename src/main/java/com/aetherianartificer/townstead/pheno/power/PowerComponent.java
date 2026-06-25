@@ -13,6 +13,6 @@ package com.aetherianartificer.townstead.pheno.power;
  */
 public interface PowerComponent {
 
-    /** The owning type's key (e.g. {@code townstead_origins:ability}). */
+    /** The owning type's key (e.g. {@code townstead_roots:ability}). */
     String typeKey();
 }
