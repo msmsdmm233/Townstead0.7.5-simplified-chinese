@@ -28,11 +28,19 @@ public final class LifeStageTicker {
     // Stage boundaries are day-quantized, so re-resolving once per in-game day is
     // ample; per-tick would be wasted work on the hot villager path.
     private static final int RESOLVE_INTERVAL_TICKS = 1200;
+    // Reconcile MCA's breeding-age-driven body size with the resolved stage at ~1 Hz, so a freshly
+    // loaded, spawned, or edited villager reaches its stage size within a second. Cheap: it no-ops for
+    // adults and only writes when a pre-adult villager's age is out of step with its stage.
+    private static final int BODY_SYNC_INTERVAL_TICKS = 20;
 
     private LifeStageTicker() {}
 
     public static void tick(VillagerEntityMCA villager) {
         if (villager.level().isClientSide) return;
+
+        if (villager.tickCount % BODY_SYNC_INTERVAL_TICKS == 0) {
+            LifeStageProgression.syncMcaAgeToStage(villager);
+        }
 
         if (villager.tickCount % RESOLVE_INTERVAL_TICKS == 0) {
             boolean seniorChanged = LifeStageProgression.tickResolveStage(villager);

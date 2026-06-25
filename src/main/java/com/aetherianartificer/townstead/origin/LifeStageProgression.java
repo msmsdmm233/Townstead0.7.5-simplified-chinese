@@ -31,6 +31,16 @@ public final class LifeStageProgression {
 
     private LifeStageProgression() {}
 
+    // Set while Townstead drives a villager's MCA breeding age from its resolved stage (see
+    // syncMcaAgeToStage). The ageless/immortal setAge-freeze mixin checks this so a stage-driven
+    // write lands while vanilla per-tick aging stays blocked.
+    private static final ThreadLocal<Boolean> DRIVING_AGE = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    /** True while {@link #syncMcaAgeToStage} is writing the breeding age (lets the freeze mixin pass it). */
+    public static boolean isDrivingAge() {
+        return DRIVING_AGE.get();
+    }
+
     /**
      * Maintain the apparent-age freeze stamp and return the day to treat as "now" for
      * display. When villager aging is disabled, stamp the current day on first sight and
@@ -40,7 +50,7 @@ public final class LifeStageProgression {
      */
     public static long agingDisplayDay(TownsteadVillager.Life life, long today) {
         if (life == null) return today;
-        if (TownsteadConfig.isVillagerAgingDisabled()) {
+        if (freezesAging(life)) {
             if (!life.hasAgingFrozenDay()) life.setAgingFrozenDay(today);
             return life.agingFrozenDay();
         }
@@ -50,10 +60,27 @@ public final class LifeStageProgression {
 
     /** Read-only variant: honor an existing freeze stamp without creating or clearing one. */
     public static long agingDisplayDayView(TownsteadVillager.Life life, long today) {
-        if (life != null && TownsteadConfig.isVillagerAgingDisabled() && life.hasAgingFrozenDay()) {
+        if (life != null && freezesAging(life) && life.hasAgingFrozenDay()) {
             return life.agingFrozenDay();
         }
         return today;
+    }
+
+    /**
+     * Whether this villager's biological clock is held fixed in calendar time, so its apparent age,
+     * stage, and render size stop advancing. True when the global "villagers do not age" config is on,
+     * the villager is ageless (e.g. skeletons), or it is immortal (the potion/gene flag). Both ageless
+     * and immortal are a per-villager frozen clock: the admin still picks an apparent age with the
+     * continuous slider, it just never advances on its own. (Immortal additionally can't die.)
+     *
+     * <p>Keyed on {@link TownsteadVillager.Life} so the display-day helpers can call it without an
+     * entity; a config-driven MCA <em>trait</em> conferring immortality (rare, see
+     * {@code TraitEffects.isImmortal}) is only seen by the entity-aware {@link #isStageFrozen}, so such
+     * a villager still holds its stage but its displayed age may climb. The shipped immortal gene sets
+     * {@code life.immortal()}, so it is fully frozen here.</p>
+     */
+    private static boolean freezesAging(TownsteadVillager.Life life) {
+        return TownsteadConfig.isVillagerAgingDisabled() || isAgeless(life) || life.immortal();
     }
 
     /**
@@ -92,9 +119,9 @@ public final class LifeStageProgression {
             stampBirthForRequested(life, cycle, requested, today);
         }
 
-        // Immortal (or aging globally disabled) + stage recorded: hold the recorded stage fixed.
-        // With no stage recorded yet we fall through once to resolve the current stage and
-        // commit it, then freeze on that from here on.
+        // Stage-frozen (ageless or immortal) or aging globally disabled, + stage recorded: hold the
+        // recorded stage fixed. With no stage recorded yet we fall through once to resolve the current
+        // stage and commit it, then freeze on that from here on.
         if ((isStageFrozen(villager, life) || TownsteadConfig.isVillagerAgingDisabled())
                 && !life.currentStageId().isEmpty()) {
             return resolveFromRecordedStage(life, cycle, requested);
@@ -118,7 +145,7 @@ public final class LifeStageProgression {
      * live MCA {@link AgeState}. Used to detect a stale birth (e.g. an older build
      * stamped an adult's birth at ~today, so it now reads as a baby) that the
      * too-old self-heal can't catch. Returns {@code true} — "no action" — whenever
-     * we can't judge (no birth/cycle, immortal frozen, length mismatch).
+     * we can't judge (no birth/cycle, stage frozen, length mismatch).
      */
     public static boolean birthMatchesBody(VillagerEntityMCA villager) {
         if (villager == null) return true;
@@ -144,22 +171,25 @@ public final class LifeStageProgression {
     }
 
     /**
-     * Operational immortality: the non-heritable potion flag ({@link TownsteadVillager.Life#immortal})
-     * OR a heritable trait conferring {@code life.immortal}. Both pin the life stage.
-     */
-    private static boolean isImmortal(VillagerEntityMCA villager, TownsteadVillager.Life life) {
-        return life.immortal()
-                || com.aetherianartificer.townstead.origin.trait.TraitEffects.isImmortal(villager);
-    }
-
-    /**
-     * Ageless: the villager's life cycle never progresses by the calendar (e.g. skeletons). A separate
-     * axis from immortality (which is about not dying); ageless only pins the stage. Both freeze aging.
+     * Ageless: the villager's biological clock never advances by the calendar (e.g. skeletons), so its
+     * stage and apparent age hold fixed. The admin still picks a frozen apparent age with the continuous
+     * slider; it just never advances. Sources: the granted Potion of Agelessness flag, or an intrinsic
+     * {@code ageless} life cycle. See also {@link #freezesAging}.
      */
     public static boolean isAgeless(TownsteadVillager.Life life) {
         if (life.ageless()) return true; // granted by the Potion of Agelessness
         LifeCycle cycle = resolveCycle(life);
         return cycle != null && cycle.ageless(); // intrinsic to the species' life cycle
+    }
+
+    /**
+     * Operational immortality: the potion/gene flag ({@link TownsteadVillager.Life#immortal}) or a
+     * config-driven MCA trait conferring it. Immortal villagers are frozen in time like the ageless
+     * (eternal youth) and additionally cannot die.
+     */
+    private static boolean isImmortal(VillagerEntityMCA villager, TownsteadVillager.Life life) {
+        return life.immortal()
+                || com.aetherianartificer.townstead.origin.trait.TraitEffects.isImmortal(villager);
     }
 
     /** Whether this villager's life stage is held fixed, by immortality or by an ageless life cycle. */
@@ -225,32 +255,6 @@ public final class LifeStageProgression {
     }
 
     /**
-     * Freeze an immortal villager's appearance at the given cycle index,
-     * committing that stage's senior/fertility state and MCA age model without
-     * touching the date of birth (calendar age keeps climbing). No-op for an out
-     * of range index or a villager with no cycle. Intended for immortals — for a
-     * mortal the next calendar resolution would override {@code currentStageId}.
-     */
-    public static void freezeAtStage(VillagerEntityMCA villager, int stageIndex) {
-        if (villager == null) return;
-        TownsteadVillager.Life life = TownsteadVillagers.get(villager).life();
-        LifeCycle cycle = resolveCycle(life);
-        if (cycle == null || cycle.isEmpty()) return;
-        if (stageIndex < 0 || stageIndex >= cycle.size()) return;
-
-        LifeStage stage = cycle.stageAt(stageIndex);
-        boolean wasSenior = life.isSenior();
-        life.setCurrentStageId(stage.id());
-        life.setSenior(stage.presentsAs() == CanonicalStage.SENIOR);
-        life.setFertility(fertilityFor(stage.presentsAs()));
-        if (wasSenior != life.isSenior()) {
-            if (life.isSenior()) SeniorEffects.applySenior(villager);
-            else SeniorEffects.clearSenior(villager);
-        }
-        villager.setAgeState(villager.getAgeState());
-    }
-
-    /**
      * Apply an explicit editor age choice. This intentionally bypasses the
      * global "villagers do not age" freeze for this one edit: that setting
      * should stop time-based progression, not reject a player/admin choosing a
@@ -266,7 +270,9 @@ public final class LifeStageProgression {
         life.setBirth(newBirthWorldDay, true);
 
         long today = TownsteadCalendar.lifeDay(server);
-        if (TownsteadConfig.isVillagerAgingDisabled()) {
+        // Re-anchor the freeze stamp to the edit day so a frozen-in-time villager (ageless, immortal,
+        // or globally non-aging) holds the chosen apparent age instead of resuming from a stale day.
+        if (freezesAging(life)) {
             life.setAgingFrozenDay(today);
         }
 
@@ -278,6 +284,8 @@ public final class LifeStageProgression {
         // commit first so the (aging-disabled) resolver reads the updated recorded stage.
         commitStageFromBirth(villager, life, today);
         villager.setAgeState(villager.getAgeState());
+        // Drive MCA's breeding age to the new stage so the body resizes immediately, not a tick later.
+        syncMcaAgeToStage(villager);
     }
 
     @Nullable
@@ -342,8 +350,8 @@ public final class LifeStageProgression {
      * would never be reconciled. Returns true if the senior flag changed (caller can
      * re-broadcast the life sync so client hair desaturation updates).
      *
-     * <p>No-op for immortals with a frozen stage, or when birth/cycle/stageDays are
-     * absent or mismatched.</p>
+     * <p>No-op for stage-frozen (ageless or immortal) villagers with a frozen stage, or when
+     * birth/cycle/stageDays are absent or mismatched.</p>
      */
     public static boolean tickResolveStage(VillagerEntityMCA villager) {
         if (villager == null) return false;
@@ -415,6 +423,77 @@ public final class LifeStageProgression {
         int k = canonicalToMca(canonical, AgeState.ADULT).ordinal(); // BABY=1 .. ADULT=5
         if (k >= AgeState.ADULT.ordinal()) return 0;
         return -max + (k - 1) * (max / 4);
+    }
+
+    /**
+     * Keep MCA's breeding age, which is the only input to its interpolated body dimensions, consistent
+     * with the villager's resolved life stage, so the body renders at the stage's graded size instead of
+     * whatever age it last held. MCA recomputes dimensions only inside {@code setAge}, so a calendar- or
+     * editor-driven stage change otherwise leaves the body stuck (a child rendering at adult size).
+     *
+     * <p>Only pre-adult stages are forced: an adult (or senior, which presents as adult) renders at full
+     * size from any non-negative age, and forcing it would reset vanilla love-mode cooldowns. The write
+     * goes through the ageless/immortal {@code setAge} freeze via {@link #DRIVING_AGE}, so a frozen
+     * villager reaches its stage size once and then holds it (vanilla per-tick aging stays blocked).</p>
+     */
+    public static void syncMcaAgeToStage(VillagerEntityMCA villager) {
+        if (villager == null || villager.getAgeState() == AgeState.ADULT) return;
+        MinecraftServer server = villager.level().getServer();
+        if (server == null) return;
+        TownsteadVillager.Life life = TownsteadVillagers.get(villager).life();
+        if (!life.hasBirth() || !life.hasStageDays()) return;
+        LifeCycle cycle = resolveCycle(life);
+        if (cycle == null || cycle.isEmpty() || life.stageDaysLength() != cycle.size()) return;
+
+        long today = agingDisplayDayView(life, TownsteadCalendar.lifeDay(server));
+        long bioAge = Math.max(0L, today - life.birthWorldDay());
+        int modelAge = modelAgeForBio(cycle, life.stageDays(), bioAge);
+        if (modelAge >= 0 || villager.getAge() == modelAge) return;
+
+        boolean prev = DRIVING_AGE.get();
+        DRIVING_AGE.set(Boolean.TRUE);
+        try {
+            villager.setAge(modelAge);
+        } finally {
+            DRIVING_AGE.set(prev);
+        }
+    }
+
+    /**
+     * The MCA breeding age that renders stage-correct proportions for a biological age, interpolated
+     * across the cycle's stages (piecewise-linear between each stage's {@link #representativeMcaAge}).
+     * Mirrors the editor's preview-age math so the in-world body matches what the slider shows.
+     */
+    private static int modelAgeForBio(LifeCycle cycle, int[] stageDays, long bioAge) {
+        int n = cycle.size();
+        if (n == 0) return 0;
+        long cum = 0;
+        for (int i = 0; i < n; i++) {
+            int d = Math.max(1, (stageDays != null && i < stageDays.length) ? stageDays[i] : 1);
+            if (bioAge < cum + d || i == n - 1) {
+                float frac = (float) Math.max(0.0, Math.min(1.0, (bioAge - cum) / (double) d));
+                int a = representativeMcaAge(cycle.stageAt(i).presentsAs());
+                int b = representativeMcaAge(cycle.stageAt(Math.min(n - 1, i + 1)).presentsAs());
+                return offBoundary(Math.round(a + (b - a) * frac), a, b);
+            }
+            cum += d;
+        }
+        return representativeMcaAge(cycle.stageAt(n - 1).presentsAs());
+    }
+
+    /**
+     * Keep a model age a hair inside its AgeState band. MCA's per-age dimension interpolation spikes
+     * toward the next stage's size exactly at a band boundary (the representative ages land on those
+     * boundaries), so a value sitting on one makes the body briefly balloon at a stage transition. A
+     * small margin off both edges removes the spike without visibly changing proportions.
+     */
+    private static int offBoundary(int value, int a, int b) {
+        int lo = Math.min(a, b), hi = Math.max(a, b);
+        if (hi - lo < 4) return value;
+        int g = Math.max(1, (hi - lo) / 48);
+        if (value < lo + g) return lo + g;
+        if (value > hi - g) return hi - g;
+        return value;
     }
 
     /**

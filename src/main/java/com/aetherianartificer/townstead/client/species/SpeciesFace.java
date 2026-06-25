@@ -41,8 +41,15 @@ public final class SpeciesFace {
     private static final float EYES_EPS = 0.011f;
     private static final float MOUTH_EPS = 0.010f;
 
+    // Vanilla HumanoidModel's young (baby) head transform: renderToBuffer scales the head group by
+    // 1.5/babyHeadScale(2)=0.75 and translates it yHeadOffset(16)/16=1.0 up, but that transform lives
+    // only inside renderToBuffer, not in the head bone's own fields. The face overlay poses from the
+    // bone fields, so without replicating it the face floats off the enlarged baby head.
+    private static final float BABY_HEAD_SCALE = 0.75f;
+    private static final float BABY_HEAD_Y = 1.0f;
+
     static void render(LivingEntity entity, String rigBase, PoseStack pose, MultiBufferSource buffers,
-                       int light, float partialTick) {
+                       int light, float partialTick, boolean babyHead) {
         // Face placement is data-driven per rig (no humanoid-head assumption): a rig with no `face`
         // block has no overlay face.
         com.aetherianartificer.townstead.origin.rig.RigDefinition def = RigModels.definition(rigBase);
@@ -79,6 +86,11 @@ public final class SpeciesFace {
         int reaction = reactionSign(entity);
 
         pose.pushPose();
+        // Match the body's young transform so the face stays on the enlarged baby head (see fields).
+        if (babyHead) {
+            pose.scale(BABY_HEAD_SCALE, BABY_HEAD_SCALE, BABY_HEAD_SCALE);
+            pose.translate(0f, BABY_HEAD_Y, 0f);
+        }
         head.translateAndRotate(pose);
         if (eyes != null && !eyes.texture().isEmpty()) {
             int frame = closed ? 1 : (reaction > 0 ? 2 : reaction < 0 ? 3 : 0);

@@ -36,16 +36,12 @@ public final class LifeData {
      *   <li>{@link #EDITOR_KEY_BIRTH_YEAR}/{@code _MONTH}/{@code _DAY} — an exact
      *       date of birth from the debug date picker; server converts via the
      *       active calendar profile.</li>
-     *   <li>{@link #EDITOR_KEY_FROZEN_STAGE_INDEX} — the cycle index an immortal
-     *       villager is frozen at (immortal appearance slider); leaves the date of
-     *       birth / calendar age untouched.</li>
      * </ul>
      */
     public static final String EDITOR_KEY_BIO_AGE_DAYS = "TownsteadEditorBioAgeDays";
     public static final String EDITOR_KEY_BIRTH_YEAR = "TownsteadEditorBirthYear";
     public static final String EDITOR_KEY_BIRTH_MONTH = "TownsteadEditorBirthMonth";
     public static final String EDITOR_KEY_BIRTH_DAY = "TownsteadEditorBirthDay";
-    public static final String EDITOR_KEY_FROZEN_STAGE_INDEX = "TownsteadEditorFrozenStage";
 
     private LifeData() {}
 

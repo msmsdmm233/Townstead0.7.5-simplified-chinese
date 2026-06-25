@@ -12,6 +12,8 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.conczin.mca.entity.VillagerEntityMCA;
+import net.conczin.mca.entity.ai.relationship.AgeState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -105,8 +107,9 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         *///?}
 
         // Custom face (eyes/mouth) drawn on the now-posed head bone, inside the scaled pose so it
-        // tracks the head. Resolved from the entity's face genes; a no-op for rigs without them.
-        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick);
+        // tracks the head. Resolved from the entity's face genes; a no-op for rigs without them. The
+        // baby flag matches model.young so the face follows the vanilla baby head scale/offset.
+        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, babyProportions(entity));
 
         // Worn armor, fitted to the rig (same model proportions, pose, and scale), drawn before held
         // items like vanilla. The rig model is already posed above, which the armor layer copies from.
@@ -195,7 +198,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         ResourceLocation texture = RigModels.texture(rigBase);
         if (model == null || texture == null) return;
         model.attackTime = entity.getAttackAnim(partialTick);
-        model.young = entity.isBaby();
+        model.young = babyProportions(entity);
         model.riding = entity.isPassenger();
         // Climb gait: a climbing rig moves along a wall/ceiling with ~no horizontal walk speed, so the
         // vanilla gait signal reads as standing still and the legs freeze. While attached to any surface
@@ -236,7 +239,9 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
                 ((tone >> 16) & 0xFF) / 255f, ((tone >> 8) & 0xFF) / 255f, (tone & 0xFF) / 255f,
                 ((tone >>> 24) & 0xFF) / 255f);
         *///?}
-        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick);
+        // Generic (non-humanoid) models don't apply the vanilla humanoid baby head transform, so the
+        // face poses straight from the bone with no baby correction.
+        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, false);
         // Worn boots laid across the rig's named bones (e.g. one per leg of a multi-legged rig), fitted
         // with full vanilla armor fidelity. The bones are now posed by the setupAnim above, so they track.
         RigBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
@@ -275,7 +280,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
     private static void prepareModel(HumanoidModel<LivingEntity> model, LivingEntity entity, float partialTick,
                                      Animations anim) {
         model.attackTime = entity.getAttackAnim(partialTick);
-        model.young = entity.isBaby();
+        model.young = babyProportions(entity);
         // crouch: the humanoid bend, unless the species opts this rig out of crouching.
         model.crouching = anim.isHumanoid(Animations.State.CROUCH) && entity.isCrouching();
         model.riding = entity.isPassenger();
@@ -289,6 +294,18 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
             model.leftArmPose = mainPose;
             model.rightArmPose = offPose;
         }
+    }
+
+    /**
+     * Whether to render the rig with vanilla's binary baby proportions (shrunk body, enlarged head).
+     * Only the BABY life stage, so toddler/child/teen instead scale smoothly through MCA's graded
+     * dimensions (driven by the stage-synced breeding age): vanilla's flag is on for every age below
+     * adult, which would give a teen baby proportions and snap at the adult boundary. A non-MCA entity
+     * (e.g. the player rig) keeps the plain {@code isBaby} check.
+     */
+    static boolean babyProportions(LivingEntity entity) {
+        if (entity instanceof VillagerEntityMCA mca) return mca.getAgeState() == AgeState.BABY;
+        return entity.isBaby();
     }
 
     /** True when the entity is a player aloft under creative/spectator flight (not standing). */

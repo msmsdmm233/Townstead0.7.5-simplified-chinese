@@ -3676,36 +3676,27 @@ public class Townstead {
                     seniorStageIndex = i;
                 }
             }
-            if ((immortal || ageless) && !lifeState.currentStageId().isEmpty()) {
-                // Stage-frozen (immortal or ageless): report the frozen stage, not the calendar one.
+            // Stage-frozen (ageless or immortal, both eternal-youth): report the held appearance stage
+            // the body renders, not a calendar-resolved one.
+            boolean stageFrozen = (immortal || ageless) && !lifeState.currentStageId().isEmpty();
+            if (stageFrozen) {
                 for (int i = 0; i < cycle.size(); i++) {
                     if (cycle.stageAt(i).id().equals(lifeState.currentStageId())) {
                         currentStageIndex = i;
                         break;
                     }
                 }
-                if (currentStageIndex >= 0) {
-                    // Immortal frozen: midpoint of the frozen stage's day-span,
-                    // derived; or the authored band midpoint for override cycles.
-                    if (derivesNarrative) {
-                        long before = com.aetherianartificer.townstead.origin.LifeStageResolver
-                                .cumulativeDaysBefore(stageDays, currentStageIndex);
-                        long mid = before + Math.max(1, stageDays[currentStageIndex]) / 2L;
-                        narrativeAge = mid * narrativeRate;
-                    } else {
-                        narrativeAge = cycle.stageAt(currentStageIndex).narrativeAgeAt(0.5f);
-                    }
-                }
-            } else {
-                com.aetherianartificer.townstead.origin.LifeStageResolver.Resolved resolved =
-                        com.aetherianartificer.townstead.origin.LifeStageResolver.resolve(
-                                cycle, stageDays, birthDay, today);
-                if (resolved != null) {
-                    currentStageIndex = resolved.stageIndex();
-                    narrativeAge = derivesNarrative
-                            ? bioAgeDays * narrativeRate
-                            : resolved.stage().narrativeAgeAt(resolved.deltaInStage());
-                }
+            }
+            // Stage + apparent age from the bio-age (frozen for ageless via agingDisplayDay), so the
+            // editor's continuous slider and the inspect screen agree for everyone.
+            com.aetherianartificer.townstead.origin.LifeStageResolver.Resolved resolved =
+                    com.aetherianartificer.townstead.origin.LifeStageResolver.resolve(
+                            cycle, stageDays, birthDay, today);
+            if (resolved != null) {
+                if (!stageFrozen) currentStageIndex = resolved.stageIndex();
+                narrativeAge = derivesNarrative
+                        ? bioAgeDays * narrativeRate
+                        : resolved.stage().narrativeAgeAt(resolved.deltaInStage());
             }
         } else {
             stageDays = new int[0];

@@ -37,11 +37,10 @@ public abstract class VillagerEditorBirthMixin {
     /*@Inject(method = "m_7378_", remap = false, at = @At("TAIL"))
     *///?}
     private void townstead$applyEditorAge(CompoundTag nbt, CallbackInfo ci) {
-        boolean hasFrozen = nbt.contains(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX);
         boolean hasAge = nbt.contains(LifeData.EDITOR_KEY_BIO_AGE_DAYS);
         boolean hasMonthDay = nbt.contains(LifeData.EDITOR_KEY_BIRTH_MONTH)
                 || nbt.contains(LifeData.EDITOR_KEY_BIRTH_DAY);
-        if (!hasFrozen && !hasAge && !hasMonthDay) return;
+        if (!hasAge && !hasMonthDay) return;
 
         VillagerEntityMCA self = (VillagerEntityMCA) (Object) this;
         if (self.level().isClientSide) {
@@ -56,13 +55,6 @@ public abstract class VillagerEditorBirthMixin {
 
         TownsteadVillager.Life life = TownsteadVillagers.get(self).life();
         boolean changed = false;
-
-        // Immortal appearance: re-freeze at the chosen stage; date of birth (hence
-        // calendar age) is left untouched.
-        if (hasFrozen) {
-            LifeStageProgression.freezeAtStage(self, nbt.getInt(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX));
-            changed = true;
-        }
 
         // Celebrated birthday (month/day) is decoupled from age: it changes only the
         // stored celebrated date, never birthWorldDay. The age slider, below, is the
@@ -105,6 +97,5 @@ public abstract class VillagerEditorBirthMixin {
         nbt.remove(LifeData.EDITOR_KEY_BIRTH_YEAR);
         nbt.remove(LifeData.EDITOR_KEY_BIRTH_MONTH);
         nbt.remove(LifeData.EDITOR_KEY_BIRTH_DAY);
-        nbt.remove(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX);
     }
 }
