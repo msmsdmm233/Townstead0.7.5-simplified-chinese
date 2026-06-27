@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Server → client: the selectable assignment profiles (lineage names + granted gene ids) plus
@@ -277,6 +278,79 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
         buf.writeVarInt(r.disabledSlots().size());
         for (net.minecraft.world.entity.EquipmentSlot slot : r.disabledSlots()) buf.writeByte(slot.ordinal());
         buf.writeUtf(r.cameraBone() == null ? "" : r.cameraBone());
+        writeEmote(buf, r.emote());
+    }
+
+    /** Serialize the emote remap: present flag, body-motion gate, per-channel remaps, and policy. */
+    private static void writeEmote(FriendlyByteBuf buf, RigDefinition.EmoteMap m) {
+        buf.writeBoolean(m != null);
+        if (m == null) return;
+        buf.writeFloat(m.bodyMotion().scale());
+        buf.writeFloat(m.bodyMotion().floor());
+        buf.writeVarInt(m.channels().size());
+        for (Map.Entry<String, RigDefinition.EmoteChannel> e : m.channels().entrySet()) {
+            buf.writeUtf(e.getKey());
+            RigDefinition.EmoteChannel c = e.getValue();
+            buf.writeUtf(c.bone());
+            buf.writeByte(c.mode().ordinal());
+            for (int i = 0; i < 3; i++) buf.writeByte(c.axisPerm()[i]);
+            for (int i = 0; i < 3; i++) buf.writeFloat(c.axisSign()[i]);
+            for (int i = 0; i < 3; i++) buf.writeFloat(c.euler()[i]);
+            for (int i = 0; i < 3; i++) buf.writeFloat(c.gain()[i]);
+            buf.writeBoolean(c.translation());
+            for (int i = 0; i < 3; i++) buf.writeFloat(c.clampMin()[i]);
+            for (int i = 0; i < 3; i++) buf.writeFloat(c.clampMax()[i]);
+            buf.writeVarInt(c.also().size());
+            for (RigDefinition.EmoteFan f : c.also()) {
+                buf.writeUtf(f.bone());
+                for (int i = 0; i < 3; i++) buf.writeFloat(f.gain()[i]);
+            }
+        }
+        RigDefinition.EmotePolicy p = m.policy();
+        buf.writeFloat(p.minCoverage());
+        buf.writeUtf(p.fallback() == null ? "" : p.fallback());
+        buf.writeVarInt(p.allow().size());
+        for (String s : p.allow()) buf.writeUtf(s);
+        buf.writeVarInt(p.deny().size());
+        for (String s : p.deny()) buf.writeUtf(s);
+    }
+
+    private static RigDefinition.EmoteMap readEmote(FriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return null;
+        RigDefinition.BodyMotion bodyMotion = new RigDefinition.BodyMotion(buf.readFloat(), buf.readFloat());
+        int cn = buf.readVarInt();
+        Map<String, RigDefinition.EmoteChannel> channels = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < cn; i++) {
+            String key = buf.readUtf();
+            String bone = buf.readUtf();
+            RigDefinition.EmoteMode mode = RigDefinition.EmoteMode.values()[buf.readByte()];
+            int[] perm = {buf.readByte(), buf.readByte(), buf.readByte()};
+            float[] sign = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+            float[] euler = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+            float[] gain = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+            boolean translation = buf.readBoolean();
+            float[] clampMin = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+            float[] clampMax = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
+            int fn = buf.readVarInt();
+            List<RigDefinition.EmoteFan> also = new ArrayList<>(fn);
+            for (int j = 0; j < fn; j++) {
+                String fbone = buf.readUtf();
+                also.add(new RigDefinition.EmoteFan(fbone,
+                        new float[]{buf.readFloat(), buf.readFloat(), buf.readFloat()}));
+            }
+            channels.put(key, new RigDefinition.EmoteChannel(bone, mode, perm, sign, euler, gain,
+                    translation, clampMin, clampMax, List.copyOf(also)));
+        }
+        float minCoverage = buf.readFloat();
+        String fallback = buf.readUtf();
+        int an = buf.readVarInt();
+        java.util.Set<String> allow = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < an; i++) allow.add(buf.readUtf());
+        int dn = buf.readVarInt();
+        java.util.Set<String> deny = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < dn; i++) deny.add(buf.readUtf());
+        return new RigDefinition.EmoteMap(bodyMotion, Map.copyOf(channels),
+                new RigDefinition.EmotePolicy(minCoverage, fallback, Set.copyOf(allow), Set.copyOf(deny)));
     }
 
     private static void writeWornAnchor(FriendlyByteBuf buf, RigDefinition.WornAnchor anchor) {
@@ -367,7 +441,8 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
             disabledSlots.add(net.minecraft.world.entity.EquipmentSlot.values()[buf.readByte()]);
         }
         String cameraBone = buf.readUtf();
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox, java.util.Set.copyOf(disabledSlots), cameraBone);
+        RigDefinition.EmoteMap emote = readEmote(buf);
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox, java.util.Set.copyOf(disabledSlots), cameraBone, emote);
     }
 
     private static void writeNullableUtf(FriendlyByteBuf buf, String value) {

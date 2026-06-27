@@ -1,8 +1,8 @@
 package com.aetherianartificer.townstead;
 
 //? if forge {
-/*
-import com.aetherianartificer.townstead.compat.travelerstitles.ClientCapsPayload;
+
+/*import com.aetherianartificer.townstead.compat.travelerstitles.ClientCapsPayload;
 import com.aetherianartificer.townstead.compat.travelerstitles.ClientCapsStore;
 import com.aetherianartificer.townstead.compat.travelerstitles.TravelersTitlesBridge;
 import com.aetherianartificer.townstead.compat.travelerstitles.VillageEnterTitlePayload;

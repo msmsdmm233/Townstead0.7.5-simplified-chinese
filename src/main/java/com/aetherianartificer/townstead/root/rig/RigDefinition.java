@@ -77,7 +77,12 @@ public record RigDefinition(
         // actually is instead of the default humanoid 1.62 (a low spider body's eyes sit near the ground).
         // The eye height is derived client-side from this bone's resting position in the baked model
         // ({@code RigCamera}). Empty = keep the height-proportional default.
-        @Nullable String cameraBone
+        @Nullable String cameraBone,
+        // How humanoid-authored Emotecraft emotes map onto a non-humanoid body: which rig bone each
+        // humanoid channel drives, how its rotation axes are remapped, and which emotes the body is even
+        // willing to play (a spider can wave but should not try to Cossack-dance). Null when the rig
+        // expresses emotes the plain humanoid way (the default for a humanoid body); see {@link EmoteMap}.
+        @Nullable EmoteMap emote
 ) {
     public enum ModelType { ENTITY_LAYER, GEOMETRY }
 
@@ -136,6 +141,93 @@ public record RigDefinition(
      * {@code +1} = +Z). The eyes/mouth quads are built from center ± size/2 in the bone's local space.
      */
     public record Face(String bone, float[] center, float[] size, float forward) {}
+
+    /** How a remapped emote rotation is blended onto its target bone. */
+    public enum EmoteMode {
+        /** Lerp the bone from its current (gait) pose toward the emote pose. For a homologous bone. */
+        ABSOLUTE,
+        /** Add the emote's delta on top of whatever the gait left on the bone. For a leg posing as an arm. */
+        ADDITIVE
+    }
+
+    /**
+     * One humanoid emote channel ({@code right_arm}, {@code head}, ...) remapped onto a rig bone.
+     *
+     * <p>The emote's sampled rotation {@code (x,y,z)} is rebased into the bone's frame as
+     * {@code out[i] = sign[i] * gain[i] * src[perm[i]] + euler[i]}, then clamped to
+     * {@code [clampMin[i], clampMax[i]]}. {@code perm}/{@code sign} are the signed-axis permutation
+     * (JSON {@code axis:["z","x","-y"]}); {@code euler} is an arbitrary post-offset in radians; both
+     * remap forms compose so a pack can align a 90-degree leg and still nudge an odd rest angle.</p>
+     *
+     * <p>{@code also} fans the same remapped motion onto extra bones (each with its own gain) so a
+     * single human arm reads as a wave across several legs.</p>
+     */
+    public record EmoteChannel(
+            String bone,
+            EmoteMode mode,
+            int[] axisPerm,     // length 3; source axis index (0=x,1=y,2=z) feeding each output axis
+            float[] axisSign,   // length 3; sign multiplier per output axis
+            float[] euler,      // length 3; post-offset in radians
+            float[] gain,       // length 3; per-output-axis multiplier
+            boolean translation,
+            float[] clampMin,   // length 3, radians (NEGATIVE_INFINITY = no lower bound)
+            float[] clampMax,   // length 3, radians (POSITIVE_INFINITY = no upper bound)
+            List<EmoteFan> also
+    ) {}
+
+    /** A follower bone driven by a parent channel's remapped motion (added on top) with its own gain. */
+    public record EmoteFan(String bone, float[] gain) {}
+
+    /**
+     * Which emotes a rig is willing to play. An emote is refused when it's in {@code deny}, or when the
+     * share of its motion energy that lands in expressible channels is below {@code minCoverage} (and it
+     * isn't in {@code allow}). A refused emote substitutes {@code fallback} if one is set. {@code allow}/
+     * {@code deny} match an emote's path or display name, case-insensitively.
+     */
+    public record EmotePolicy(float minCoverage, String fallback, Set<String> allow, Set<String> deny) {
+        public static final EmotePolicy NONE = new EmotePolicy(0f, "", Set.of(), Set.of());
+    }
+
+    /**
+     * How much of an emote's whole-entity body transform (the lift/drop authored in block units for a
+     * 2-tall humanoid) this body takes. {@code scale} multiplies the translation and rotation
+     * (0 = none, the old {@code body_motion:false}; 1 = full, the old {@code true}); {@code floor} clamps
+     * how far below the entity's feet the body may drop (blocks, negative = down; NEGATIVE_INFINITY = no
+     * clamp). Lets a low body keep small intentional dips without a humanoid-scale "sit" sinking it under
+     * the floor.
+     */
+    public record BodyMotion(float scale, float floor) {
+        public static final BodyMotion OFF = new BodyMotion(0f, Float.NEGATIVE_INFINITY);
+        public static final BodyMotion FULL = new BodyMotion(1f, Float.NEGATIVE_INFINITY);
+
+        /** False when the body transform is fully suppressed (scale 0). */
+        public boolean active() {
+            return scale != 0f;
+        }
+
+        /** True when this imposes a limit beyond what a full humanoid transform would do. */
+        public boolean limited() {
+            return scale != 1f || floor > Float.NEGATIVE_INFINITY;
+        }
+
+        /** The clamped, scaled Y translation (blocks): scale applied, then never below {@code floor}. */
+        public float clampY(float rawY) {
+            return Math.max(rawY * scale, floor);
+        }
+    }
+
+    /**
+     * The rig's emote behaviour: {@code bodyMotion} scales/clamps the whole-entity lift/drop (so a wide
+     * low body neither tumbles nor sinks), {@code channels} maps each expressible humanoid channel to a
+     * bone (a channel absent from the map is NOT expressible), and {@code policy} decides which emotes are
+     * allowed at all.
+     */
+    public record EmoteMap(BodyMotion bodyMotion, Map<String, EmoteChannel> channels, EmotePolicy policy) {
+        /** Whether this rig can express the given humanoid channel (it names a bone for it). */
+        public boolean expresses(String channel) {
+            return channels.containsKey(channel);
+        }
+    }
 
     /** The animation channels every rig is addressed by; the bone map names a bone for each. */
     public static final List<String> CHANNELS =

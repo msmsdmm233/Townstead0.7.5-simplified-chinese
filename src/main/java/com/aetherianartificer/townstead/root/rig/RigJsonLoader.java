@@ -165,7 +165,155 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
             cameraBone = GsonHelper.getAsString(obj.getAsJsonObject("camera"), "bone", "");
         }
 
-        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox, disabledSlots, cameraBone);
+        // Emote remap: how humanoid Emotecraft emotes drive this (possibly non-humanoid) body, and which
+        // emotes it will play at all. Absent = the rig expresses emotes the plain humanoid way.
+        RigDefinition.EmoteMap emote = parseEmote(obj);
+
+        return new RigDefinition(id, modelType, modelRef, modelLayer, texture, bones, armorType, inner, outer, face, back, head, java.util.List.copyOf(boots), hold, hair, Map.copyOf(poses), hitbox, disabledSlots, cameraBone, emote);
+    }
+
+    /**
+     * Parse the {@code emote} block: {@code body_motion}, per-channel remaps, and the play policy. A
+     * channel whose value is the string {@code "none"} (or any non-object) is not expressible and is
+     * dropped. A channel with {@code "mirror": true} is derived from its left/right sibling after the
+     * explicit channels are parsed.
+     */
+    private static RigDefinition.EmoteMap parseEmote(JsonObject obj) {
+        if (!obj.has("emote") || !obj.get("emote").isJsonObject()) return null;
+        JsonObject e = obj.getAsJsonObject("emote");
+        RigDefinition.BodyMotion bodyMotion = parseBodyMotion(e);
+
+        Map<String, RigDefinition.EmoteChannel> channels = new LinkedHashMap<>();
+        java.util.List<String> mirrored = new java.util.ArrayList<>();
+        if (e.has("channels") && e.get("channels").isJsonObject()) {
+            for (Map.Entry<String, JsonElement> c : e.getAsJsonObject("channels").entrySet()) {
+                if (!c.getValue().isJsonObject()) continue; // "none" / not expressible
+                JsonObject ch = c.getValue().getAsJsonObject();
+                if (GsonHelper.getAsBoolean(ch, "mirror", false)) {
+                    mirrored.add(c.getKey());
+                    continue;
+                }
+                channels.put(c.getKey(), parseChannel(ch, c.getKey()));
+            }
+            // Second pass: a mirrored channel copies its sibling (left<->right) with axes flipped.
+            for (String key : mirrored) {
+                RigDefinition.EmoteChannel sibling = channels.get(swapSide(key));
+                if (sibling != null) channels.put(key, mirrorChannel(sibling));
+            }
+        }
+
+        RigDefinition.EmotePolicy policy = parsePolicy(e);
+        return new RigDefinition.EmoteMap(bodyMotion, Map.copyOf(channels), policy);
+    }
+
+    /**
+     * {@code body_motion} is either a boolean ({@code false}=off, {@code true}=full) or an object
+     * {@code { "scale": 0.4, "floor": -0.2 }} (scale the body lift/drop, clamp how far below the feet it
+     * can sink). Absent = off.
+     */
+    private static RigDefinition.BodyMotion parseBodyMotion(JsonObject e) {
+        if (!e.has("body_motion")) return RigDefinition.BodyMotion.OFF;
+        JsonElement el = e.get("body_motion");
+        if (el.isJsonObject()) {
+            JsonObject bm = el.getAsJsonObject();
+            float scale = GsonHelper.getAsFloat(bm, "scale", 1f);
+            float floor = bm.has("floor") ? GsonHelper.getAsFloat(bm, "floor", Float.NEGATIVE_INFINITY)
+                    : Float.NEGATIVE_INFINITY;
+            return new RigDefinition.BodyMotion(scale, floor);
+        }
+        return GsonHelper.getAsBoolean(e, "body_motion", false)
+                ? RigDefinition.BodyMotion.FULL : RigDefinition.BodyMotion.OFF;
+    }
+
+    private static RigDefinition.EmoteChannel parseChannel(JsonObject c, String channelKey) {
+        String bone = GsonHelper.getAsString(c, "bone", channelKey);
+        RigDefinition.EmoteMode mode = "additive".equalsIgnoreCase(GsonHelper.getAsString(c, "mode", "absolute"))
+                ? RigDefinition.EmoteMode.ADDITIVE : RigDefinition.EmoteMode.ABSOLUTE;
+
+        int[] perm = {0, 1, 2};
+        float[] sign = {1f, 1f, 1f};
+        if (c.has("axis") && c.get("axis").isJsonArray()) {
+            var arr = c.getAsJsonArray("axis");
+            for (int i = 0; i < 3 && i < arr.size(); i++) {
+                String s = arr.get(i).getAsString().trim().toLowerCase(java.util.Locale.ROOT);
+                sign[i] = s.startsWith("-") ? -1f : 1f;
+                char ax = s.charAt(s.length() - 1);
+                perm[i] = ax == 'x' ? 0 : ax == 'y' ? 1 : 2;
+            }
+        }
+
+        float[] euler = vec(c, "euler", 3, new float[]{0f, 0f, 0f});
+        for (int i = 0; i < 3; i++) euler[i] = (float) Math.toRadians(euler[i]);
+        float[] gain = vec(c, "gain", 3, new float[]{1f, 1f, 1f});
+        boolean translation = GsonHelper.getAsBoolean(c, "translation", false);
+
+        float[] clampMin = {Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY};
+        float[] clampMax = {Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY};
+        if (c.has("clamp") && c.get("clamp").isJsonObject()) {
+            JsonObject clamp = c.getAsJsonObject("clamp");
+            for (int i = 0; i < 3; i++) {
+                String axis = i == 0 ? "x" : i == 1 ? "y" : "z";
+                if (clamp.has(axis) && clamp.get(axis).isJsonArray()) {
+                    var ca = clamp.getAsJsonArray(axis);
+                    if (ca.size() >= 2) {
+                        clampMin[i] = (float) Math.toRadians(ca.get(0).getAsFloat());
+                        clampMax[i] = (float) Math.toRadians(ca.get(1).getAsFloat());
+                    }
+                }
+            }
+        }
+
+        java.util.List<RigDefinition.EmoteFan> also = new java.util.ArrayList<>();
+        if (c.has("also") && c.get("also").isJsonArray()) {
+            for (JsonElement fe : c.getAsJsonArray("also")) {
+                if (!fe.isJsonObject()) continue;
+                JsonObject fo = fe.getAsJsonObject();
+                String fbone = GsonHelper.getAsString(fo, "bone", "");
+                if (fbone.isEmpty()) continue;
+                also.add(new RigDefinition.EmoteFan(fbone, vec(fo, "gain", 3, new float[]{1f, 1f, 1f})));
+            }
+        }
+
+        return new RigDefinition.EmoteChannel(bone, mode, perm, sign, euler, gain, translation,
+                clampMin, clampMax, java.util.List.copyOf(also));
+    }
+
+    /** Mirror a channel onto the opposite side: swap left/right bone names and flip yaw/roll signs. */
+    private static RigDefinition.EmoteChannel mirrorChannel(RigDefinition.EmoteChannel s) {
+        float[] sign = {s.axisSign()[0], -s.axisSign()[1], -s.axisSign()[2]};
+        float[] euler = {s.euler()[0], -s.euler()[1], -s.euler()[2]};
+        java.util.List<RigDefinition.EmoteFan> also = new java.util.ArrayList<>();
+        for (RigDefinition.EmoteFan f : s.also()) {
+            also.add(new RigDefinition.EmoteFan(swapSide(f.bone()), f.gain().clone()));
+        }
+        return new RigDefinition.EmoteChannel(swapSide(s.bone()), s.mode(), s.axisPerm().clone(), sign,
+                euler, s.gain().clone(), s.translation(), s.clampMin().clone(), s.clampMax().clone(),
+                java.util.List.copyOf(also));
+    }
+
+    /** Swap {@code left}/{@code right} within a name ({@code right_front_leg} -> {@code left_front_leg}). */
+    private static String swapSide(String name) {
+        if (name.contains("right")) return name.replace("right", "left");
+        if (name.contains("left")) return name.replace("left", "right");
+        return name;
+    }
+
+    private static RigDefinition.EmotePolicy parsePolicy(JsonObject e) {
+        if (!e.has("policy") || !e.get("policy").isJsonObject()) return RigDefinition.EmotePolicy.NONE;
+        JsonObject p = e.getAsJsonObject("policy");
+        float minCoverage = GsonHelper.getAsFloat(p, "min_coverage", 0f);
+        String fallback = GsonHelper.getAsString(p, "fallback", "");
+        return new RigDefinition.EmotePolicy(minCoverage, fallback,
+                stringSet(p, "allow"), stringSet(p, "deny"));
+    }
+
+    private static java.util.Set<String> stringSet(JsonObject obj, String key) {
+        if (!obj.has(key) || !obj.get(key).isJsonArray()) return java.util.Set.of();
+        java.util.Set<String> out = new java.util.LinkedHashSet<>();
+        for (JsonElement el : obj.getAsJsonArray(key)) {
+            if (el.isJsonPrimitive()) out.add(el.getAsString().toLowerCase(java.util.Locale.ROOT));
+        }
+        return java.util.Set.copyOf(out);
     }
 
     /** Parse {@code equipment.disabled} into a set of vanilla equipment slots (unknown names skipped). */

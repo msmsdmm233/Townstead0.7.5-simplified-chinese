@@ -86,9 +86,33 @@ public final class RootClientStore {
         VARIANTS.put(entityId, variants);
     }
 
-    /** The gene ids the entity expresses, or an empty set if not yet synced. */
+    /**
+     * Whether the entity expresses its species genes at all (renders its rig + runs gene effects):
+     * always for a villager/mob, but for a player only in MCA's full-genetics "Villager" model mode
+     * ({@code useVillagerRenderer}). In the "Player"/"Vanilla" model modes the player is a plain player
+     * and its genes are inheritance data only (they decide what its children inherit), so no gene effect
+     * (rig, abilities, buoyancy, needs, attachments, hidden features...) applies. The single client gate;
+     * {@code RigModels.embodied} delegates here so render and gene expression never disagree.
+     */
+    public static boolean expresses(LivingEntity entity) {
+        if (entity instanceof net.minecraft.world.entity.player.Player player) {
+            return net.conczin.mca.MCAClient.useVillagerRenderer(player.getUUID());
+        }
+        return true;
+    }
+
+    /** The gene ids the entity expresses, or an empty set if not yet synced (or it does not express). */
     public static Set<String> expressedGenes(int entityId) {
+        if (!expressesById(entityId)) return Set.of();
         return EXPRESSED.getOrDefault(entityId, Set.of());
+    }
+
+    /** Resolve an entity id to gate {@link #expressedGenes(int)} the same way the entity overload does. */
+    private static boolean expressesById(int entityId) {
+        net.minecraft.client.multiplayer.ClientLevel level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) return true;
+        net.minecraft.world.entity.Entity entity = level.getEntity(entityId);
+        return !(entity instanceof LivingEntity living) || expresses(living);
     }
 
     /**
@@ -97,7 +121,7 @@ public final class RootClientStore {
      * CarryOn-reconstructed villager), so its real attachments and hidden features still render.
      */
     public static Set<String> expressedGenes(LivingEntity entity) {
-        if (entity == null) return Set.of();
+        if (entity == null || !expresses(entity)) return Set.of();
         Set<String> synced = EXPRESSED.get(entity.getId());
         if (synced != null) return synced;
         if (entity instanceof VillagerEntityMCA villager) {

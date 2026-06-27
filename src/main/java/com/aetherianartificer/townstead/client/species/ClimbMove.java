@@ -67,6 +67,8 @@ public final class ClimbMove {
             activeNormal = null;
             return false;
         }
+        // isActive reads the synced expressed genes, zeroed for a player not embodied as its species
+        // (Player/Vanilla model mode), so there is no spider wall-movement there, just a plain player.
         if (!ClientAbilities.isActive(player, Ability.CLIMBING)) {
             activeNormal = null;
             return false;

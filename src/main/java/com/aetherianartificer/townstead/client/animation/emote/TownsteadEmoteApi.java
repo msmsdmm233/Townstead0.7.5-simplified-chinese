@@ -65,6 +65,16 @@ public final class TownsteadEmoteApi {
             if (emote == null) return false;
         }
 
+        // The entity's rig may refuse emotes it can't express (a spider asked to Cossack-dance), and may
+        // name a fallback to play instead. A rig with no emote policy allows everything (humanoid bodies).
+        EmoteCoverage.Decision decision = EmoteCoverage.decide(entity, emote, emoteId);
+        if (!decision.allowed()) {
+            if (decision.fallback() != null && !decision.fallback().equals(emoteId)) {
+                return trigger(entity, decision.fallback(), loopOverride, speed, mobile, skippedBones);
+            }
+            return false;
+        }
+
         ParsedEmote.LoopType loopType = loopOverride != null ? loopOverride : emote.loopType();
         float clampedSpeed = (speed > 0F && Float.isFinite(speed)) ? speed : 1.0F;
         long now = entity.level().getGameTime();

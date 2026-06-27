@@ -388,14 +388,16 @@ public class RpgDialogueScreen extends Screen {
         /*Component text = villager.transformMessage(questionText.copy());
         *///?}
 
-        // Silent text = a question prompt accompanying choices (e.g., the "main" greeting).
-        // Non-silent text = the villager's actual spoken response.
-        // If we already have a response showing, skip silent text — the response
-        // stays visible in the dialogue box while choices appear alongside it.
-        if (silent && dialogueBox.getTypewriter().hasText()) {
+        // Silent text on the main greeting accompanies the menu and must not overwrite
+        // a villager's just-spoken response. Silent sub-question prompts (divorce/procreate/
+        // adopt confirms) are genuine questions and must always show.
+        if (silent && dialogueBox.getTypewriter().hasText()
+                && DialogueMenuOrganizer.isMainQuestion(dialogQuestionId)) {
             return;
         }
 
+        // Silent prompts are the player's own thoughts/menus, not villager speech: drop the name plate.
+        dialogueBox.setNameVisible(!silent);
         dialogueBox.setText(text, font);
         choicePanel.setVisible(false);
         state = DialogueState.TYPEWRITER_PLAYING;
@@ -423,6 +425,7 @@ public class RpgDialogueScreen extends Screen {
     }
 
     public void setIncomingChatLine(Component line) {
+        dialogueBox.setNameVisible(true);
         dialogueBox.setText(line, font);
         choicePanel.setVisible(false);
         state = DialogueState.TYPEWRITER_PLAYING;
@@ -434,6 +437,7 @@ public class RpgDialogueScreen extends Screen {
     public void setFinalPhrase(Component message) {
         // Terminal dialogue line — sent via VillagerMessage instead of
         // InteractionDialogueQuestionResponse. Already transformed by server.
+        dialogueBox.setNameVisible(true);
         dialogueBox.setText(message, font);
         choicePanel.setVisible(false);
         dialogAnswers = null;

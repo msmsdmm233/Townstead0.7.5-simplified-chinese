@@ -748,10 +748,10 @@ public abstract class BlueprintScreenMixin extends Screen {
         // so it matches the 1.21.1 layering, with the icon clearly above its frame.
         context.pose().pushPose();
         //? if forge {
-        context.pose().translate(x - 6.0, y - 6.0, 200.0);
-        //?} else {
-        /*context.pose().translate(x - 6.0, y - 6.0, 0.0);
-        *///?}
+        /*context.pose().translate(x - 6.0, y - 6.0, 200.0);
+        *///?} else {
+        context.pose().translate(x - 6.0, y - 6.0, 0.0);
+        //?}
         context.pose().scale(0.75f, 0.75f, 1.0f);
         context.renderItem(stack, 0, 0);
         context.pose().popPose();

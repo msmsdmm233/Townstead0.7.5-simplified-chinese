@@ -46,11 +46,25 @@ public final class RigModels {
     private RigModels() {}
 
     /**
+     * Whether the entity is embodied as its species (renders its rig). Delegates to the canonical client
+     * gene-expression gate ({@link RootClientStore#expresses}) so the rig render and gene expression never
+     * disagree: a player only embodies its species in MCA's full-genetics "Villager" model mode; the
+     * "Player"/"Vanilla" modes draw the plain player and treat the species as inheritance data only.
+     */
+    public static boolean embodied(LivingEntity entity) {
+        return RootClientStore.expresses(entity);
+    }
+
+    /**
      * The rig.base for an entity: a life-stage rig override (e.g. an "egg" stage renders an egg model)
      * when the current stage has one, else the species rig, else the villager default. Resolved through
      * the synced origin catalog + the client life store's current stage index.
      */
     public static String rigBaseFor(LivingEntity entity) {
+        // A player rendered with MCA's vanilla "Player" model is not embodied as its species, so the rig
+        // is inheritance data only (see embodied): fall back to the default, reverting every downstream
+        // consumer (rig layer, first-person arm, suppress mixins, eye height, hitbox).
+        if (!embodied(entity)) return VILLAGER;
         String rootId = RootClientStore.resolve(entity);
         if (rootId == null || rootId.isEmpty()) return VILLAGER;
         RootCatalogEntry origin = RootCatalogClient.origin(rootId);
@@ -255,6 +269,15 @@ public final class RigModels {
         if (name == null || name.isEmpty()) return null;
         ModelPart root = ROOTS.get(rigBase);
         return root != null && root.hasChild(name) ? root.getChild(name) : null;
+    }
+
+    /**
+     * The already-baked root for a rig WITHOUT triggering a humanoid bake — safe for generic
+     * (non-humanoid) rigs, whose root must first be baked via {@link #genericModel}. Returns null until
+     * that has happened (the generic render branch bakes it before reading this).
+     */
+    public static ModelPart bakedRoot(String rigBase) {
+        return ROOTS.get(rigBase);
     }
 
     /**

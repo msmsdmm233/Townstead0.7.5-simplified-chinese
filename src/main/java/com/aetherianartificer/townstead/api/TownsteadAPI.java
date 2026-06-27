@@ -18,8 +18,13 @@ import com.aetherianartificer.townstead.villager.ProfessionXp;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
+import net.conczin.mca.server.world.data.Building;
+import net.conczin.mca.server.world.data.Village;
+import net.conczin.mca.server.world.data.VillageManager;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -139,6 +144,34 @@ public final class TownsteadAPI {
                 today.dayOfWeek(),
                 today.season() == null ? "" : today.season().name().toLowerCase(java.util.Locale.ROOT)
         );
+    }
+
+    public static TownsteadBuildingSnapshot buildingAt(ServerLevel level, BlockPos pos) {
+        VillageManager manager = VillageManager.get(level);
+        java.util.Optional<Village> villageOpt = manager.findNearestVillage(pos, Village.MERGE_MARGIN);
+        if (villageOpt.isEmpty()) return null;
+        Village village = villageOpt.get();
+        for (Building building : village.getBuildings().values()) {
+            if (!building.containsPos(pos)) continue;
+            BlockPos center = building.getCenter();
+            BlockPos p0 = building.getPos0();
+            BlockPos p1 = building.getPos1();
+            return new TownsteadBuildingSnapshot(
+                    building.getId(),
+                    village.getId(),
+                    building.getType(),
+                    building.getSize(),
+                    center.getX(),
+                    center.getY(),
+                    center.getZ(),
+                    Math.min(p0.getX(), p1.getX()),
+                    Math.min(p0.getY(), p1.getY()),
+                    Math.min(p0.getZ(), p1.getZ()),
+                    Math.max(p0.getX(), p1.getX()),
+                    Math.max(p0.getY(), p1.getY()),
+                    Math.max(p0.getZ(), p1.getZ()));
+        }
+        return null;
     }
 
     public static TownsteadRootSnapshot origin(ResourceLocation id) {

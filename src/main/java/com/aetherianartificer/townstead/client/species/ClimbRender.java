@@ -89,6 +89,8 @@ public final class ClimbRender {
 
     public static Vector3f wallNormal(LivingEntity entity, boolean attached, Vector3f previousNormal) {
         if (entity.onGround()) return null;
+        // isActive reads the synced expressed genes, which RootClientStore zeroes for a player not embodied
+        // as its species (Player/Vanilla model mode), so the climber gene stays inheritance-only there.
         if (!ClientAbilities.isActive(entity, Ability.CLIMBING)) return null;
         // The local player lets go (drops to the ground) while sneaking: force-detach so it falls clean
         // instead of crouch-sliding down the wall.

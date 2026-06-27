@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.client.gui.dialogue;
 
 import net.conczin.mca.resources.data.dialogue.Question;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -61,7 +62,9 @@ public class ChoicePanel {
     /** What a display entry represents. */
     record DisplayEntry(Component text, String mcaAnswer, String subMenuId, boolean isBack) {
         static DisplayEntry fromHub(DialogueMenuOrganizer.HubEntry hub) {
-            return new DisplayEntry(hub.displayText(), hub.mcaAnswer(), hub.subMenuId(), false);
+            String hintKey = DialogueMenuOrganizer.getHubHint(hub.subMenuId());
+            if (hintKey == null) hintKey = DialogueMenuOrganizer.getActionHint(hub.mcaAnswer());
+            return new DisplayEntry(withHint(hub.displayText(), hintKey), hub.mcaAnswer(), hub.subMenuId(), false);
         }
         static DisplayEntry back() {
             return new DisplayEntry(Component.translatable("townstead.dialogue.back"), null, null, true);
@@ -69,10 +72,19 @@ public class ChoicePanel {
         static DisplayEntry raw(String questionId, String answer) {
             String rpgKey = DialogueMenuOrganizer.getRpgPhrasing(questionId, answer);
             String key = rpgKey != null ? rpgKey : Question.getTranslationKey(questionId, answer);
-            return new DisplayEntry(Component.translatable(key), answer, null, false);
+            return new DisplayEntry(withHint(Component.translatable(key), DialogueMenuOrganizer.getActionHint(answer)), answer, null, false);
         }
         boolean isHub() { return subMenuId != null; }
         boolean isLeaf() { return mcaAnswer != null; }
+
+        // Append a muted hint (e.g. "(Divorce)", "(Romance)") to flavor-worded entries whose meaning isn't obvious.
+        private static Component withHint(Component base, String hintKey) {
+            if (hintKey == null) return base;
+            return Component.empty()
+                    .append(base)
+                    .append(Component.literal(" "))
+                    .append(Component.translatable(hintKey).withStyle(ChatFormatting.GRAY));
+        }
     }
 
     public void layout(int screenWidth, int screenHeight, int dialogueBoxY) {

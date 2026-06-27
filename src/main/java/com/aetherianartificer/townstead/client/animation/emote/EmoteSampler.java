@@ -71,14 +71,16 @@ public final class EmoteSampler {
         return combined;
     }
 
-    private record BonePose(
+    // Package-private so the generic (non-humanoid) emote path reuses this exact sampling/easing
+    // instead of duplicating it.
+    record BonePose(
             float xRot, float yRot, float zRot,
             boolean hasTranslation, float xPos, float yPos, float zPos,
             boolean hasScale, float xScale, float yScale, float zScale,
             boolean hasBend, float bend, float bendDirection
     ) {}
 
-    private static BonePose samplePose(ParsedBoneAnimation bone, float tick, boolean easingBefore) {
+    static BonePose samplePose(ParsedBoneAnimation bone, float tick, boolean easingBefore) {
         float xRot = sampleRot(bone.xRot(), bone.xRotDefault(), tick, easingBefore);
         float yRot = sampleRot(bone.yRot(), bone.yRotDefault(), tick, easingBefore);
         float zRot = sampleRot(bone.zRot(), bone.zRotDefault(), tick, easingBefore);

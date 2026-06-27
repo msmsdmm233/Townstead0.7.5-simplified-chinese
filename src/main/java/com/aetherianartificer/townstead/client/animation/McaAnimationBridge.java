@@ -50,6 +50,7 @@ public final class McaAnimationBridge {
         EmoteReflection.invalidate();
         EMOTE_ADAPTER.invalidate();
         EmoteRegistry.reload();
+        com.aetherianartificer.townstead.client.animation.emote.EmoteCoverage.invalidate();
         EmotecraftEventBridge.ensureRegistered();
     }
 

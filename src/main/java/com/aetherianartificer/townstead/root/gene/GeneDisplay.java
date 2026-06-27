@@ -19,7 +19,7 @@ package com.aetherianartificer.townstead.root.gene;
  */
 public record GeneDisplay(Kind kind, float min, float max, String targetId, float amount) {
 
-    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY }
+    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY }
 
     public static final GeneDisplay PRESENCE = new GeneDisplay(Kind.BOOLEAN, 0f, 1f, "", 0f);
 
@@ -137,6 +137,23 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
             }
         }
         return new GeneDisplay(Kind.STUCK_IMMUNITY, 0f, 1f, packed.toString(), 0f);
+    }
+
+    /**
+     * The fluids this gene nullifies (treats as not-there, so the bearer walks the bottom), packed
+     * into {@code targetId} as {@code "minecraft:water;minecraft:lava"} so the controlling client can
+     * resolve its own land-movement underwater for local physics prediction (a skeleton-folk player
+     * walking the riverbed). A presence chip in the picker.
+     */
+    public static GeneDisplay buoyancy(java.util.Set<net.minecraft.resources.ResourceLocation> fluids) {
+        StringBuilder packed = new StringBuilder();
+        if (fluids != null) {
+            for (net.minecraft.resources.ResourceLocation id : fluids) {
+                if (packed.length() > 0) packed.append(';');
+                packed.append(id.toString());
+            }
+        }
+        return new GeneDisplay(Kind.BUOYANCY, 0f, 1f, packed.toString(), 0f);
     }
 
     private static String fmt(float v) {

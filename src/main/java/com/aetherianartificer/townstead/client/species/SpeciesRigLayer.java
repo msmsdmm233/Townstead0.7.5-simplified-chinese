@@ -223,6 +223,11 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         }
         model.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
         applyRigPose(rigBase, entity, ageInTicks);
+        // Emotes on a non-humanoid body: the humanoid bridge can't drive this model, so apply the rig's
+        // emote remap directly onto its bones, on top of the gait pose just set. genericModel() above has
+        // populated the baked root, so bakedRoot() is non-null here.
+        com.aetherianartificer.townstead.client.animation.emote.GenericEmoteApplier.apply(
+                entity, RigModels.bakedRoot(rigBase), RigModels.definition(rigBase), partialTick);
         VertexConsumer buffer = buffers.getBuffer(model.renderType(texture));
         float scale = hostBaseline * RigModels.scaleFor(entity);
         pose.pushPose();

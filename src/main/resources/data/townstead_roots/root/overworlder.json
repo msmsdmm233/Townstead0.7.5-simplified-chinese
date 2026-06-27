@@ -1,5 +1,5 @@
 {
-  "schema": "townstead:origin/v1",
+  "schema": "townstead:root/v1",
   "display_name": { "translate": "origin.townstead_roots.origin.overworlder" },
   "species": "townstead_roots:humanoid",
   "ancestry": "townstead_roots:human",

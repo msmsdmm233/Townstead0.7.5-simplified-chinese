@@ -234,6 +234,24 @@ public record GeneCatalogEntry(
         return out;
     }
 
+    /** True when this gene nullifies a fluid's physics for the bearer; the fluid ids ride in {@code targetId}. */
+    public boolean isBuoyancy() {
+        return displayKind == com.aetherianartificer.townstead.root.gene.GeneDisplay.Kind.BUOYANCY.ordinal();
+    }
+
+    /** The fluid tags a BUOYANCY gene treats as not-there, unpacked from {@code targetId}; empty otherwise. */
+    public java.util.List<net.minecraft.tags.TagKey<net.minecraft.world.level.material.Fluid>> ignoredFluids() {
+        if (!isBuoyancy() || targetId == null || targetId.isEmpty()) return java.util.List.of();
+        java.util.List<net.minecraft.tags.TagKey<net.minecraft.world.level.material.Fluid>> out = new java.util.ArrayList<>();
+        for (String s : targetId.split(";")) {
+            net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(s.trim());
+            if (id != null) {
+                out.add(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.FLUID, id));
+            }
+        }
+        return out;
+    }
+
     public boolean isRecessive() {
         return dominanceOrdinal == com.aetherianartificer.townstead.root.gene.Dominance.RECESSIVE.ordinal();
     }
