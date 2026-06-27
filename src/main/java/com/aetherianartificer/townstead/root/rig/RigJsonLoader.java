@@ -195,7 +195,7 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
                 }
                 channels.put(c.getKey(), parseChannel(ch, c.getKey()));
             }
-            // Second pass: a mirrored channel copies its sibling (left<->right) with axes flipped.
+            // Second pass: a mirrored channel copies its sibling, swapping left<->right bone names.
             for (String key : mirrored) {
                 RigDefinition.EmoteChannel sibling = channels.get(swapSide(key));
                 if (sibling != null) channels.put(key, mirrorChannel(sibling));
@@ -278,17 +278,20 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
                 clampMin, clampMax, java.util.List.copyOf(also));
     }
 
-    /** Mirror a channel onto the opposite side: swap left/right bone names and flip yaw/roll signs. */
+    /**
+     * Mirror a channel onto the opposite side: swap left/right bone names, keeping the signs as-is.
+     * Emotecraft already ships the opposite limb pre-mirrored in its source data (a both-arms emote has
+     * {@code leftarm} and {@code rightarm} at opposite signs), so this channel receives that mirrored
+     * source. Negating the signs here too would double-mirror and drive the limb the wrong way.
+     */
     private static RigDefinition.EmoteChannel mirrorChannel(RigDefinition.EmoteChannel s) {
-        float[] sign = {s.axisSign()[0], -s.axisSign()[1], -s.axisSign()[2]};
-        float[] euler = {s.euler()[0], -s.euler()[1], -s.euler()[2]};
         java.util.List<RigDefinition.EmoteFan> also = new java.util.ArrayList<>();
         for (RigDefinition.EmoteFan f : s.also()) {
             also.add(new RigDefinition.EmoteFan(swapSide(f.bone()), f.gain().clone()));
         }
-        return new RigDefinition.EmoteChannel(swapSide(s.bone()), s.mode(), s.axisPerm().clone(), sign,
-                euler, s.gain().clone(), s.translation(), s.clampMin().clone(), s.clampMax().clone(),
-                java.util.List.copyOf(also));
+        return new RigDefinition.EmoteChannel(swapSide(s.bone()), s.mode(), s.axisPerm().clone(),
+                s.axisSign().clone(), s.euler().clone(), s.gain().clone(), s.translation(),
+                s.clampMin().clone(), s.clampMax().clone(), java.util.List.copyOf(also));
     }
 
     /** Swap {@code left}/{@code right} within a name ({@code right_front_leg} -> {@code left_front_leg}). */
