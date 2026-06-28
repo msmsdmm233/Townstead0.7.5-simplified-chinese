@@ -12,15 +12,10 @@ import net.minecraft.util.GsonHelper;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
-/**
- * True when the entity's chosen origin is the given {@code origin} id (Apoli's
- * {@code origin}). Reads the player's stored origin or the villager's life origin.
- *
- * <p>JSON: {@code { "type":"pheno:origin", "origin":"pheno:overworlder" }}</p>
- */
+/** True when the entity's current root is the given {@code root} id. */
 public final class RootConditionType implements ConditionType {
 
-    public static final String KEY = "pheno:origin";
+    public static final String KEY = "pheno:root";
 
     @Override
     public String key() {
@@ -29,7 +24,8 @@ public final class RootConditionType implements ConditionType {
 
     @Override
     public Condition parse(JsonObject json) {
-        ResourceLocation id = DataPackLang.parseId(GsonHelper.getAsString(json, "origin", ""));
+        String raw = GsonHelper.getAsString(json, "root", "");
+        ResourceLocation id = DataPackLang.parseId(raw);
         if (id == null) return null;
         String target = id.toString();
         return ctx -> rootId(ctx.entity()).equals(target);

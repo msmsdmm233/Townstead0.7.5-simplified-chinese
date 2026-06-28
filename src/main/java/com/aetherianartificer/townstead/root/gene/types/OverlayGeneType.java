@@ -19,7 +19,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>JSON: {@code { "type":"pheno:overlay",
  * "texture":"pheno:textures/overlay/dark_vision.png", "alpha":0.6,
- * "condition":{ "type":"pheno:in_rain" } }}</p>
+ * "condition":{ "type":"pheno:environment", "weather":"rain" } }}</p>
  */
 public final class OverlayGeneType implements GeneType {
 

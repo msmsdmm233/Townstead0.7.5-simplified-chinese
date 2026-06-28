@@ -18,8 +18,10 @@ class EntityConditionPortTest {
 
     @Test
     void fieldlessStatesPortDirectly() {
-        assertEquals("pheno:crawling",
-                ApoliConditionTranslator.translate(obj("{ 'type':'apugli:crawling' }")).get("type").getAsString());
+        JsonObject crawling = ApoliConditionTranslator.translate(obj("{ 'type':'apugli:crawling' }"));
+        assertNotNull(crawling);
+        assertEquals("pheno:movement", crawling.get("type").getAsString());
+        assertEquals("crawling", crawling.get("movement").getAsString());
         assertEquals("pheno:exists",
                 ApoliConditionTranslator.translate(obj("{ 'type':'apoli:exists' }")).get("type").getAsString());
     }

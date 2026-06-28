@@ -13,10 +13,10 @@ import net.minecraft.world.level.material.Fluid;
 
 import java.util.Locale;
 
-/** True when the entity's eyes are in the given fluid tag. */
-public final class SubmergedInConditionType implements ConditionType {
+/** True when the entity is standing in the given fluid tag. */
+public final class InFluidConditionType implements ConditionType {
 
-    public static final String KEY = "pheno:submerged_in";
+    public static final String KEY = "pheno:in_fluid";
 
     @Override
     public String key() {
@@ -40,6 +40,6 @@ public final class SubmergedInConditionType implements ConditionType {
                 }
             };
         }
-        return ctx -> ctx.entity().isEyeInFluid(tag);
+        return ctx -> ctx.entity().getFluidHeight(tag) > 0;
     }
 }

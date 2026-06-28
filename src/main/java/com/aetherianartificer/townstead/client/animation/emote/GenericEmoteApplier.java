@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.client.animation.emote;
 
+import com.aetherianartificer.townstead.client.animation.emote.loader.EmoteReflection;
 import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;
@@ -28,6 +29,11 @@ public final class GenericEmoteApplier {
     public static void apply(LivingEntity entity, ModelPart root, RigDefinition def, float partialTick) {
         if (root == null || def == null || def.emote() == null) return;
         RigDefinition.EmoteMap map = def.emote();
+
+        // Bend (unlike rotation) is not reset by the model's setupAnim and would otherwise persist on the
+        // shared cached model after the emote ends or onto the next entity sharing this rig. Clear it on
+        // every bend-enabled bone up front, before any early-out, then re-apply below while active.
+        clearBends(root, map);
 
         UUID uuid = entity.getUUID();
         EmotePlayback playback = EmotePlaybackRegistry.get(uuid);
@@ -69,10 +75,24 @@ public final class GenericEmoteApplier {
                                      EmoteSampler.BonePose pose, float blend) {
         applyOne(root, ch.bone(), ch.mode(), ch.axisPerm(), ch.axisSign(), ch.gain(), ch.euler(),
                 ch.clampMin(), ch.clampMax(), ch.translation(), pose, blend);
+        // Segment bend rides only the primary bone (the leg/abdomen that flexes), scaled by bendGain.
+        if (ch.bend() && pose.hasBend() && root.hasChild(ch.bone())) {
+            EmoteReflection.applyBend(root.getChild(ch.bone()), pose.bendDirection(),
+                    blend * ch.bendGain() * pose.bend());
+        }
         // Fan-out followers always ADD (they ride the primary's motion) with their own gain.
         for (RigDefinition.EmoteFan fan : ch.also()) {
             applyOne(root, fan.bone(), RigDefinition.EmoteMode.ADDITIVE, ch.axisPerm(), ch.axisSign(),
                     fan.gain(), ch.euler(), ch.clampMin(), ch.clampMax(), false, pose, blend);
+        }
+    }
+
+    /** Zero the bend on every bend-enabled channel bone, clearing any value left from a prior frame/entity. */
+    private static void clearBends(ModelPart root, RigDefinition.EmoteMap map) {
+        for (RigDefinition.EmoteChannel ch : map.channels().values()) {
+            if (ch.bend() && root.hasChild(ch.bone())) {
+                EmoteReflection.applyBend(root.getChild(ch.bone()), 0F, 0F);
+            }
         }
     }
 

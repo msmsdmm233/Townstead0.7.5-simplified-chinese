@@ -173,7 +173,8 @@ public final class ContextResolver {
      * {@code in_dialogue_with_player} fires while the RPG dialogue
      * screen is open on the villager. {@code dialogue_just_ended} fires
      * for a short window after close so authors can sequence farewell
-     * reactions.
+     * reactions. Heart-change tags are short-lived social facts from
+     * Townstead-observed MCA relationship changes.
      */
     private static void addInteractionStateTags(ServerLevel level, VillagerEntityMCA villager, Set<String> tags) {
         if (DialogueStateTracker.activePartner(villager) != null) {
@@ -181,6 +182,12 @@ public final class ContextResolver {
         }
         if (DialogueStateTracker.dialogueJustEnded(villager, level.getGameTime())) {
             tags.add("dialogue_just_ended");
+        }
+        if (SocialInteractionTracker.heartIncreasedRecently(villager, level.getGameTime())) {
+            tags.add("heart_increased");
+        }
+        if (SocialInteractionTracker.heartDecreasedRecently(villager, level.getGameTime())) {
+            tags.add("heart_decreased");
         }
     }
 

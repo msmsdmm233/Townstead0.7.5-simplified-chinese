@@ -1203,43 +1203,15 @@ public class Townstead {
     private static void registerConditionTypes() {
         com.aetherianartificer.townstead.pheno.condition.types.StateConditionType[] states = {
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:in_rain", ctx -> ctx.level().isRainingAt(ctx.pos())),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:on_fire", ctx -> ctx.entity().isOnFire()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:sneaking", ctx -> ctx.entity().isShiftKeyDown()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:sprinting", ctx -> ctx.entity().isSprinting()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:moving", ctx -> ctx.entity().getDeltaMovement().horizontalDistanceSqr() > 1.0e-6),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:crawling", ctx -> ctx.entity().isVisuallyCrawling()),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:exists", ctx -> true),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:submerged", ctx -> ctx.entity().isUnderWater()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:in_water", ctx -> ctx.entity().isInWater()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:exposed_to_sky", ctx -> ctx.level().canSeeSky(ctx.pos())),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:daytime", ctx -> ctx.level().isDay()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:on_ground", ctx -> ctx.entity().onGround()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:climbing", ctx -> ctx.entity().onClimbable()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:collided_horizontally", ctx -> ctx.entity().horizontalCollision),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:creative_flying", ctx -> ctx.entity() instanceof net.minecraft.world.entity.player.Player p && p.getAbilities().flying),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:fall_flying", ctx -> ctx.entity().isFallFlying()),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:glowing", ctx -> ctx.entity().isCurrentlyGlowing()),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:invisible", ctx -> ctx.entity().isInvisible()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:swimming", ctx -> ctx.entity().isSwimming()),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:using_item", ctx -> ctx.entity().isUsingItem()),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
@@ -1249,34 +1221,44 @@ public class Townstead {
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:tamed", ctx -> ctx.entity() instanceof net.minecraft.world.entity.TamableAnimal t && t.isTame()),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:in_thunderstorm", ctx -> ctx.level().isThundering() && ctx.level().isRainingAt(ctx.pos())),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:exposed_to_sun", ctx -> ctx.level().isDay() && !ctx.level().isRaining() && ctx.level().canSeeSky(ctx.pos())),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:raining", ctx -> ctx.level().isRaining()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:thundering", ctx -> ctx.level().isThundering()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:grounded", ctx -> ctx.entity().onGround()),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:hostile", ctx -> ctx.entity() instanceof net.minecraft.world.entity.monster.Enemy),
-                new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
-                        "pheno:in_snow", ctx -> ctx.level().isRaining() && ctx.level().canSeeSky(ctx.pos())
-                                && ctx.level().getBiome(ctx.pos()).value().getPrecipitationAt(ctx.pos())
-                                        == net.minecraft.world.level.biome.Biome.Precipitation.SNOW),
                 new com.aetherianartificer.townstead.pheno.condition.types.StateConditionType(
                         "pheno:alive", ctx -> ctx.entity().isAlive()),
         };
         for (var state : states) {
             com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(state);
         }
+        com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
+                new com.aetherianartificer.townstead.pheno.condition.types.MovementConditionType());
+        com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
+                new com.aetherianartificer.townstead.pheno.condition.types.InteractionConditionType());
         com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType[] numerics = {
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
-                        "pheno:air", ctx -> ctx.entity().getAirSupply()),
+                        "pheno:air_supply", ctx -> ctx.entity().getAirSupply()),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
                         "pheno:fall_distance", ctx -> ctx.entity().fallDistance),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
-                        "pheno:food_level", ctx -> ctx.entity() instanceof net.minecraft.world.entity.player.Player p ? p.getFoodData().getFoodLevel() : Double.NaN),
+                        "pheno:hunger", ctx -> {
+                            if (ctx.entity() instanceof net.minecraft.world.entity.player.Player p) {
+                                return p.getFoodData().getFoodLevel();
+                            }
+                            if (ctx.entity() instanceof VillagerEntityMCA villager) {
+                                return TownsteadVillagers.get(villager).needs().hunger();
+                            }
+                            return Double.NaN;
+                        }),
+                new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
+                        "pheno:thirst", ctx -> ctx.entity() instanceof VillagerEntityMCA villager
+                                ? TownsteadVillagers.get(villager).needs().thirst()
+                                : ctx.entity() instanceof net.minecraft.world.entity.player.Player player
+                                        && ThirstBridgeResolver.get() != null
+                                                ? ThirstBridgeResolver.get().playerThirst(player)
+                                                : Double.NaN),
+                new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
+                        "pheno:energy", ctx -> ctx.entity() instanceof VillagerEntityMCA villager
+                                ? com.aetherianartificer.townstead.fatigue.FatigueData.toEnergy(
+                                        TownsteadVillagers.get(villager).needs().fatigue())
+                                : Double.NaN),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
                         "pheno:saturation_level", ctx -> ctx.entity() instanceof net.minecraft.world.entity.player.Player p ? p.getFoodData().getSaturationLevel() : Double.NaN),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
@@ -1310,6 +1292,12 @@ public class Townstead {
                 new com.aetherianartificer.townstead.pheno.condition.types.GamemodeConditionType());
         com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
                 new com.aetherianartificer.townstead.pheno.condition.types.SubmergedInConditionType());
+        com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
+                new com.aetherianartificer.townstead.pheno.condition.types.InFluidConditionType());
+        com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
+                new com.aetherianartificer.townstead.pheno.condition.types.BuildingConditionType());
+        com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
+                new com.aetherianartificer.townstead.pheno.condition.types.VillageConditionType());
         com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
                 new com.aetherianartificer.townstead.pheno.condition.types.AttributeConditionType());
         com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
@@ -2572,10 +2560,10 @@ public class Townstead {
             long gameTime = sp.serverLevel().getGameTime();
             if (payload.isOpen()) {
                 com.aetherianartificer.townstead.reaction.trigger.event.DialogueStateTracker.onOpen(
-                        villager, sp.getUUID(), gameTime);
+                        villager, sp, gameTime);
             } else {
                 com.aetherianartificer.townstead.reaction.trigger.event.DialogueStateTracker.onClose(
-                        villager, gameTime);
+                        villager, sp, gameTime);
             }
         });
     }

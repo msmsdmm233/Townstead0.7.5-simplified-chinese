@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.util.GsonHelper;
+import net.minecraft.world.level.biome.Biome;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -20,17 +21,16 @@ import java.util.function.Function;
  *
  * <pre>
  * { "type": "pheno:environment",
- *   "weather": ["rain", "thunder"],   // rain | thunder | snow | clear
- *   "exposure": "sky",                 // sky | sun
+ *   "weather": "rain",                 // rain | thunder | clear
+ *   "exposure": ["sky", "rain"],       // sky | sun | rain | thunderstorm | snow
  *   "time": "night",                   // day | night
  *   "biome": "#minecraft:is_cold",
  *   "dimension": "minecraft:the_nether",
  *   "effects": { "any": "#c:harmful", "count": { "min": 1 } } }
  * </pre>
  *
- * <p>It composes the existing leaf condition types by parsing canonical sub-condition JSON, so
- * there is no duplicated state logic and the result behaves exactly like hand-written
- * {@code and}/{@code or} of those leaves.
+ * <p>Simple entity, biome, dimension, and effect checks compose existing leaf condition types.
+ * Weather checks are level-wide; exposure checks are position-specific to the entity.
  */
 public final class EnvironmentConditionType implements ConditionType {
 
@@ -88,10 +88,9 @@ public final class EnvironmentConditionType implements ConditionType {
     @Nullable
     private static Condition weatherToken(String token) {
         return switch (token) {
-            case "rain", "raining" -> stateLeaf("raining");
-            case "thunder", "thunderstorm", "thundering" -> stateLeaf("thundering");
-            case "snow", "snowing" -> stateLeaf("in_snow");
-            case "clear", "sunny" -> negate(stateLeaf("raining"));
+            case "rain" -> ctx -> ctx.level().isRaining();
+            case "thunder", "thunderstorm" -> ctx -> ctx.level().isThundering();
+            case "clear" -> ctx -> !ctx.level().isRaining();
             default -> null;
         };
     }
@@ -99,8 +98,12 @@ public final class EnvironmentConditionType implements ConditionType {
     @Nullable
     private static Condition exposureToken(String token) {
         return switch (token) {
-            case "sky" -> stateLeaf("exposed_to_sky");
-            case "sun" -> stateLeaf("exposed_to_sun");
+            case "sky" -> ctx -> ctx.level().canSeeSky(ctx.pos());
+            case "sun" -> ctx -> ctx.level().isDay() && !ctx.level().isRaining() && ctx.level().canSeeSky(ctx.pos());
+            case "rain" -> ctx -> ctx.level().isRainingAt(ctx.pos());
+            case "thunder", "thunderstorm" -> ctx -> ctx.level().isThundering() && ctx.level().isRainingAt(ctx.pos());
+            case "snow" -> ctx -> ctx.level().isRainingAt(ctx.pos())
+                    && ctx.level().getBiome(ctx.pos()).value().getPrecipitationAt(ctx.pos()) == Biome.Precipitation.SNOW;
             default -> null;
         };
     }

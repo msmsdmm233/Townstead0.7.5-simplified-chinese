@@ -67,6 +67,8 @@ class StepHeightPortTest {
         List<ConvertedGene> genes = convert("{ 'type':'apugli:sprinting', 'requires_input':true }");
         JsonObject gene = genes.get(0).json();
         assertEquals("sprinting", gene.get("ability").getAsString());
-        assertEquals("pheno:moving", gene.getAsJsonObject("condition").get("type").getAsString());
+        JsonObject condition = gene.getAsJsonObject("condition");
+        assertEquals("pheno:movement", condition.get("type").getAsString());
+        assertEquals("moving", condition.get("movement").getAsString());
     }
 }

@@ -263,14 +263,15 @@ public final class PowerToGeneConverter {
 
     /**
      * sprinting -> the sprinting ability (force-sprint). Apugli's {@code requires_input} (sprint only
-     * while moving) becomes a {@code pheno:moving} gate on the ability, which the ability ticker
+     * while moving) becomes a {@code pheno:movement} gate on the ability, which the ability ticker
      * already honors, so it needs no runtime hook.
      */
     private static JsonObject sprintingGene(JsonObject power) {
         JsonObject gene = ability("sprinting");
         if (GsonHelper.getAsBoolean(power, "requires_input", false)) {
             JsonObject moving = new JsonObject();
-            moving.addProperty("type", "pheno:moving");
+            moving.addProperty("type", "pheno:movement");
+            moving.addProperty("movement", "moving");
             gene.add("condition", moving);
         }
         return gene;
@@ -442,7 +443,8 @@ public final class PowerToGeneConverter {
         gene.addProperty("amount", GsonHelper.getAsFloat(power, "multiplier", 1f));
         gene.addProperty("operation", "multiply_total");
         JsonObject condition = new JsonObject();
-        condition.addProperty("type", "pheno:on_ground");
+        condition.addProperty("type", "pheno:movement");
+        condition.addProperty("movement", "grounded");
         condition.addProperty("inverted", true);   // i.e. while airborne
         gene.add("condition", condition);
         return gene;
@@ -649,7 +651,8 @@ public final class PowerToGeneConverter {
     private static JsonObject waterVisionGene() {
         JsonObject gene = ability("night_vision");
         JsonObject condition = new JsonObject();
-        condition.addProperty("type", "pheno:in_water");
+        condition.addProperty("type", "pheno:in_fluid");
+        condition.addProperty("fluid", "minecraft:water");
         gene.add("condition", condition);
         return gene;
     }

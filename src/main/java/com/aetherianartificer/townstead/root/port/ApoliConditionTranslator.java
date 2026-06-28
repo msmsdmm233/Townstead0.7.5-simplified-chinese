@@ -10,9 +10,9 @@ import java.util.Locale;
 
 /**
  * Translates an Apoli entity-condition JSON into the Townstead {@code condition}
- * subset (see {@code origin/condition}). Returns {@code null} for anything outside
+ * subset (see {@code root/condition}). Returns {@code null} for anything outside
  * the subset, so the porting tool can drop the whole gated power rather than emit a
- * half-correct gate. Used only by the offline {@code /townstead origins port} tool.
+ * half-correct gate. Used only by the offline {@code /townstead roots port} tool.
  */
 public final class ApoliConditionTranslator {
 
@@ -35,38 +35,43 @@ public final class ApoliConditionTranslator {
     private static JsonObject base(String type, JsonObject apoli) {
         switch (type) {
             // Field-less states (namespace already stripped)
-            case "in_rain": return simple("in_rain");
+            case "in_rain": return environment("exposure", "rain");
             case "on_fire": return simple("on_fire");
-            case "sneaking": return simple("sneaking");
-            case "sprinting": return simple("sprinting");
-            case "moving": return simple("moving");
+            case "sneaking": return movement("sneaking");
+            case "sprinting": return movement("sprinting");
+            case "moving": return movement("moving");
             case "daytime": return simple("daytime");
-            case "exposed_to_sky": return simple("exposed_to_sky");
-            case "exposed_to_sun": return simple("exposed_to_sun");
-            case "on_ground": return simple("on_ground");
-            case "grounded": return simple("grounded");
-            case "in_water": return simple("in_water");
-            case "swimming": return simple("swimming");
+            case "exposed_to_sky": return environment("exposure", "sky");
+            case "exposed_to_sun": return environment("exposure", "sun");
+            case "on_ground":
+            case "grounded": return movement("grounded");
+            case "in_water": {
+                JsonObject out = simple("in_fluid");
+                out.addProperty("fluid", "minecraft:water");
+                return out;
+            }
+            case "swimming": return movement("swimming");
             case "glowing": return simple("glowing");
             case "invisible": return simple("invisible");
             case "using_item": return simple("using_item");
-            case "fall_flying": return simple("fall_flying");
-            case "climbing": return simple("climbing");
-            case "crawling": return simple("crawling");
+            case "fall_flying": return movement("fall_flying");
+            case "climbing": return movement("climbing");
+            case "crawling": return movement("crawling");
             case "exists": return simple("exists");
-            case "raining": return simple("raining");
-            case "thundering": return simple("thundering");
+            case "raining": return environment("weather", "rain");
+            case "thundering": return environment("weather", "thunder");
             case "hostile": return simple("hostile");
-            case "in_snow": return simple("in_snow");
+            case "in_snow": return environment("exposure", "snow");
+            case "in_thunderstorm": return environment("exposure", "thunderstorm");
             case "submerged_in": return apoli.has("fluid")
-                    ? copyString(apoli, "fluid", "pheno:submerged_in", "fluid") : simple("submerged");
+                    ? copyString(apoli, "fluid", "pheno:submerged_in", "fluid") : simple("submerged_in");
             // Value comparisons (Apoli {comparison, compare_to} -> our min/max)
             case "brightness": return brightness(apoli);
             case "health": return numeric("health", apoli);
             case "max_health": return numeric("max_health", apoli);
-            case "air": return numeric("air", apoli);
+            case "air": return numeric("air_supply", apoli);
             case "fall_distance": return numeric("fall_distance", apoli);
-            case "food_level": return numeric("food_level", apoli);
+            case "food_level": return numeric("hunger", apoli);
             case "saturation_level": return numeric("saturation_level", apoli);
             case "relative_health": {
                 JsonObject out = numeric("health", apoli);
@@ -190,6 +195,18 @@ public final class ApoliConditionTranslator {
     private static JsonObject simple(String name) {
         JsonObject out = new JsonObject();
         out.addProperty("type", "pheno:" + name);
+        return out;
+    }
+
+    private static JsonObject environment(String field, String value) {
+        JsonObject out = simple("environment");
+        out.addProperty(field, value);
+        return out;
+    }
+
+    private static JsonObject movement(String value) {
+        JsonObject out = simple("movement");
+        out.addProperty("movement", value);
         return out;
     }
 

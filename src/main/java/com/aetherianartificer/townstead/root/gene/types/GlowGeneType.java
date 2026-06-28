@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
  * colour is not yet supported). Maps Apoli's {@code self_glow}.
  *
  * <p>JSON: {@code { "type":"pheno:glow",
- * "condition":{ "type":"pheno:in_water" } }}</p>
+ * "condition":{ "type":"pheno:in_fluid", "fluid":"minecraft:water" } }}</p>
  */
 public final class GlowGeneType implements GeneType {
 

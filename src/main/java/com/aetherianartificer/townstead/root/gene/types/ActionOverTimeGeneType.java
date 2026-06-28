@@ -21,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>JSON: {@code { "type":"pheno:action_over_time", "interval":20,
  * "action":{ "type":"pheno:ignite", "seconds":2 },
- * "condition":{ "type":"pheno:exposed_to_sky" } }}</p>
+ * "condition":{ "type":"pheno:environment", "exposure":"sky" } }}</p>
  */
 public final class ActionOverTimeGeneType implements GeneType {
 

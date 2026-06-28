@@ -3,6 +3,7 @@ package com.aetherianartificer.townstead.compat.thirst;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
@@ -32,6 +33,9 @@ public interface ThirstCompatBridge {
     default ItemStack onDrinkConsumed(ItemStack drinkStack) { return ItemStack.EMPTY; }
 
     ThirstIconInfo iconInfo(int thirst);
+
+    /** Current player thirst, or NaN when the active compat cannot read it. */
+    default double playerThirst(Player player) { return Double.NaN; }
 
     record PurityResult(boolean applyHydration, boolean sickness, boolean poison, int purity) {}
 

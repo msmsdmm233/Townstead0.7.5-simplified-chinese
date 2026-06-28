@@ -33,6 +33,7 @@ public final class AiEmoteScheduler {
         if (entity == null) return;
         if (entity.level().isClientSide()) return;
         if (!(entity instanceof VillagerEntityMCA) && !(entity instanceof ServerPlayer)) return;
+        EmoteActivityTracker.stop(entity);
 
         EmoteTriggerS2CPayload payload = new EmoteTriggerS2CPayload(
                 entity.getId(), "", (byte) -1, 1.0F, false, "");
@@ -58,6 +59,7 @@ public final class AiEmoteScheduler {
         if (entity == null || emoteId == null) return;
         if (entity.level().isClientSide()) return;
         if (!(entity instanceof VillagerEntityMCA) && !(entity instanceof ServerPlayer)) return;
+        EmoteActivityTracker.start(entity, emoteId, 1);
 
         EmoteTriggerS2CPayload payload = new EmoteTriggerS2CPayload(
                 entity.getId(), emoteId.toString(), loopOverride, speed,

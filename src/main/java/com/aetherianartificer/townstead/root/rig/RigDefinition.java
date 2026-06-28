@@ -161,6 +161,10 @@ public record RigDefinition(
      *
      * <p>{@code also} fans the same remapped motion onto extra bones (each with its own gain) so a
      * single human arm reads as a wave across several legs.</p>
+     *
+     * <p>{@code bend} opts this channel's bone into playerAnim's segment bend (the curve a humanoid
+     * limb gets at the elbow/knee), scaled by {@code bendGain}; off by default since bend is authored
+     * for jointed humanoid limbs and only makes sense on bones meant to flex.</p>
      */
     public record EmoteChannel(
             String bone,
@@ -172,7 +176,9 @@ public record RigDefinition(
             boolean translation,
             float[] clampMin,   // length 3, radians (NEGATIVE_INFINITY = no lower bound)
             float[] clampMax,   // length 3, radians (POSITIVE_INFINITY = no upper bound)
-            List<EmoteFan> also
+            List<EmoteFan> also,
+            boolean bend,       // apply the emote's segment bend to this bone
+            float bendGain      // multiplier on the bend angle
     ) {}
 
     /** A follower bone driven by a parent channel's remapped motion (added on top) with its own gain. */

@@ -305,6 +305,8 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
                 buf.writeUtf(f.bone());
                 for (int i = 0; i < 3; i++) buf.writeFloat(f.gain()[i]);
             }
+            buf.writeBoolean(c.bend());
+            buf.writeFloat(c.bendGain());
         }
         RigDefinition.EmotePolicy p = m.policy();
         buf.writeFloat(p.minCoverage());
@@ -338,8 +340,10 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
                 also.add(new RigDefinition.EmoteFan(fbone,
                         new float[]{buf.readFloat(), buf.readFloat(), buf.readFloat()}));
             }
+            boolean bend = buf.readBoolean();
+            float bendGain = buf.readFloat();
             channels.put(key, new RigDefinition.EmoteChannel(bone, mode, perm, sign, euler, gain,
-                    translation, clampMin, clampMax, List.copyOf(also)));
+                    translation, clampMin, clampMax, List.copyOf(also), bend, bendGain));
         }
         float minCoverage = buf.readFloat();
         String fallback = buf.readUtf();

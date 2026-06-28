@@ -274,8 +274,11 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
             }
         }
 
+        boolean bend = GsonHelper.getAsBoolean(c, "bend", false);
+        float bendGain = GsonHelper.getAsFloat(c, "bend_gain", 1f);
+
         return new RigDefinition.EmoteChannel(bone, mode, perm, sign, euler, gain, translation,
-                clampMin, clampMax, java.util.List.copyOf(also));
+                clampMin, clampMax, java.util.List.copyOf(also), bend, bendGain);
     }
 
     /**
@@ -291,7 +294,7 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
         }
         return new RigDefinition.EmoteChannel(swapSide(s.bone()), s.mode(), s.axisPerm().clone(),
                 s.axisSign().clone(), s.euler().clone(), s.gain().clone(), s.translation(),
-                s.clampMin().clone(), s.clampMax().clone(), java.util.List.copyOf(also));
+                s.clampMin().clone(), s.clampMax().clone(), java.util.List.copyOf(also), s.bend(), s.bendGain());
     }
 
     /** Swap {@code left}/{@code right} within a name ({@code right_front_leg} -> {@code left_front_leg}). */
