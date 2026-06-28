@@ -34,7 +34,12 @@ public abstract class LivingEntityRendererEmoteMixin {
             float scale,
             CallbackInfo ci
     ) {
-        if (entity instanceof Player) return;
+        if (entity instanceof Player) {
+            // Emotecraft drives players natively (its own renderer mixin), so we only correct its body
+            // transform when the player's rig limits body motion (scale/clamp), else leave it untouched.
+            EmoteBodyTransformSampler.applyPlayerCorrection(entity, poseStack, partialTick);
+            return;
+        }
         EmoteBodyTransformSampler.apply(entity, poseStack, partialTick);
     }
     //?} else {
@@ -47,7 +52,12 @@ public abstract class LivingEntityRendererEmoteMixin {
             float partialTick,
             CallbackInfo ci
     ) {
-        if (entity instanceof Player) return;
+        if (entity instanceof Player) {
+            // Emotecraft drives players natively (its own renderer mixin), so we only correct its body
+            // transform when the player's rig limits body motion (scale/clamp), else leave it untouched.
+            EmoteBodyTransformSampler.applyPlayerCorrection(entity, poseStack, partialTick);
+            return;
+        }
         EmoteBodyTransformSampler.apply(entity, poseStack, partialTick);
     }
     *///?}

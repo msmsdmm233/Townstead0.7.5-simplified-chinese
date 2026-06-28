@@ -1,0 +1,10 @@
+{
+  "schema": "townstead:gene/v2",
+  "type": "townstead_roots:diet",
+  "display_name": { "translate": "gene.townstead_roots.omnivore" },
+  "description": { "translate": "gene.townstead_roots.omnivore.desc" },
+  "category": "Diet",
+  "dominance": "dominant",
+  "locus": "townstead_roots:diet",
+  "diet": "omnivore"
+}

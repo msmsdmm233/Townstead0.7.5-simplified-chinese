@@ -1,8 +1,8 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.ability.Ability;
-import com.aetherianartificer.townstead.origin.ability.FluidWalking;
-import com.aetherianartificer.townstead.origin.ability.MovementAbilities;
+import com.aetherianartificer.townstead.root.ability.Ability;
+import com.aetherianartificer.townstead.root.ability.FluidWalking;
+import com.aetherianartificer.townstead.root.ability.MovementAbilities;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

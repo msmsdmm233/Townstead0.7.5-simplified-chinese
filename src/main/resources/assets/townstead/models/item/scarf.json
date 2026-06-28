@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "townstead:item/scarf"
+  },
+  "display": {
+    "head": {
+      "scale": [0, 0, 0]
+    }
+  }
+}

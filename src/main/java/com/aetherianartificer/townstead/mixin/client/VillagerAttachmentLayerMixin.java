@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.mixin.client;
 
 import com.aetherianartificer.townstead.client.attachment.AttachmentRenderLayer;
+import com.aetherianartificer.townstead.client.species.WornItemLayer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.conczin.mca.client.model.VillagerEntityModelMCA;
 import net.conczin.mca.client.render.VillagerLikeEntityMCARenderer;
@@ -38,5 +39,6 @@ public abstract class VillagerAttachmentLayerMixin<T extends Mob & VillagerLike<
         if (townstead$attachmentLayerAdded) return;
         townstead$attachmentLayerAdded = true;
         this.addLayer(new AttachmentRenderLayer<>(this));
+        this.addLayer(new WornItemLayer<>(this));
     }
 }

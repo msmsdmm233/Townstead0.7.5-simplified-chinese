@@ -22,7 +22,7 @@ import java.util.List;
 
 public final class McaAnimationBridge {
     private static final EmfAnimationSourceAdapter EMF_ADAPTER = new EmfAnimationSourceAdapter();
-    private static final OriginAnimationSourceAdapter ORIGIN_ADAPTER = new OriginAnimationSourceAdapter();
+    private static final RootAnimationSourceAdapter ROOT_ADAPTER = new RootAnimationSourceAdapter();
     private static final EmotecraftAnimationSourceAdapter EMOTE_ADAPTER = new EmotecraftAnimationSourceAdapter();
     // NOTE: DebugAnimationSourceAdapter is intentionally NOT registered here. It waves every
     // villager's right arm and keys off DEBUG_VILLAGER_AI, which is the general AI-logging flag —
@@ -32,7 +32,7 @@ public final class McaAnimationBridge {
     // (crouch/...) overrides it, and an Emotecraft emote overrides that on the bones it animates.
     private static final List<AnimationSourceAdapter> SOURCES = List.of(
             EMF_ADAPTER,
-            ORIGIN_ADAPTER,
+            ROOT_ADAPTER,
             EMOTE_ADAPTER
     );
 
@@ -50,6 +50,7 @@ public final class McaAnimationBridge {
         EmoteReflection.invalidate();
         EMOTE_ADAPTER.invalidate();
         EmoteRegistry.reload();
+        com.aetherianartificer.townstead.client.animation.emote.EmoteCoverage.invalidate();
         EmotecraftEventBridge.ensureRegistered();
     }
 
@@ -75,7 +76,7 @@ public final class McaAnimationBridge {
             T entity,
             HumanoidModel<T> model,
             ModelPart rigRoot,
-            com.aetherianartificer.townstead.origin.rig.RigDefinition rigDef,
+            com.aetherianartificer.townstead.root.rig.RigDefinition rigDef,
             float limbAngle,
             float limbDistance,
             float animationProgress,
@@ -89,7 +90,7 @@ public final class McaAnimationBridge {
             T entity,
             HumanoidModel<T> model,
             ModelPart rigRoot,
-            com.aetherianartificer.townstead.origin.rig.RigDefinition rigDef,
+            com.aetherianartificer.townstead.root.rig.RigDefinition rigDef,
             float limbAngle,
             float limbDistance,
             float animationProgress,
@@ -102,6 +103,12 @@ public final class McaAnimationBridge {
             model.body.x = 0f;
             model.body.y = 0f;
             model.body.z = 0f;
+            // A non-humanoid rig anchors the host head bone onto its own head via
+            // RigWearables.poseAt, which leaves head.xyz offset on the shared model.
+            // Clear it too, or switching back to a humanoid root renders a detached head.
+            model.head.x = 0f;
+            model.head.y = 0f;
+            model.head.z = 0f;
             ModelPart editorBreasts = breastsPart(model);
             float ox = 0f, oy = 0f, oz = 0f;
             if (editorBreasts != null) {
@@ -165,6 +172,7 @@ public final class McaAnimationBridge {
         // toggles between bent and unbent poses). Clearing first matches
         // setupAnim's "every frame is fresh" semantic for rotations.
         clearStaleBend(targets);
+        clearStaleResidue(targets);
         BendStateRegistry.clearEntity(entity.getUUID());
 
         boolean anyAvailable = false;
@@ -232,6 +240,44 @@ public final class McaAnimationBridge {
     }
 
     private static final String[] BENDABLE_TARGETS = {"left_arm", "right_arm", "left_leg", "right_leg"};
+
+    // The parts an emote can dislocate. setupAnim does not refresh every channel each frame, so an
+    // emote (especially a Bedrock/geckolib one with position keyframes) leaves residue after it ends.
+    // Reset the stale channels to the model default each frame; an active gait/pose/emote source
+    // re-applies below. Scale is always kept (the proportions gene owns it).
+    //
+    // - TRANSLATION leaks on every part (setupAnim never resets translation), so reset it everywhere.
+    // - ROTATION: setupAnim reassigns head xRot/yRot (look) and arm/leg rotation (gait) every frame, so
+    //   those are never stale and are kept. But it does NOT reset body xRot/zRot (only body.yRot=0) or
+    //   head zRot, so a Bedrock emote that pitches/rolls the torso or tilts the head leaves them stuck
+    //   ("dislocated" skeletownie). Let those reset to default here too.
+    private static final String[] TRANSLATABLE_TARGETS =
+            {"head", "body", "left_arm", "right_arm", "left_leg", "right_leg"};
+
+    private static <T extends LivingEntity> void clearStaleResidue(AnimationTargetMap<T> targets) {
+        for (String target : TRANSLATABLE_TARGETS) {
+            ModelPart part = targets.resolve(target).orElse(null);
+            if (part == null) continue;
+            float xr = part.xRot, yr = part.yRot, zr = part.zRot;
+            float xs = part.xScale, ys = part.yScale, zs = part.zScale;
+            part.resetPose();
+            if ("body".equals(target)) {
+                // Drop all body rotation: setupAnim only re-zeroes yRot, so xRot/zRot residue persists.
+                // The pose/EMF/emote sources re-apply body rotation below if any is active.
+            } else if ("head".equals(target)) {
+                part.xRot = xr;
+                part.yRot = yr;
+                // drop head zRot (stale emote head-tilt; setupAnim never resets it)
+            } else {
+                part.xRot = xr;
+                part.yRot = yr;
+                part.zRot = zr;
+            }
+            part.xScale = xs;
+            part.yScale = ys;
+            part.zScale = zs;
+        }
+    }
 
     private static <T extends LivingEntity> void clearStaleBend(AnimationTargetMap<T> targets) {
         if (!EmoteReflection.isBendylibAvailable()) return;

@@ -1,10 +1,10 @@
 package com.aetherianartificer.townstead.dialogue;
 
 import com.aetherianartificer.townstead.data.DataPackLang;
-import com.aetherianartificer.townstead.origin.Origin;
-import com.aetherianartificer.townstead.origin.OriginRegistry;
-import com.aetherianartificer.townstead.origin.personality.PersonalityDef;
-import com.aetherianartificer.townstead.origin.personality.PersonalityResolver;
+import com.aetherianartificer.townstead.root.Root;
+import com.aetherianartificer.townstead.root.RootRegistry;
+import com.aetherianartificer.townstead.root.personality.PersonalityDef;
+import com.aetherianartificer.townstead.root.personality.PersonalityResolver;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -56,15 +56,15 @@ public final class SpeciesVoice {
         List<String> out = new ArrayList<>();
         PersonalityDef personality = PersonalityResolver.def(life.personalityId());
         if (personality != null) addFlat(out, personality.id());
-        ResourceLocation oid = DataPackLang.parseId(life.originId());
+        ResourceLocation oid = DataPackLang.parseId(life.rootId());
         if (oid == null) return out;
         addFlat(out, oid);
-        Origin origin = OriginRegistry.byId(oid);
+        Root origin = RootRegistry.byId(oid);
         if (origin != null) {
             addFlat(out, origin.lineage());
             addFlat(out, origin.ancestry());
         }
-        addFlat(out, OriginRegistry.effectiveSpecies(oid));
+        addFlat(out, RootRegistry.effectiveSpecies(oid));
         return out;
     }
 

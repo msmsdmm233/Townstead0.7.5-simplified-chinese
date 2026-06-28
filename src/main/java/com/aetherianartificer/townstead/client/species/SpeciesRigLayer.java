@@ -1,8 +1,9 @@
 package com.aetherianartificer.townstead.client.species;
 
 import com.aetherianartificer.townstead.client.animation.McaAnimationBridge;
-import com.aetherianartificer.townstead.origin.Animations;
-import com.aetherianartificer.townstead.origin.Hold;
+import com.aetherianartificer.townstead.root.Animations;
+import com.aetherianartificer.townstead.root.Hold;
+import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.EntityModel;
@@ -11,9 +12,12 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.conczin.mca.entity.VillagerEntityMCA;
+import net.conczin.mca.entity.ai.relationship.AgeState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
+import org.joml.Vector3f;
 
 /**
  * Renders a villager whose species declares a supported non-villager rig (e.g. a skeleton) as that
@@ -53,6 +57,14 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         String rigBase = RigModels.rigBaseFor(entity);
         if (entity.isInvisible()) return;
         if (!RigModels.isAlternate(rigBase)) return;
+        // Non-humanoid rigs (spider, etc.) render through a lean branch that drives the vanilla model's
+        // own setupAnim; the humanoid path below (arm poses, crouch, held items, fitted armor) does not
+        // apply to them.
+        if (RigModels.isGeneric(rigBase)) {
+            renderGeneric(pose, buffers, light, entity, limbSwing, limbSwingAmount, partialTick,
+                    ageInTicks, netHeadYaw, headPitch, rigBase);
+            return;
+        }
         HumanoidModel<LivingEntity> model = RigModels.model(rigBase);
         ResourceLocation texture = RigModels.texture(rigBase);
         if (model == null || texture == null) return;
@@ -95,8 +107,9 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         *///?}
 
         // Custom face (eyes/mouth) drawn on the now-posed head bone, inside the scaled pose so it
-        // tracks the head. Resolved from the entity's face genes; a no-op for rigs without them.
-        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick);
+        // tracks the head. Resolved from the entity's face genes; a no-op for rigs without them. The
+        // baby flag matches model.young so the face follows the vanilla baby head scale/offset.
+        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, babyProportions(entity));
 
         // Worn armor, fitted to the rig (same model proportions, pose, and scale), drawn before held
         // items like vanilla. The rig model is already posed above, which the armor layer copies from.
@@ -115,10 +128,140 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
     }
 
     /**
+     * Render a non-humanoid rig: bake/instantiate the vanilla model (e.g. a spider), let its own
+     * {@code setupAnim} pose the body plan from the entity's walk state, and draw it with the per-entity
+     * tint. Humanoid extras that assume an arm rig (arm pose, crouch, fitted armor) do not apply, but a
+     * custom face, worn boots, and held items still draw, each resolving its bone by name from the baked
+     * root and tracking the posed body.
+     */
+    // Per-entity ease for the crouch pose: {factor 0..1, last ageInTicks}, so the pose fades in/out instead
+    // of snapping. Keyed by entity id; lightly pruned when it grows.
+    private static final java.util.Map<Integer, float[]> POSE_EASE = new java.util.HashMap<>();
+    private static final float POSE_EASE_RATE = 0.25f; // per tick (~4 ticks in/out)
+    // Baked base position {x,y,z} per posed bone (rigBase+":"+bone), captured pristine on first use, so the
+    // pose offset is assigned from base each frame instead of accumulating (see applyRigPose).
+    private static final java.util.Map<String, float[]> POSE_BASE = new java.util.HashMap<>();
+
+    /**
+     * Applies the rig's data-driven pose for the entity's current state (currently {@code crouch}) on top of
+     * the model's posed bones, so a pack authors per-rig poses (e.g. a spider splaying its legs when sneaking)
+     * as data instead of engine code. Rotations are additive degrees (on the setupAnim-reset pose); position
+     * offsets are assigned from each bone's baked base (NOT accumulated), scaled by an eased 0..1 factor.
+     */
+    private void applyRigPose(String rigBase, T entity, float ageInTicks) {
+        RigDefinition def = RigModels.definition(rigBase);
+        if (def == null) return;
+        java.util.List<RigDefinition.PoseBone> pose = def.poses().get("crouch");
+        if (pose == null) return;
+
+        int id = entity.getId();
+        float[] st = POSE_EASE.get(id);
+        float target = entity.isCrouching() ? 1f : 0f;
+        float factor = st == null ? target : st[0];
+        float dt = st == null ? 0f : Math.max(0f, ageInTicks - st[1]);
+        float step = dt * POSE_EASE_RATE;
+        factor = factor < target ? Math.min(target, factor + step) : Math.max(target, factor - step);
+        POSE_EASE.put(id, new float[]{factor, ageInTicks});
+        if (POSE_EASE.size() > 256) POSE_EASE.keySet().removeIf(e -> {
+            var level = net.minecraft.client.Minecraft.getInstance().level;
+            return level == null || level.getEntity(e) == null;
+        });
+
+        // Always run (even at factor 0) so the SHARED cached rig model's posed bones are restored to base for
+        // a non-crouching entity; otherwise a crouching one's pose leaks onto the next entity rendered.
+        for (RigDefinition.PoseBone pb : pose) {
+            ModelPart part = RigModels.bakedBone(rigBase, pb.bone());
+            if (part == null) continue;
+            // Rotations are additive on top of the model's per-frame setupAnim reset, so factor 0 is a no-op.
+            part.xRot += (float) Math.toRadians(pb.rotation()[0]) * factor;
+            part.yRot += (float) Math.toRadians(pb.rotation()[1]) * factor;
+            part.zRot += (float) Math.toRadians(pb.rotation()[2]) * factor;
+            // Positions are NOT reset by setupAnim, so adding each frame accumulates without bound and the
+            // model marches off (the spider sank into the ground and vanished on crouch). Assign from the
+            // captured baked base instead: factor 0 restores base exactly, and a crouch is a fixed offset.
+            String key = rigBase + ":" + pb.bone();
+            float[] base = POSE_BASE.get(key);
+            if (base == null) {
+                base = new float[]{part.x, part.y, part.z};
+                POSE_BASE.put(key, base);
+            }
+            part.x = base[0] + pb.offset()[0] * factor;
+            part.y = base[1] + pb.offset()[1] * factor;
+            part.z = base[2] + pb.offset()[2] * factor;
+        }
+    }
+
+    private void renderGeneric(PoseStack pose, MultiBufferSource buffers, int light, T entity,
+                               float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
+                               float netHeadYaw, float headPitch, String rigBase) {
+        EntityModel<LivingEntity> model = RigModels.genericModel(rigBase);
+        ResourceLocation texture = RigModels.texture(rigBase);
+        if (model == null || texture == null) return;
+        model.attackTime = entity.getAttackAnim(partialTick);
+        model.young = babyProportions(entity);
+        model.riding = entity.isPassenger();
+        // Climb gait: a climbing rig moves along a wall/ceiling with ~no horizontal walk speed, so the
+        // vanilla gait signal reads as standing still and the legs freeze. While attached to any surface
+        // (the smoothed climb normal is present, walls AND ceilings), drive the amplitude from speed ALONG
+        // the surface (drop the into-surface component, so standing still reads as still) and advance an own
+        // phase, so the legs work the surface and stop when stationary.
+        Vector3f climbNormal = ClimbState.normal(entity.getId());
+        if (climbNormal != null) {
+            // Use the actual per-tick displacement, not deltaMovement (the controller zeroes that after the
+            // move, which would freeze the gait), projected onto the surface plane so the into-surface stick
+            // does not register as walking.
+            double dx = entity.getX() - entity.xOld;
+            double dy = entity.getY() - entity.yOld;
+            double dz = entity.getZ() - entity.zOld;
+            double along = dx * climbNormal.x() + dy * climbNormal.y() + dz * climbNormal.z();
+            double sx = dx - along * climbNormal.x();
+            double sy = dy - along * climbNormal.y();
+            double sz = dz - along * climbNormal.z();
+            float surfaceSpeed = (float) Math.sqrt(sx * sx + sy * sy + sz * sz);
+            limbSwingAmount = Math.min(1f, surfaceSpeed * 6f);
+            limbSwing = ageInTicks * 0.6f;
+        }
+        model.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+        applyRigPose(rigBase, entity, ageInTicks);
+        // Emotes on a non-humanoid body: the humanoid bridge can't drive this model, so apply the rig's
+        // emote remap directly onto its bones, on top of the gait pose just set. genericModel() above has
+        // populated the baked root, so bakedRoot() is non-null here.
+        com.aetherianartificer.townstead.client.animation.emote.GenericEmoteApplier.apply(
+                entity, RigModels.bakedRoot(rigBase), RigModels.definition(rigBase), partialTick);
+        VertexConsumer buffer = buffers.getBuffer(model.renderType(texture));
+        float scale = hostBaseline * RigModels.scaleFor(entity);
+        pose.pushPose();
+        if (scale != 1f) {
+            pose.translate(0f, 1.501f, 0f);
+            pose.scale(scale, scale, scale);
+            pose.translate(0f, -1.501f, 0f);
+        }
+        int tone = RigSkinTone.forEntity(entity);
+        //? if neoforge {
+        model.renderToBuffer(pose, buffer, light, OverlayTexture.NO_OVERLAY, tone);
+        //?} else {
+        /*model.renderToBuffer(pose, buffer, light, OverlayTexture.NO_OVERLAY,
+                ((tone >> 16) & 0xFF) / 255f, ((tone >> 8) & 0xFF) / 255f, (tone & 0xFF) / 255f,
+                ((tone >>> 24) & 0xFF) / 255f);
+        *///?}
+        // Generic (non-humanoid) models don't apply the vanilla humanoid baby head transform, so the
+        // face poses straight from the bone with no baby correction.
+        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, false);
+        // Worn boots laid across the rig's named bones (e.g. one per leg of a multi-legged rig), fitted
+        // with full vanilla armor fidelity. The bones are now posed by the setupAnim above, so they track.
+        RigBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
+        // Held items, anchored to the bone the species names for each hand (e.g. a front leg), inside the
+        // same scaled pose. The vanilla item layer is suppressed for alternate rigs by HeldItemSuppressMixin.
+        renderHeld(entity, rigBase, entity.getMainHandItem(), pose, buffers, light, scale, false);
+        renderHeld(entity, rigBase, entity.getOffhandItem(), pose, buffers, light, scale, true);
+        pose.popPose();
+    }
+
+    /**
      * Fully pose the rig model from the entity: the per-frame render state ({@link #prepareModel}),
      * the model's own {@code setupAnim} (walk/idle/crouch base pose), then the shared animation bridge
      * so Fresh-Animations/EMF (resolved via the species' provider chain), the origin pose layer, and
-     * Emotecraft land on its bones, layered EMF -&gt; Origin -&gt; Emote. The rig is a plain
+     * Emotecraft land on its bones, layered EMF -&gt; Root -&gt; Emote. The rig is a plain
      * {@link HumanoidModel}, which the bridge handles. Shared with {@link RigArmorSync} so the host
      * body model (the armor's pose source) can be driven from this exact pose.
      */
@@ -142,7 +285,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
     private static void prepareModel(HumanoidModel<LivingEntity> model, LivingEntity entity, float partialTick,
                                      Animations anim) {
         model.attackTime = entity.getAttackAnim(partialTick);
-        model.young = entity.isBaby();
+        model.young = babyProportions(entity);
         // crouch: the humanoid bend, unless the species opts this rig out of crouching.
         model.crouching = anim.isHumanoid(Animations.State.CROUCH) && entity.isCrouching();
         model.riding = entity.isPassenger();
@@ -156,6 +299,18 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
             model.leftArmPose = mainPose;
             model.rightArmPose = offPose;
         }
+    }
+
+    /**
+     * Whether to render the rig with vanilla's binary baby proportions (shrunk body, enlarged head).
+     * Only the BABY life stage, so toddler/child/teen instead scale smoothly through MCA's graded
+     * dimensions (driven by the stage-synced breeding age): vanilla's flag is on for every age below
+     * adult, which would give a teen baby proportions and snap at the adult boundary. A non-MCA entity
+     * (e.g. the player rig) keeps the plain {@code isBaby} check.
+     */
+    static boolean babyProportions(LivingEntity entity) {
+        if (entity instanceof VillagerEntityMCA mca) return mca.getAgeState() == AgeState.BABY;
+        return entity.isBaby();
     }
 
     /** True when the entity is a player aloft under creative/spectator flight (not standing). */
@@ -189,14 +344,23 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         if (stack.isEmpty()) return;
         Hold.Grip grip = RigModels.holdGrip(entity, offHand);
         if (grip == null) return;
-        ModelPart bone = RigModels.bone(rigBase, grip.bone());
+        boolean generic = RigModels.isGeneric(rigBase);
+        ModelPart bone = generic ? RigModels.bakedBone(rigBase, grip.bone()) : RigModels.bone(rigBase, grip.bone());
         if (bone == null) return;
         boolean left = grip.bone().contains("left");
         pose.pushPose();
         bone.translateAndRotate(pose);
-        pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-90f));
-        pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f));
-        pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
+        if (generic) {
+            // The grip bone is a leg, not an arm: carry out to its tip (the claw end) in the bone's
+            // local frame, like the boots, so the item sits at the foot of the leg instead of at its
+            // body-end pivot. The authored offset/rotation then dial the item onto the tip.
+            org.joml.Vector3f tip = RigBootsRenderer.boneTip(bone);
+            pose.translate(tip.x() / 16f, tip.y() / 16f, tip.z() / 16f);
+        } else {
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(-90f));
+            pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f));
+            pose.translate((left ? -1f : 1f) / 16f, 0.125f, -0.625f);
+        }
         // Undo the rig scale only now, AFTER reaching the (scaled) bone, so the item lands at the
         // bone at normal size instead of being pulled up toward the bone's pivot.
         if (rigScale != 1f) pose.scale(1f / rigScale, 1f / rigScale, 1f / rigScale);

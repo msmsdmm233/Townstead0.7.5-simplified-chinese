@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.client.gui.origin.OriginPicker;
+import com.aetherianartificer.townstead.client.gui.root.RootPicker;
 import net.conczin.mca.client.gui.DestinyScreen;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,10 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * page insertion can't reach it; this supplies it.
  *
  * <p>Everything else is inherited, not duplicated: Destiny routes its real pages
- * through {@code default -> super.setPage(page)}, so {@link VillagerEditorOriginMixin}'s
+ * through {@code default -> super.setPage(page)}, so {@link VillagerEditorRootMixin}'s
  * {@code setPage}/{@code syncVillagerData} injections run for the Destiny screen too.
  * Since Destiny's {@code villagerUUID == playerUUID}, that mixin's self-edit path
- * targets the player ({@code OriginSetC2SPayload.SELF}) and handles the preview tint,
+ * targets the player ({@code RootSetC2SPayload.SELF}) and handles the preview tint,
  * live gene preview, revert-on-leave, the Body skin-picker recolor, and Apply.</p>
  */
 @Mixin(DestinyScreen.class)
@@ -28,7 +28,7 @@ public abstract class DestinyScreenMixin extends Screen {
     }
 
     @Inject(method = "getPages", remap = false, at = @At("RETURN"), cancellable = true)
-    private void townstead$appendOriginsPage(CallbackInfoReturnable<String[]> cir) {
-        cir.setReturnValue(OriginPicker.insertOriginsPage(cir.getReturnValue()));
+    private void townstead$appendRootsPage(CallbackInfoReturnable<String[]> cir) {
+        cir.setReturnValue(RootPicker.insertRootsPage(cir.getReturnValue()));
     }
 }

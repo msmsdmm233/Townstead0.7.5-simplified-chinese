@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.Heredity;
-import com.aetherianartificer.townstead.origin.OriginSpawnHandler;
+import com.aetherianartificer.townstead.root.Heredity;
+import com.aetherianartificer.townstead.root.RootSpawnHandler;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.world.entity.Entity;
@@ -36,6 +36,6 @@ public abstract class BabyItemInheritanceMixin {
         List<Entity> parents = child.getRelationships().getParents().toList();
         Heredity.inheritFromEntities(TownsteadVillagers.get(child).life(), parents, child.getRandom());
         // Re-align stage durations to the (possibly newly inherited) origin's cycle.
-        OriginSpawnHandler.backfillIfMissing(child);
+        RootSpawnHandler.backfillIfMissing(child);
     }
 }

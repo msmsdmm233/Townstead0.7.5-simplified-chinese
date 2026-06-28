@@ -53,7 +53,7 @@ public final class VillagerLifeStamper {
         // place the villager within the correct stage of its rolled cycle. (Assigns
         // the default origin id only; genes are left as MCA rolled them.)
         int lociBefore = state.life().genotype().loci().size();
-        boolean rolled = com.aetherianartificer.townstead.origin.OriginSpawnHandler.backfillIfMissing(villager);
+        boolean rolled = com.aetherianartificer.townstead.root.RootSpawnHandler.backfillIfMissing(villager);
         // migrateFounder may add diploid genes a pre-feature villager lacked (e.g. a skeletownie
         // gaining diet/hydration "none"). That flips the server-side expressed set — but tracking
         // clients cached the old one, so without a re-push their interact screen keeps showing a need
@@ -85,7 +85,7 @@ public final class VillagerLifeStamper {
         // rather than waiting up to a full day for LifeStageTicker, so the broadcast below
         // carries the correct senior flag and hair desaturation starts immediately.
         if (stamped || rolled) {
-            com.aetherianartificer.townstead.origin.LifeStageProgression.tickResolveStage(villager);
+            com.aetherianartificer.townstead.root.LifeStageProgression.tickResolveStage(villager);
             broadcastFreshStamp(villager);
         }
         if (genotypeGrew) {
@@ -103,11 +103,16 @@ public final class VillagerLifeStamper {
     private static boolean townstead$birthIncoherent(TownsteadVillager state, MinecraftServer server,
                                                       VillagerEntityMCA villager) {
         if (!state.life().hasStageDays()) return false;
-        long bioAge = TownsteadCalendar.lifeDay(server) - state.life().birthWorldDay();
+        // Frozen-aware day: when aging is disabled, measure bio-age against the frozen
+        // display day, not the live calendar, so a deliberately-frozen villager isn't
+        // judged "older than its cycle" and re-fabricated (which wipes editor age edits).
+        long today = com.aetherianartificer.townstead.root.LifeStageProgression
+                .agingDisplayDayView(state.life(), TownsteadCalendar.lifeDay(server));
+        long bioAge = today - state.life().birthWorldDay();
         long total = 0;
         for (int d : state.life().stageDays()) total += Math.max(0, d);
         if (bioAge > total) return true;
-        return !com.aetherianartificer.townstead.origin.LifeStageProgression.birthMatchesBody(villager);
+        return !com.aetherianartificer.townstead.root.LifeStageProgression.birthMatchesBody(villager);
     }
 
     private static void broadcastFreshStamp(VillagerEntityMCA villager) {
@@ -123,8 +128,8 @@ public final class VillagerLifeStamper {
 
     /** Re-push the per-entity expressed-gene set after a genotype migration, so client need-hiding updates. */
     private static void broadcastExpressedGenes(VillagerEntityMCA villager) {
-        com.aetherianartificer.townstead.origin.ExpressedGenesS2CPayload payload =
-                com.aetherianartificer.townstead.origin.ExpressedGenesS2CPayload.forEntity(villager.getId(), villager);
+        com.aetherianartificer.townstead.root.ExpressedGenesS2CPayload payload =
+                com.aetherianartificer.townstead.root.ExpressedGenesS2CPayload.forEntity(villager.getId(), villager);
         //? if neoforge {
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(villager, payload);
         //?} else if forge {
@@ -138,7 +143,7 @@ public final class VillagerLifeStamper {
         // Place the villager mid-way through the stage matching its MCA AgeState,
         // using its rolled stage durations — so a spawned adult lands inside the
         // adult stage rather than decades past death under the new game-year cycle.
-        return com.aetherianartificer.townstead.origin.LifeStageProgression.fabricateBirthLifeDay(
+        return com.aetherianartificer.townstead.root.LifeStageProgression.fabricateBirthLifeDay(
                 villager, server, safeAgeState(villager));
     }
 

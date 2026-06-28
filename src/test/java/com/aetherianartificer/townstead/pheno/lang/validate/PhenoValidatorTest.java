@@ -61,7 +61,7 @@ class PhenoValidatorTest {
     @Test
     void inlineResourceFieldMismatchIsFlaggedUnderItsName() {
         Diagnostics diag = validate("{ 'type':'pheno:trigger', 'trigger':'press', 'key':'jump',"
-                + " 'action':{'type':'townstead_origins:heal','amount':1},"
+                + " 'action':{'type':'townstead_roots:heal','amount':1},"
                 + " 'resources':{ 'jumps':{ 'max':'lots' } } }");
         assertTrue(has(diag, "$.resources.jumps.max", "number"),
                 "a non-numeric resource max must be flagged at $.resources.jumps.max");
@@ -70,7 +70,7 @@ class PhenoValidatorTest {
     @Test
     void resourcesMustBeAnObjectOfMeters() {
         Diagnostics diag = validate("{ 'type':'pheno:trigger', 'trigger':'press', 'key':'jump',"
-                + " 'action':{'type':'townstead_origins:heal','amount':1}, 'resources':[ 'jumps' ] }");
+                + " 'action':{'type':'townstead_roots:heal','amount':1}, 'resources':[ 'jumps' ] }");
         assertTrue(has(diag, "$.resources", "object of named resource meters"),
                 "a non-object resources block must be flagged at $.resources");
     }
@@ -80,7 +80,7 @@ class PhenoValidatorTest {
         // Type-resolution depends on the live registry (empty in unit tests), so only field-shape
         // diagnostics are meaningful here, mirroring wellFormedGeneHasNoFieldDiagnostics.
         Diagnostics diag = validate("{ 'type':'pheno:trigger', 'trigger':'press', 'key':'jump',"
-                + " 'action':{'type':'townstead_origins:heal','amount':1},"
+                + " 'action':{'type':'townstead_roots:heal','amount':1},"
                 + " 'resources':{ 'jumps':{ 'min':0, 'max':3, 'start':0 } } }");
         for (Diagnostic d : diag.all()) {
             if (!d.jsonPath().startsWith("$.resources")) continue;
@@ -93,7 +93,7 @@ class PhenoValidatorTest {
     void wellFormedGeneHasNoFieldDiagnostics() {
         Diagnostics diag = validate(
                 "{ 'type':'pheno:active_ability',"
-                        + " 'action':{'type':'townstead_origins:heal','amount':1}, 'cooldown':40 }");
+                        + " 'action':{'type':'townstead_roots:heal','amount':1}, 'cooldown':40 }");
         for (Diagnostic d : diag.all()) {
             assertFalse(d.message().contains("Missing required field") || d.message().contains("Expected"),
                     "well-formed gene should produce no field diagnostics, got: " + d.render());

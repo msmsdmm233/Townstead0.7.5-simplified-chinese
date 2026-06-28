@@ -26,7 +26,7 @@ public final class PhenoSchemas {
                 .primaryChild("action").build());
 
         NodeSchemas.register(NodeSchema.of("pheno:active_ability", NodeDomain.GENE)
-                .doc("An action the holder triggers from an Origin Ability key slot.")
+                .doc("An action the holder triggers from an Root Ability key slot.")
                 .field(required("action", PhenoType.ACTION))
                 .field(of("condition", PhenoType.CONDITION))
                 .field(of("cooldown", PhenoType.DURATION))
@@ -202,6 +202,37 @@ public final class PhenoSchemas {
                 .field(of("dimension", PhenoType.ID).asList())
                 .field(of("effects", PhenoType.OBJECT)).build());
 
+        NodeSchemas.register(NodeSchema.of("pheno:building", NodeDomain.CONDITION)
+                .doc("Tests the Townstead/MCA building at the entity's position.")
+                .field(of("building", PhenoType.STRING).doc("Building type id or slug, such as mca:tavern or tavern."))
+                .field(of("building_type", PhenoType.STRING).doc("Alias for building."))
+                .field(of("id", PhenoType.INT).doc("Specific MCA building id."))
+                .field(of("village", PhenoType.INT).doc("Specific MCA village id."))
+                .field(of("village_id", PhenoType.INT).doc("Alias for village."))
+                .field(of("min_size", PhenoType.INT))
+                .field(of("max_size", PhenoType.INT)).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:village", NodeDomain.CONDITION)
+                .doc("Tests the MCA/Townstead village resolved at the entity's position.")
+                .field(of("id", PhenoType.INT).doc("Specific MCA village id."))
+                .field(of("village", PhenoType.INT).doc("Alias for id."))
+                .field(of("village_id", PhenoType.INT).doc("Alias for id."))
+                .field(of("name", PhenoType.STRING).doc("Village name."))
+                .field(of("village_name", PhenoType.STRING).doc("Alias for name."))
+                .field(of("within_border", PhenoType.BOOL).doc("Require the entity to be inside the village border."))
+                .field(of("min_buildings", PhenoType.INT))
+                .field(of("max_buildings", PhenoType.INT))
+                .field(of("min_population", PhenoType.INT))
+                .field(of("max_population", PhenoType.INT)).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:movement", NodeDomain.CONDITION)
+                .doc("Entity movement, pose, flight, and collision state.")
+                .field(of("movement", PhenoType.STRING)).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:interaction", NodeDomain.CONDITION)
+                .doc("Social and UI-driven interaction state.")
+                .field(of("interaction", PhenoType.STRING)).build());
+
         NodeSchemas.register(NodeSchema.of("pheno:step_height", NodeDomain.GENE)
                 .doc("Raises how high the entity steps up by amount (Apugli step_height's upper_height), "
                         + "resolving the per-version step-height attribute.")
@@ -265,6 +296,16 @@ public final class PhenoSchemas {
                 .field(required("fluid", PhenoType.ID))
                 .field(of("min", PhenoType.FLOAT))
                 .field(of("max", PhenoType.FLOAT)).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:in_fluid", NodeDomain.CONDITION)
+                .doc("Whether the entity is standing in the given fluid tag.")
+                .field(of("fluid", PhenoType.ID).doc("Fluid tag id; defaults to minecraft:water."))
+                .field(of("fluid_tag", PhenoType.ID).doc("Explicit fluid tag id; takes priority over fluid.")).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:submerged_in", NodeDomain.CONDITION)
+                .doc("Whether the entity's eyes are in the given fluid tag.")
+                .field(of("fluid", PhenoType.ID).doc("Fluid tag id; defaults to minecraft:water."))
+                .field(of("fluid_tag", PhenoType.ID).doc("Explicit fluid tag id; takes priority over fluid.")).build());
 
         NodeSchemas.register(NodeSchema.of("pheno:passenger_recursive", NodeDomain.CONDITION)
                 .doc("Compares the recursive passenger count against compare_to (Apoli passenger_recursive).")

@@ -71,17 +71,17 @@ public final class VillagerServerTickDispatcher {
                 com.aetherianartificer.townstead.calendar.VillagerLifeStamper.tick(villager));
         profile("villager.life_stage", () -> LifeStageTicker.tick(villager));
         profile("villager.gene_ability", () ->
-                com.aetherianartificer.townstead.origin.ability.GeneAbilityTicker.tick(villager));
+                com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.tick(villager));
         profile("villager.disposition", () ->
-                com.aetherianartificer.townstead.origin.disposition.DispositionReactions.tick(villager));
+                com.aetherianartificer.townstead.root.disposition.DispositionReactions.tick(villager));
         profile("villager.gene_attribute", () ->
-                com.aetherianartificer.townstead.origin.attribute.GeneAttributeApplier.tick(villager));
+                com.aetherianartificer.townstead.root.attribute.GeneAttributeApplier.tick(villager));
         profile("villager.active_ability", () ->
-                com.aetherianartificer.townstead.origin.ability.ActiveAbilities.aiTick(villager));
+                com.aetherianartificer.townstead.root.ability.ActiveAbilities.aiTick(villager));
         profile("villager.gene_resource", () ->
-                com.aetherianartificer.townstead.origin.ability.ResourceValues.tick(villager));
+                com.aetherianartificer.townstead.root.ability.ResourceValues.tick(villager));
         profile("villager.gene_collection", () ->
-                com.aetherianartificer.townstead.origin.collection.CollectionValues.tick(villager));
+                com.aetherianartificer.townstead.root.collection.CollectionValues.tick(villager));
     }
 
     private static void profile(String name, Runnable runnable) {

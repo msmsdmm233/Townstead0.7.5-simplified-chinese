@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.ability.Ability;
-import com.aetherianartificer.townstead.origin.ability.MovementAbilities;
+import com.aetherianartificer.townstead.root.ability.Ability;
+import com.aetherianartificer.townstead.root.ability.MovementAbilities;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;

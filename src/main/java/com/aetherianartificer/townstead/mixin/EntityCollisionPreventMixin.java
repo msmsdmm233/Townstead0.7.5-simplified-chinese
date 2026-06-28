@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.gene.types.PreventGeneType.What;
-import com.aetherianartificer.townstead.origin.prevent.Prevents;
+import com.aetherianartificer.townstead.root.gene.types.PreventGeneType.What;
+import com.aetherianartificer.townstead.root.prevent.Prevents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;

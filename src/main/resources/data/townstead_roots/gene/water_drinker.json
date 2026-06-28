@@ -1,0 +1,10 @@
+{
+  "schema": "townstead:gene/v2",
+  "type": "townstead_roots:hydration",
+  "display_name": { "translate": "gene.townstead_roots.water_drinker" },
+  "description": { "translate": "gene.townstead_roots.water_drinker.desc" },
+  "category": "Hydration",
+  "dominance": "dominant",
+  "locus": "townstead_roots:hydration",
+  "liquid": "water"
+}

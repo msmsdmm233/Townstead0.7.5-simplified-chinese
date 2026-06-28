@@ -5,6 +5,7 @@ import com.aetherianartificer.townstead.compat.ModCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
@@ -44,6 +45,7 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
     private Method getThirstMethod;
     private Method getQuenchedMethod;
     private Method getPurityMethod;
+    private Method getPlayerThirstMethod;
     private Class<?> commonConfigClass;
 
     private ThirstWasTakenBridge() {}
@@ -215,6 +217,18 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
         return new ThirstIconInfo(THIRST_ICONS, u, 0, 25, 9);
     }
 
+    @Override
+    public double playerThirst(Player player) {
+        if (player == null) return Double.NaN;
+        initIfNeeded();
+        if (!active || getPlayerThirstMethod == null) return Double.NaN;
+        try {
+            Object value = getPlayerThirstMethod.invoke(null, player);
+            if (value instanceof Number n) return n.doubleValue();
+        } catch (Exception ignored) {}
+        return Double.NaN;
+    }
+
     private void initIfNeeded() {
         if (initialized) return;
         initialized = true;
@@ -230,6 +244,7 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
             getThirstMethod = thirstHelper.getMethod("getThirst", ItemStack.class);
             getQuenchedMethod = thirstHelper.getMethod("getQuenched", ItemStack.class);
             getPurityMethod = thirstHelper.getMethod("getPurity", ItemStack.class);
+            getPlayerThirstMethod = findPlayerThirstMethod(thirstHelper);
             try {
                 Class<?> waterPurity = Class.forName("dev.ghen.thirst.content.purity.WaterPurity");
                 isPurityWaterContainerMethod = waterPurity.getMethod("isWaterFilledContainer", ItemStack.class);
@@ -242,6 +257,39 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
             active = false;
             Townstead.LOGGER.warn("Failed to initialize Thirst Was Taken compatibility. Villager thirst integration disabled.", e);
         }
+    }
+
+    private static Method findPlayerThirstMethod(Class<?> owner) {
+        for (String name : new String[] { "getThirst", "getThirstLevel", "getHydration", "getHydrationLevel" }) {
+            try {
+                Method method = owner.getMethod(name, Player.class);
+                if (java.lang.reflect.Modifier.isStatic(method.getModifiers())
+                        && Number.class.isAssignableFrom(wrap(method.getReturnType()))) {
+                    return method;
+                }
+            } catch (NoSuchMethodException ignored) {}
+        }
+        for (Method method : owner.getMethods()) {
+            if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) continue;
+            if (!Number.class.isAssignableFrom(wrap(method.getReturnType()))) continue;
+            Class<?>[] params = method.getParameterTypes();
+            if (params.length == 1 && params[0].isAssignableFrom(Player.class)
+                    && method.getName().toLowerCase(java.util.Locale.ROOT).contains("thirst")) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static Class<?> wrap(Class<?> type) {
+        if (!type.isPrimitive()) return type;
+        if (type == int.class) return Integer.class;
+        if (type == long.class) return Long.class;
+        if (type == float.class) return Float.class;
+        if (type == double.class) return Double.class;
+        if (type == short.class) return Short.class;
+        if (type == byte.class) return Byte.class;
+        return type;
     }
 
     private int readConfigInt(String fieldName, int fallback) {

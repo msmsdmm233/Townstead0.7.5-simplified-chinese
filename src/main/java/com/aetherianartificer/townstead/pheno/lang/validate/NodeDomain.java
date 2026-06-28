@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.pheno.lang.validate;
 
-import com.aetherianartificer.townstead.origin.gene.GeneTypes;
+import com.aetherianartificer.townstead.root.gene.GeneTypes;
 import com.aetherianartificer.townstead.pheno.action.ActionTypes;
 import com.aetherianartificer.townstead.pheno.action.block.BlockActionTypes;
 import com.aetherianartificer.townstead.pheno.action.item.ItemActionTypes;

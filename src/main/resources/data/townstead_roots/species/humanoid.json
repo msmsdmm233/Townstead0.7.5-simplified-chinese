@@ -1,0 +1,5 @@
+{
+  "schema": "townstead:species/v2",
+  "display_name": { "translate": "origin.townstead_roots.species.humanoid" },
+  "rig": { "base": "mca:villager" }
+}

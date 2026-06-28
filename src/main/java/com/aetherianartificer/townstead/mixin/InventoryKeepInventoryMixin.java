@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.ExpressedGenes;
-import com.aetherianartificer.townstead.origin.gene.types.KeepInventoryGeneType;
+import com.aetherianartificer.townstead.root.ExpressedGenes;
+import com.aetherianartificer.townstead.root.gene.types.KeepInventoryGeneType;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;

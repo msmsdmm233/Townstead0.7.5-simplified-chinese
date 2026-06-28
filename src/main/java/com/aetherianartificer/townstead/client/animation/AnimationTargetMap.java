@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.client.animation;
 
-import com.aetherianartificer.townstead.origin.rig.RigDefinition;
+import com.aetherianartificer.townstead.root.rig.RigDefinition;
 import net.conczin.mca.client.model.VillagerEntityModelMCA;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;

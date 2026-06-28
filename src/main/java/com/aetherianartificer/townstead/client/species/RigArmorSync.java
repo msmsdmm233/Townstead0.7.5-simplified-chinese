@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.client.species;
 
-import com.aetherianartificer.townstead.origin.Animations;
+import com.aetherianartificer.townstead.root.Animations;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -37,6 +37,13 @@ public final class RigArmorSync {
                                         float netHeadYaw, float headPitch) {
         String rigBase = RigModels.rigBaseFor(entity);
         if (!RigModels.isAlternate(rigBase)) return false;
+        // A non-humanoid rig has no humanoid host pose to copy and wears no fitted armor. If it declares
+        // a back anchor, pose the host body bone there so back-worn layers (backpack, cape) land on the
+        // rig's back; then skip the humanoid bridge so that pose stands. Otherwise leave the host alone.
+        if (RigModels.isGeneric(rigBase)) {
+            com.aetherianartificer.townstead.root.rig.RigDefinition def = RigModels.definition(rigBase);
+            return def != null && RigWearables.anchor(host, def, netHeadYaw, headPitch);
+        }
         HumanoidModel<LivingEntity> rig = RigModels.model(rigBase);
         if (rig == null) return false;
         Animations anim = RigModels.animations(entity);

@@ -35,10 +35,10 @@ public abstract class VillagerFinalizeSpawnMixin {
     //?} else {
     /*@Inject(method = "m_6518_", remap = false, at = @At("TAIL"), require = 1)
     *///?}
-    private void townstead$applyOriginAfterInit(CallbackInfoReturnable<SpawnGroupData> cir) {
+    private void townstead$applyRootAfterInit(CallbackInfoReturnable<SpawnGroupData> cir) {
         VillagerEntityMCA self = (VillagerEntityMCA) (Object) this;
         if (!self.level().isClientSide) {
-            com.aetherianartificer.townstead.origin.OriginSpawnHandler.onTrueSpawn(self);
+            com.aetherianartificer.townstead.root.RootSpawnHandler.onTrueSpawn(self);
         }
     }
 }

@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.ExpressedGenes;
-import com.aetherianartificer.townstead.origin.gene.types.InfectionImmunityGeneType;
+import com.aetherianartificer.townstead.root.ExpressedGenes;
+import com.aetherianartificer.townstead.root.gene.types.InfectionImmunityGeneType;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

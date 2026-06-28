@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potions;
@@ -19,6 +20,7 @@ import com.aetherianartificer.townstead.compat.ModCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 *///?}
@@ -62,6 +64,7 @@ public final class LSOBridge implements ThirstCompatBridge {
     private Method removeHydrationEnumTagMethod;
     private Method getCapacityTagMethod;
     private Method setCapacityTagMethod;
+    private Method getPlayerThirstMethod;
     // CanteenItem
     private Class<?> canteenItemClass;
     // Config.Baked
@@ -288,6 +291,18 @@ public final class LSOBridge implements ThirstCompatBridge {
         return new ThirstIconInfo(LSO_OVERLAY, u, 0, 256, 256);
     }
 
+    @Override
+    public double playerThirst(Player player) {
+        if (player == null) return Double.NaN;
+        initIfNeeded();
+        if (!active || getPlayerThirstMethod == null) return Double.NaN;
+        try {
+            Object value = getPlayerThirstMethod.invoke(null, player);
+            if (value instanceof Number n) return n.doubleValue();
+        } catch (Exception ignored) {}
+        return Double.NaN;
+    }
+
     private static boolean isWaterPotion(ItemStack stack) {
         //? if >=1.21 {
         if (!stack.is(Items.POTION)) return false;
@@ -345,6 +360,7 @@ public final class LSOBridge implements ThirstCompatBridge {
             // ThirstUtil
             Class<?> thirstUtil = Class.forName("sfiomn.legendarysurvivaloverhaul.api.thirst.ThirstUtil");
             getHydrationEnumTagMethod = thirstUtil.getMethod("getHydrationEnumTag", ItemStack.class);
+            getPlayerThirstMethod = findPlayerThirstMethod(thirstUtil);
             try {
                 setHydrationEnumTagMethod = thirstUtil.getMethod("setHydrationEnumTag", ItemStack.class,
                         Class.forName("sfiomn.legendarysurvivaloverhaul.api.thirst.HydrationEnum"));
@@ -417,5 +433,38 @@ public final class LSOBridge implements ThirstCompatBridge {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static <T extends Enum<T>> T enumValueOf(Class<?> enumClass, String name) {
         return Enum.valueOf((Class<T>) enumClass, name);
+    }
+
+    private static Method findPlayerThirstMethod(Class<?> owner) {
+        for (String name : new String[] { "getThirst", "getThirstLevel", "getHydration", "getHydrationLevel" }) {
+            try {
+                Method method = owner.getMethod(name, Player.class);
+                if (java.lang.reflect.Modifier.isStatic(method.getModifiers())
+                        && Number.class.isAssignableFrom(wrap(method.getReturnType()))) {
+                    return method;
+                }
+            } catch (NoSuchMethodException ignored) {}
+        }
+        for (Method method : owner.getMethods()) {
+            if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) continue;
+            if (!Number.class.isAssignableFrom(wrap(method.getReturnType()))) continue;
+            Class<?>[] params = method.getParameterTypes();
+            if (params.length == 1 && params[0].isAssignableFrom(Player.class)) {
+                String name = method.getName().toLowerCase(java.util.Locale.ROOT);
+                if (name.contains("thirst") || name.contains("hydration")) return method;
+            }
+        }
+        return null;
+    }
+
+    private static Class<?> wrap(Class<?> type) {
+        if (!type.isPrimitive()) return type;
+        if (type == int.class) return Integer.class;
+        if (type == long.class) return Long.class;
+        if (type == float.class) return Float.class;
+        if (type == double.class) return Double.class;
+        if (type == short.class) return Short.class;
+        if (type == byte.class) return Byte.class;
+        return type;
     }
 }

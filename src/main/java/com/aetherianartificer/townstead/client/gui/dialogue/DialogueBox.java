@@ -49,6 +49,7 @@ public class DialogueBox {
     private final TypewriterText typewriter = new TypewriterText();
     private final ScreenParticles particles = new ScreenParticles();
     private Component villagerName = Component.empty();
+    private boolean nameVisible = true;
     private DialogueEffect activeEffect = DialogueEffects.NORMAL;
 
     private int x, y, width, height;
@@ -66,6 +67,11 @@ public class DialogueBox {
 
     public void setVillagerName(Component name) {
         this.villagerName = name;
+    }
+
+    /** Whether the name plate shows. Hidden for silent self-prompts (player's own thoughts/menus). */
+    public void setNameVisible(boolean visible) {
+        this.nameVisible = visible;
     }
 
     public void setText(Component text, Font font) {
@@ -127,7 +133,7 @@ public class DialogueBox {
         float a = fadeAlpha;
 
         renderFrame(g, a);
-        renderNameTab(g, font, a);
+        if (nameVisible) renderNameTab(g, font, a);
         renderText(g, font, a);
         renderParticles(g);
         renderIndicator(g, font, a);

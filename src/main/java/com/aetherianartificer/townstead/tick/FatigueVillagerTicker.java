@@ -11,7 +11,7 @@ import com.aetherianartificer.townstead.fatigue.RestCoordinator;
 import com.aetherianartificer.townstead.fatigue.RestDebugData;
 import com.aetherianartificer.townstead.fatigue.RestDecision;
 import com.aetherianartificer.townstead.fatigue.SleepReason;
-import com.aetherianartificer.townstead.origin.chronotype.Chronotypes;
+import com.aetherianartificer.townstead.root.chronotype.Chronotypes;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;

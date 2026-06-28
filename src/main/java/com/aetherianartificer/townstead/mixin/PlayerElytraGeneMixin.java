@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.ability.Abilities;
-import com.aetherianartificer.townstead.origin.ability.Ability;
+import com.aetherianartificer.townstead.root.ability.Abilities;
+import com.aetherianartificer.townstead.root.ability.Ability;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;

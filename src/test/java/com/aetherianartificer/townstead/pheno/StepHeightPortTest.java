@@ -1,8 +1,8 @@
 package com.aetherianartificer.townstead.pheno;
 
-import com.aetherianartificer.townstead.origin.port.PowerToGeneConverter;
-import com.aetherianartificer.townstead.origin.port.PowerToGeneConverter.ConvertedGene;
-import com.aetherianartificer.townstead.origin.port.PowerToGeneConverter.Skip;
+import com.aetherianartificer.townstead.root.port.PowerToGeneConverter;
+import com.aetherianartificer.townstead.root.port.PowerToGeneConverter.ConvertedGene;
+import com.aetherianartificer.townstead.root.port.PowerToGeneConverter.Skip;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.resources.ResourceLocation;
@@ -31,7 +31,7 @@ class StepHeightPortTest {
         List<ConvertedGene> genes = new ArrayList<>();
         List<Skip> skips = new ArrayList<>();
         Map<ResourceLocation, JsonObject> recipes = new HashMap<>();
-        PowerToGeneConverter.convert("townstead_origins", ResourceLocation.tryParse("test:tall_step"),
+        PowerToGeneConverter.convert("townstead_roots", ResourceLocation.tryParse("test:tall_step"),
                 obj(powerJson), genes, skips, recipes);
         return genes;
     }
@@ -67,6 +67,8 @@ class StepHeightPortTest {
         List<ConvertedGene> genes = convert("{ 'type':'apugli:sprinting', 'requires_input':true }");
         JsonObject gene = genes.get(0).json();
         assertEquals("sprinting", gene.get("ability").getAsString());
-        assertEquals("pheno:moving", gene.getAsJsonObject("condition").get("type").getAsString());
+        JsonObject condition = gene.getAsJsonObject("condition");
+        assertEquals("pheno:movement", condition.get("type").getAsString());
+        assertEquals("moving", condition.get("movement").getAsString());
     }
 }

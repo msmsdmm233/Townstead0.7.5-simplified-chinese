@@ -189,6 +189,28 @@ public final class DialogueMenuOrganizer {
         return RPG_PHRASING.get(questionId + "." + answerId);
     }
 
+    // Muted suffix shown after flavor-worded options/hubs whose meaning isn't obvious from the text.
+    private static final Map<String, String> ACTION_HINTS = new HashMap<>();
+    static {
+        ACTION_HINTS.put("divorceInitiate", "townstead.dialogue.hint.divorce");
+    }
+
+    private static final Map<String, String> HUB_HINTS = new HashMap<>();
+    static {
+        HUB_HINTS.put("romance", "townstead.dialogue.hint.romance");
+        HUB_HINTS.put("adventurer", "townstead.dialogue.hint.adventurer");
+    }
+
+    /** Translation key for a leaf option's action hint (e.g. "(Divorce)"), or null if none. */
+    public static String getActionHint(String mcaAnswer) {
+        return mcaAnswer == null ? null : ACTION_HINTS.get(mcaAnswer);
+    }
+
+    /** Translation key for a hub's category hint (e.g. "(Romance)"), or null if none. */
+    public static String getHubHint(String subMenuId) {
+        return subMenuId == null ? null : HUB_HINTS.get(subMenuId);
+    }
+
     private static boolean isKnownAnswer(String answer) {
         for (HubEntry entry : TOP_LEVEL) {
             if (entry.isLeaf() && answer.equals(entry.mcaAnswer())) return true;

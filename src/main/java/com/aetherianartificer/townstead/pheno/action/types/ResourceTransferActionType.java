@@ -3,7 +3,7 @@ package com.aetherianartificer.townstead.pheno.action.types;
 import com.aetherianartificer.townstead.data.DataPackLang;
 import com.aetherianartificer.townstead.pheno.action.Action;
 import com.aetherianartificer.townstead.pheno.action.ActionType;
-import com.aetherianartificer.townstead.origin.ability.ResourceValues;
+import com.aetherianartificer.townstead.root.ability.ResourceValues;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;

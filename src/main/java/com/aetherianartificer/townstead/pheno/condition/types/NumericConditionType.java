@@ -9,8 +9,8 @@ import net.minecraft.util.GsonHelper;
 import java.util.function.ToDoubleFunction;
 
 /**
- * A {@code min}/{@code max} range condition over a numeric property of the entity (air,
- * fall distance, food level, XP, …). One instance per property with its own key and
+ * A {@code min}/{@code max} range condition over a numeric property of the entity (air supply,
+ * fall distance, hunger, XP, ...). One instance per property with its own key and
  * value function, so the simple numeric conditions don't each need their own class. A
  * value of {@code NaN} (e.g. a player-only property on a villager) never falls in range.
  */

@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.hook.PhenoHooks;
+import com.aetherianartificer.townstead.root.hook.PhenoHooks;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;

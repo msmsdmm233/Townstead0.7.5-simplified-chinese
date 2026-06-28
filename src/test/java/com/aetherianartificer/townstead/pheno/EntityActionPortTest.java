@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.pheno;
 
-import com.aetherianartificer.townstead.origin.port.ApoliActionTranslator;
+import com.aetherianartificer.townstead.root.port.ApoliActionTranslator;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

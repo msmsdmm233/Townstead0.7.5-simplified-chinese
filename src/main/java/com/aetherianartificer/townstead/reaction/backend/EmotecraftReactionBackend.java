@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.reaction.backend;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.emote.AiEmoteScheduler;
+import com.aetherianartificer.townstead.emote.EmoteActivityTracker;
 import com.aetherianartificer.townstead.reaction.ReactionBinding;
 import com.aetherianartificer.townstead.reaction.ReactionContext;
 import com.google.gson.JsonObject;
@@ -53,6 +54,7 @@ public final class EmotecraftReactionBackend implements ReactionBackend {
         }
         String skipped = String.join(",", binding.partsSkip());
         AiEmoteScheduler.playEmote(villager, rl, loopOverride, speed, binding.allowMovement(), skipped);
+        EmoteActivityTracker.start(villager, rl, binding.shots());
         return Optional.of(lowercase);
     }
 }

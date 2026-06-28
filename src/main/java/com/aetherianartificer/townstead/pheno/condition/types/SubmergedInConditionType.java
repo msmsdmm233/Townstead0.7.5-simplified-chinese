@@ -13,12 +13,7 @@ import net.minecraft.world.level.material.Fluid;
 
 import java.util.Locale;
 
-/**
- * True when the entity's eyes are in the given fluid (Apoli's {@code submerged_in}).
- * {@code fluid} is {@code water} or {@code lava}, or a {@code fluid_tag} can be named.
- *
- * <p>JSON: {@code { "type":"pheno:submerged_in", "fluid":"lava" }}</p>
- */
+/** True when the entity's eyes are in the given fluid tag. */
 public final class SubmergedInConditionType implements ConditionType {
 
     public static final String KEY = "pheno:submerged_in";
@@ -37,8 +32,12 @@ public final class SubmergedInConditionType implements ConditionType {
             tag = TagKey.create(Registries.FLUID, id);
         } else {
             tag = switch (GsonHelper.getAsString(json, "fluid", "water").toLowerCase(Locale.ROOT)) {
-                case "lava" -> FluidTags.LAVA;
-                default -> FluidTags.WATER;
+                case "lava", "minecraft:lava" -> FluidTags.LAVA;
+                case "water", "minecraft:water" -> FluidTags.WATER;
+                default -> {
+                    ResourceLocation id = DataPackLang.parseId(GsonHelper.getAsString(json, "fluid", ""));
+                    yield id == null ? FluidTags.WATER : TagKey.create(Registries.FLUID, id);
+                }
             };
         }
         return ctx -> ctx.entity().isEyeInFluid(tag);

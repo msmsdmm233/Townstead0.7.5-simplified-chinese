@@ -1,0 +1,10 @@
+{
+  "schema": "townstead:gene/v2",
+  "type": "townstead_roots:trait_occurrence",
+  "display_name": { "translate": "gene.townstead_roots.immortal" },
+  "description": { "translate": "gene.townstead_roots.immortal.desc" },
+  "category": "Lifespan",
+  "dominance": "dominant",
+  "trait": "townstead_roots:immortal",
+  "force": true
+}

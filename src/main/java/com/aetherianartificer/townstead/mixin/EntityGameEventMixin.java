@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.gameevent.PreventGameEvents;
+import com.aetherianartificer.townstead.root.gameevent.PreventGameEvents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;

@@ -11,7 +11,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 
 /**
- * Townstead keybinds: the RPG dialogue key plus the pool of remappable "Origin
+ * Townstead keybinds: the RPG dialogue key plus the pool of remappable "Root
  * Ability" keys. The ability keys are real {@link KeyMapping}s (registered at
  * startup, default unbound), so they appear in the Controls screen and are picked
  * up by controller/VR rebinding layers; an active-ability gene binds to one by slot.
@@ -24,7 +24,7 @@ public final class TownsteadKeybinds {
             "townstead.key.category"
     );
 
-    /** One Origin Ability key per slot (mirrors {@code ActiveAbilities.POOL_SIZE}); default unbound. */
+    /** One Root Ability key per slot (mirrors {@code ActiveAbilities.POOL_SIZE}); default unbound. */
     public static final int ABILITY_KEYS = 8;
     public static final KeyMapping[] ABILITIES = new KeyMapping[ABILITY_KEYS];
 
@@ -56,8 +56,8 @@ public final class TownsteadKeybinds {
             int slot = i + 1;
             while (ABILITIES[i].consumeClick()) {
                 if (mc.player == null || mc.screen != null) continue;
-                com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload payload =
-                        new com.aetherianartificer.townstead.origin.ability.ActivateAbilityC2SPayload(slot);
+                com.aetherianartificer.townstead.root.ability.ActivateAbilityC2SPayload payload =
+                        new com.aetherianartificer.townstead.root.ability.ActivateAbilityC2SPayload(slot);
                 //? if neoforge {
                 net.neoforged.neoforge.network.PacketDistributor.sendToServer(payload);
                 //?} else {
@@ -91,8 +91,8 @@ public final class TownsteadKeybinds {
     }
 
     private static void sendKeyPress(String key) {
-        com.aetherianartificer.townstead.origin.trigger.KeyPressC2SPayload payload =
-                new com.aetherianartificer.townstead.origin.trigger.KeyPressC2SPayload(key);
+        com.aetherianartificer.townstead.root.trigger.KeyPressC2SPayload payload =
+                new com.aetherianartificer.townstead.root.trigger.KeyPressC2SPayload(key);
         //? if neoforge {
         net.neoforged.neoforge.network.PacketDistributor.sendToServer(payload);
         //?} else {

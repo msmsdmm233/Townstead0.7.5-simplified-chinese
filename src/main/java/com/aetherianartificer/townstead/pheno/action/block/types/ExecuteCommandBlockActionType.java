@@ -34,8 +34,8 @@ public final class ExecuteCommandBlockActionType implements BlockActionType {
         return ctx -> {
             if (ctx.level().getServer() == null) return;
             CommandSourceStack source = new CommandSourceStack(CommandSource.NULL,
-                    Vec3.atCenterOf(ctx.pos()), Vec2.ZERO, ctx.level(), 2, "Origin",
-                    Component.literal("Origin"), ctx.level().getServer(), ctx.cause());
+                    Vec3.atCenterOf(ctx.pos()), Vec2.ZERO, ctx.level(), 2, "Root",
+                    Component.literal("Root"), ctx.level().getServer(), ctx.cause());
             ctx.level().getServer().getCommands().performPrefixedCommand(source, command);
         };
     }

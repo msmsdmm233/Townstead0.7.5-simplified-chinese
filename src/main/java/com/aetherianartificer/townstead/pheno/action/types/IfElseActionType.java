@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
  * optional {@code else_action} (Apoli's meta {@code if_else}).
  *
  * <p>JSON: {@code { "type":"pheno:if_else",
- * "condition":{ "type":"pheno:submerged" },
+ * "condition":{ "type":"pheno:submerged_in" },
  * "if_action":{...}, "else_action":{...} }}</p>
  */
 public final class IfElseActionType implements ActionType {

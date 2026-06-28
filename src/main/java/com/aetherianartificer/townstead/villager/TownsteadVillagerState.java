@@ -29,8 +29,9 @@ public final class TownsteadVillagerState {
      * Used to recover a carried/reconstructed entity's species when no live per-entity sync exists for it
      * (CarryOn rebuilds the entity from NBT with a fresh id that was never tracked). Empty if none.
      */
-    public static String snapshotOriginId(VillagerEntityMCA villager) {
-        return loadSnapshotTag(villager).getCompound("life").getString("originId");
+    public static String snapshotRootId(VillagerEntityMCA villager) {
+        net.minecraft.nbt.CompoundTag life = loadSnapshotTag(villager).getCompound("life");
+        return life.contains("rootId") ? life.getString("rootId") : life.getString("originId"); // legacy fallback
     }
 
     /** The variant id this villager carries for {@code geneId} in its persisted snapshot, or empty. */

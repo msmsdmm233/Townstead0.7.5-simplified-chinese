@@ -150,7 +150,7 @@ public abstract class InteractScreenMixin extends Screen {
         if (button != 0) return;
         if (((AbstractDynamicScreenAccessor) this).townstead$invokeHoveringOverIcon("genes")) {
             townstead$transitioning = true;
-            com.aetherianartificer.townstead.client.gui.origin.HeritageScreen.open(villager);
+            com.aetherianartificer.townstead.client.gui.root.HeritageScreen.open(villager);
             cir.setReturnValue(true);
         }
     }
@@ -227,6 +227,25 @@ public abstract class InteractScreenMixin extends Screen {
         return life != null && life.personalityDesc() != null && !life.personalityDesc().isEmpty()
                 ? Component.literal(life.personalityDesc())
                 : personality.getDescription();
+    }
+
+    // Show the data-pack life stage's label (e.g. "Egg") instead of MCA's canonical AgeState name
+    // (e.g. "Toddler") for a villager at a custom stage. AgeState.getName is an MCA method (no remap),
+    // so one target covers both stonecutter versions; only the baby branch of drawTextPopups calls it.
+    @Redirect(method = "drawTextPopups", remap = false,
+            at = @At(value = "INVOKE",
+                    target = "Lnet/conczin/mca/entity/ai/relationship/AgeState;getName()Lnet/minecraft/network/chat/Component;"))
+    private Component townstead$stageName(net.conczin.mca.entity.ai.relationship.AgeState ageState) {
+        com.aetherianartificer.townstead.calendar.LifeClientStore.Snapshot life =
+                com.aetherianartificer.townstead.calendar.LifeClientStore.get(villager.asEntity().getId());
+        if (life != null) {
+            int idx = life.currentStageIndex();
+            if (idx >= 0) {
+                Component label = life.stageLabel(idx);
+                if (label != null && !label.getString().isEmpty()) return label;
+            }
+        }
+        return ageState.getName();
     }
 
     @Inject(method = "drawTextPopups", remap = false, at = @At("TAIL"))

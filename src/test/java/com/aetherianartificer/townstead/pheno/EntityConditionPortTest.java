@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.pheno;
 
-import com.aetherianartificer.townstead.origin.port.ApoliConditionTranslator;
+import com.aetherianartificer.townstead.root.port.ApoliConditionTranslator;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
@@ -18,8 +18,10 @@ class EntityConditionPortTest {
 
     @Test
     void fieldlessStatesPortDirectly() {
-        assertEquals("pheno:crawling",
-                ApoliConditionTranslator.translate(obj("{ 'type':'apugli:crawling' }")).get("type").getAsString());
+        JsonObject crawling = ApoliConditionTranslator.translate(obj("{ 'type':'apugli:crawling' }"));
+        assertNotNull(crawling);
+        assertEquals("pheno:movement", crawling.get("type").getAsString());
+        assertEquals("crawling", crawling.get("movement").getAsString());
         assertEquals("pheno:exists",
                 ApoliConditionTranslator.translate(obj("{ 'type':'apoli:exists' }")).get("type").getAsString());
     }

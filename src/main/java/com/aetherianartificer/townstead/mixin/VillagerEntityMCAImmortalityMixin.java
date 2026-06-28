@@ -33,9 +33,12 @@ public abstract class VillagerEntityMCAImmortalityMixin {
     private void townstead$skipAgeWhenImmortal(int age, CallbackInfo ci) {
         VillagerEntityMCA self = (VillagerEntityMCA) (Object) this;
         if (self.level().isClientSide) return;
+        // Townstead's own stage-driven write must land so the frozen body sizes to its stage; only
+        // vanilla per-tick aging is blocked.
+        if (com.aetherianartificer.townstead.root.LifeStageProgression.isDrivingAge()) return;
         if (TownsteadVillagers.get(self).life().immortal()
-                || com.aetherianartificer.townstead.origin.trait.TraitEffects.isImmortal(self)
-                || com.aetherianartificer.townstead.origin.LifeStageProgression.isAgeless(TownsteadVillagers.get(self).life())) {
+                || com.aetherianartificer.townstead.root.trait.TraitEffects.isImmortal(self)
+                || com.aetherianartificer.townstead.root.LifeStageProgression.isAgeless(TownsteadVillagers.get(self).life())) {
             ci.cancel();
         }
     }

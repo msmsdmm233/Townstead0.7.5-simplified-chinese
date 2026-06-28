@@ -4,7 +4,7 @@ import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.calendar.LifeData;
 import com.aetherianartificer.townstead.calendar.TownsteadCalendar;
 import com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload;
-import com.aetherianartificer.townstead.origin.LifeStageProgression;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -37,26 +37,24 @@ public abstract class VillagerEditorBirthMixin {
     /*@Inject(method = "m_7378_", remap = false, at = @At("TAIL"))
     *///?}
     private void townstead$applyEditorAge(CompoundTag nbt, CallbackInfo ci) {
-        boolean hasFrozen = nbt.contains(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX);
         boolean hasAge = nbt.contains(LifeData.EDITOR_KEY_BIO_AGE_DAYS);
         boolean hasMonthDay = nbt.contains(LifeData.EDITOR_KEY_BIRTH_MONTH)
                 || nbt.contains(LifeData.EDITOR_KEY_BIRTH_DAY);
-        if (!hasFrozen && !hasAge && !hasMonthDay) return;
+        if (!hasAge && !hasMonthDay) return;
 
         VillagerEntityMCA self = (VillagerEntityMCA) (Object) this;
-        if (self.level().isClientSide) return;
+        if (self.level().isClientSide) {
+            townstead$stripEditorLifeCommands(nbt);
+            return;
+        }
         MinecraftServer server = self.level().getServer();
-        if (server == null) return;
+        if (server == null) {
+            townstead$stripEditorLifeCommands(nbt);
+            return;
+        }
 
         TownsteadVillager.Life life = TownsteadVillagers.get(self).life();
         boolean changed = false;
-
-        // Immortal appearance: re-freeze at the chosen stage; date of birth (hence
-        // calendar age) is left untouched.
-        if (hasFrozen) {
-            LifeStageProgression.freezeAtStage(self, nbt.getInt(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX));
-            changed = true;
-        }
 
         // Celebrated birthday (month/day) is decoupled from age: it changes only the
         // stored celebrated date, never birthWorldDay. The age slider, below, is the
@@ -73,17 +71,16 @@ public abstract class VillagerEditorBirthMixin {
         }
 
         // Age slider: stamps birthWorldDay = today - bioAge, the only thing that sets age.
+        // Treat the key's presence as an explicit editor command even when the calculated
+        // birth day is unchanged. Freshly spawned babies can already have that exact
+        // birth stamp while MCA's live AgeState still needs to be re-resolved.
         if (hasAge) {
             long newBirth = TownsteadCalendar.lifeDay(server) - Math.max(0, nbt.getInt(LifeData.EDITOR_KEY_BIO_AGE_DAYS));
-            if (!life.hasBirth() || newBirth != life.birthWorldDay()) {
-                life.setBirth(newBirth, true);
-                // Re-resolve the stage: setAgeState runs our life-stage @ModifyVariable,
-                // which recomputes the canonical stage from the freshly stamped birth.
-                self.setAgeState(self.getAgeState());
-                changed = true;
-            }
+            LifeStageProgression.applyManualAgeEdit(self, newBirth);
+            changed = true;
         }
 
+        townstead$stripEditorLifeCommands(nbt);
         if (!changed) return;
         VillagerLifeSyncPayload payload = Townstead.townstead$lifeSync(self);
         if (payload == null) return;
@@ -92,5 +89,13 @@ public abstract class VillagerEditorBirthMixin {
         //?} else if forge {
         /*com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(self, payload);
         *///?}
+    }
+
+    @org.spongepowered.asm.mixin.Unique
+    private static void townstead$stripEditorLifeCommands(CompoundTag nbt) {
+        nbt.remove(LifeData.EDITOR_KEY_BIO_AGE_DAYS);
+        nbt.remove(LifeData.EDITOR_KEY_BIRTH_YEAR);
+        nbt.remove(LifeData.EDITOR_KEY_BIRTH_MONTH);
+        nbt.remove(LifeData.EDITOR_KEY_BIRTH_DAY);
     }
 }

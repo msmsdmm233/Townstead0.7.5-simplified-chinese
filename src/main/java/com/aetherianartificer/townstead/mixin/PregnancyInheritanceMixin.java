@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.Heredity;
+import com.aetherianartificer.townstead.root.Heredity;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.conczin.mca.entity.ai.relationship.Gender;

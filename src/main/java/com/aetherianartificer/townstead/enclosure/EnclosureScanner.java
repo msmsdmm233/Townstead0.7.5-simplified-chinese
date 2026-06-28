@@ -5,7 +5,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.slf4j.Logger;
@@ -59,7 +58,7 @@ public final class EnclosureScanner {
 
     public static @Nullable Enclosure scan(ServerLevel level, BlockPos from) {
         if (level == null || from == null) return null;
-        BlockPos origin = pickScanOrigin(level, from);
+        BlockPos origin = pickScanRoot(level, from);
         if (origin == null) {
             LOG.debug("[EnclosureScan] reject at {} — no passable origin", from);
             return null;
@@ -124,9 +123,9 @@ public final class EnclosureScanner {
         int walls = 0;
         for (BlockPos p : perimeter) {
             BlockState s = level.getBlockState(p);
-            if (s.is(BlockTags.FENCE_GATES)) gates++;
-            else if (s.is(BlockTags.FENCES)) fences++;
-            else if (s.is(BlockTags.WALLS)) walls++;
+            if (EnclosureBlocks.isFenceGate(s)) gates++;
+            else if (EnclosureBlocks.isFence(s)) fences++;
+            else if (EnclosureBlocks.isWall(s)) walls++;
         }
         // An enclosure with no fence-like perimeter blocks at all is some
         // random crevice in terrain; require at least one fence/gate/wall.
@@ -150,7 +149,7 @@ public final class EnclosureScanner {
      * tile. Returns {@code null} if neither feet-level nor adjacent Y is
      * valid (the player probably isn't inside anything pen-shaped).
      */
-    private static @Nullable BlockPos pickScanOrigin(ServerLevel level, BlockPos near) {
+    private static @Nullable BlockPos pickScanRoot(ServerLevel level, BlockPos near) {
         BlockPos here = new BlockPos(near.getX(), near.getY(), near.getZ());
         if (isPassableInterior(level.getBlockState(here))) return here;
         BlockPos up = here.above();
@@ -174,9 +173,7 @@ public final class EnclosureScanner {
     }
 
     private static boolean isPerimeterBlock(BlockState state) {
-        return state.is(BlockTags.FENCES)
-                || state.is(BlockTags.FENCE_GATES)
-                || state.is(BlockTags.WALLS);
+        return EnclosureBlocks.isPerimeter(state);
     }
 
     private static Map<String, Integer> tallyInteriorContent(ServerLevel level,

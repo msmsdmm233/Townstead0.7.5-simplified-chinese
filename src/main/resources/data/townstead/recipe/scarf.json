@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SSS",
+    "S S"
+  ],
+  "key": {
+    "S": { "item": "minecraft:string" }
+  },
+  "result": {
+    "id": "townstead:scarf",
+    "count": 1
+  }
+}

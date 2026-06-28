@@ -1,9 +1,9 @@
 package com.aetherianartificer.townstead.mixin.client;
 
-import com.aetherianartificer.townstead.client.origin.OriginCatalogClient;
-import com.aetherianartificer.townstead.client.origin.OriginClientStore;
-import com.aetherianartificer.townstead.origin.GeneCatalogEntry;
-import com.aetherianartificer.townstead.origin.OriginCatalogEntry;
+import com.aetherianartificer.townstead.client.root.RootCatalogClient;
+import com.aetherianartificer.townstead.client.root.RootClientStore;
+import com.aetherianartificer.townstead.root.GeneCatalogEntry;
+import com.aetherianartificer.townstead.root.RootCatalogEntry;
 import net.conczin.mca.client.model.VillagerEntityBaseModelMCA;
 import net.conczin.mca.entity.VillagerLike;
 import net.conczin.mca.entity.ai.Genetics;
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *
  * <p>MCA renders the whole model with one scale {@code (width, height, width)}, applied to every
  * part — so a villager that's wider than it is tall (any short, stocky build) gets flattened parts.
- * For a villager whose origin carries the {@code townstead_origins:proportions} gene, each part the
+ * For a villager whose origin carries the {@code townstead_roots:proportions} gene, each part the
  * gene lists has that squash <b>neutralized</b>, anchored at the geometric mean of the horizontal and
  * vertical scale ({@code mean = sqrt(horiz*vert)}), then multiplied by the gene's factor for that
  * part. {@code 1.0} = proportioned at the build's own average size (no resize, just un-squashed);
@@ -76,8 +76,8 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
         townstead$scalePart(model.body, proportions, "body", xz0, y0);
 
         // Hidden features (prevent_feature_render): zero the listed groups after proportions.
-        com.aetherianartificer.townstead.client.origin.HideFeatures.hide(
-                model, com.aetherianartificer.townstead.client.origin.HideFeatures.hiddenGroups(entity));
+        com.aetherianartificer.townstead.client.root.HideFeatures.hide(
+                model, com.aetherianartificer.townstead.client.root.HideFeatures.hiddenGroups(entity));
     }
 
     /**
@@ -102,12 +102,12 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
 
     /** The proportions gene on the entity's applied origin (synced catalog), or {@code null}. */
     private static GeneCatalogEntry townstead$proportionsGene(LivingEntity entity) {
-        String originId = OriginClientStore.resolve(entity);
-        if (originId.isEmpty()) return null;
-        OriginCatalogEntry origin = OriginCatalogClient.origin(originId);
+        String rootId = RootClientStore.resolve(entity);
+        if (rootId.isEmpty()) return null;
+        RootCatalogEntry origin = RootCatalogClient.origin(rootId);
         if (origin == null) return null;
-        for (OriginCatalogEntry.Inherited inherited : origin.inheritedGenes()) {
-            GeneCatalogEntry gene = OriginCatalogClient.gene(inherited.geneId());
+        for (RootCatalogEntry.Inherited inherited : origin.inheritedGenes()) {
+            GeneCatalogEntry gene = RootCatalogClient.gene(inherited.geneId());
             if (gene != null && gene.isProportions()) return gene;
         }
         return null;

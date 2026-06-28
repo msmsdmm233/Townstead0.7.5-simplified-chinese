@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.origin.recipe.GatedRecipes;
+import com.aetherianartificer.townstead.root.recipe.GatedRecipes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;

@@ -148,7 +148,7 @@ public final class VillagerConsumptionManager {
         *///?}
         if (food == null) return false;
         int before = needs.hunger();
-        float foodScale = com.aetherianartificer.townstead.origin.hook.PhenoHooks.foodMultiplier(recipient);
+        float foodScale = com.aetherianartificer.townstead.root.hook.PhenoHooks.foodMultiplier(recipient);
         needs.applyFood(food, foodScale);
         needs.setLastAteTime(recipient.level().getGameTime());
         applyFoodEffects(recipient, stack);
@@ -250,7 +250,7 @@ public final class VillagerConsumptionManager {
     /**
      * Routes the leftover container: straight back into its {@code source} if the villager is right
      * there; otherwise it's carried (and the source is recorded) so the origin-return ledger can
-     * hand it back the next time the villager is near that storage. Origin-less leftovers go to the
+     * hand it back the next time the villager is near that storage. Root-less leftovers go to the
      * nearest storage, falling to the villager's inventory only if none is reachable.
      */
     public static void returnRemainder(VillagerEntityMCA villager, ItemStack stack, BlockPos source) {

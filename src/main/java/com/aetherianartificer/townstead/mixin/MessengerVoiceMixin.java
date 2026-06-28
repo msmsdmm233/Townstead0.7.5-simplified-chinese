@@ -2,7 +2,9 @@ package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.dialogue.McaVoiceFallback;
 import com.aetherianartificer.townstead.dialogue.SpeciesVoice;
+import com.aetherianartificer.townstead.root.LifeStageProgression;
 import net.conczin.mca.entity.VillagerEntityMCA;
+import net.conczin.mca.entity.ai.relationship.AgeState;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,5 +24,16 @@ public abstract class MessengerVoiceMixin {
         VillagerEntityMCA self = (VillagerEntityMCA) (Object) this;
         MutableComponent line = SpeciesVoice.line(self, target, phraseId, params);
         return line != null ? line : McaVoiceFallback.build(self, target, phraseId, params);
+    }
+
+    /**
+     * A villager at a {@code talkable:false} life stage (e.g. an egg) can't form real words, so MCA
+     * babbles its lines like a baby ({@code transformMessage}) and skips TTS. You can still open its
+     * GUI, edit it, and trade. Falls back to MCA's own baby gate, which this overrides (the interface
+     * default lives on {@code VillagerLike}, so we redeclare it on the concrete villager).
+     */
+    public boolean isToYoungToSpeak() {
+        VillagerEntityMCA self = (VillagerEntityMCA) (Object) this;
+        return LifeStageProgression.isMuteStage(self) || self.getAgeState() == AgeState.BABY;
     }
 }

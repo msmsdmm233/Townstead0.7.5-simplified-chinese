@@ -1,6 +1,7 @@
 package com.aetherianartificer.townstead.reaction.trigger.event;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 
 import java.util.UUID;
@@ -19,7 +20,7 @@ import java.util.WeakHashMap;
 public final class DialogueStateTracker {
     private static final int RECENT_END_WINDOW_TICKS = 60;
 
-    private record State(UUID playerUuid, long openSinceTick, long closedAtTick) {
+    private record State(UUID playerUuid, long openSinceTick, long closedAtTick, int heartsAtOpen) {
         boolean isOpen() {
             return closedAtTick < 0L;
         }
@@ -33,7 +34,15 @@ public final class DialogueStateTracker {
     public static void onOpen(LivingEntity villager, UUID playerUuid, long gameTime) {
         if (villager == null || playerUuid == null) return;
         synchronized (LOCK) {
-            BY_VILLAGER.put(villager, new State(playerUuid, gameTime, -1L));
+            BY_VILLAGER.put(villager, new State(playerUuid, gameTime, -1L, Integer.MIN_VALUE));
+        }
+    }
+
+    public static void onOpen(LivingEntity villager, ServerPlayer player, long gameTime) {
+        if (villager == null || player == null) return;
+        int hearts = heartsWith(villager, player);
+        synchronized (LOCK) {
+            BY_VILLAGER.put(villager, new State(player.getUUID(), gameTime, -1L, hearts));
         }
     }
 
@@ -42,7 +51,23 @@ public final class DialogueStateTracker {
         synchronized (LOCK) {
             State existing = BY_VILLAGER.get(villager);
             if (existing == null || !existing.isOpen()) return;
-            BY_VILLAGER.put(villager, new State(existing.playerUuid, existing.openSinceTick, gameTime));
+            BY_VILLAGER.put(villager, new State(existing.playerUuid, existing.openSinceTick, gameTime,
+                    existing.heartsAtOpen));
+        }
+    }
+
+    public static void onClose(LivingEntity villager, ServerPlayer player, long gameTime) {
+        if (villager == null) return;
+        State existing;
+        synchronized (LOCK) {
+            existing = BY_VILLAGER.get(villager);
+            if (existing == null || !existing.isOpen()) return;
+            BY_VILLAGER.put(villager, new State(existing.playerUuid, existing.openSinceTick, gameTime,
+                    existing.heartsAtOpen));
+        }
+        int heartsNow = heartsWith(villager, player);
+        if (existing.heartsAtOpen != Integer.MIN_VALUE && heartsNow != Integer.MIN_VALUE) {
+            SocialInteractionTracker.markHeartChange(villager, heartsNow - existing.heartsAtOpen, gameTime);
         }
     }
 
@@ -77,6 +102,18 @@ public final class DialogueStateTracker {
                 State s = e.getValue();
                 return !s.isOpen() && now - s.closedAtTick > RECENT_END_WINDOW_TICKS * 4L;
             });
+        }
+        SocialInteractionTracker.prune(now);
+    }
+
+    private static int heartsWith(LivingEntity villager, ServerPlayer player) {
+        if (!(villager instanceof net.conczin.mca.entity.VillagerEntityMCA mca) || player == null) {
+            return Integer.MIN_VALUE;
+        }
+        try {
+            return mca.getVillagerBrain().getMemoriesForPlayer(player).getHearts();
+        } catch (Throwable ignored) {
+            return Integer.MIN_VALUE;
         }
     }
 }

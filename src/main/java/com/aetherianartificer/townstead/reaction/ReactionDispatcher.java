@@ -7,6 +7,7 @@ import com.aetherianartificer.townstead.reaction.backend.ReactionBackend;
 import com.aetherianartificer.townstead.reaction.backend.ReactionBackends;
 import com.aetherianartificer.townstead.reaction.effect.ReactionSideEffects;
 import com.aetherianartificer.townstead.reaction.trigger.event.MirrorPropagator;
+import com.aetherianartificer.townstead.reaction.trigger.event.SocialInteractionTracker;
 import com.aetherianartificer.townstead.reaction.trigger.types.ContextEnterTriggerType;
 import com.aetherianartificer.townstead.reaction.trigger.types.ContextPresentTriggerType;
 import com.aetherianartificer.townstead.reaction.trigger.types.GestureTriggerType;
@@ -151,6 +152,7 @@ public final class ReactionDispatcher {
         ReactionCooldownTracker.claim(villager, key, gameTime);
         try {
             mca.getVillagerBrain().rewardHearts(sp, reaction.hearts());
+            SocialInteractionTracker.markHeartChange(villager, reaction.hearts(), gameTime);
         } catch (Throwable t) {
             Townstead.LOGGER.debug("Hearts adjustment for reaction '{}' failed: {}", reaction.id(), t.getMessage());
         }

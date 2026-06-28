@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.village;
 
-import com.aetherianartificer.townstead.origin.chronotype.Chronotypes;
+import com.aetherianartificer.townstead.root.chronotype.Chronotypes;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;

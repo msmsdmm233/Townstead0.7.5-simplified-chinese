@@ -19,7 +19,7 @@ import com.aetherianartificer.townstead.calendar.LifeClientStore;
 import com.aetherianartificer.townstead.calendar.LifeData;
 import com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider;
 import com.aetherianartificer.townstead.client.skin.SeniorHairDesat;
-import com.aetherianartificer.townstead.origin.LifeStageScale;
+import com.aetherianartificer.townstead.root.LifeStageScale;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -53,6 +53,8 @@ public abstract class VillagerEditorMixin extends Screen {
     @Shadow(remap = false) @Final protected java.util.UUID villagerUUID;
     // Bottom-anchored "Done" button; must stay put when the life-stage row shift runs.
     @Shadow(remap = false) private ButtonWidget doneWidget;
+    // MCA's Done path serializes this private field into the "Age" NBT value.
+    @Shadow(remap = false) private int villagerBreedingAge;
 
     @Shadow(remap = false) protected abstract void setPage(String page);
 
@@ -350,11 +352,10 @@ public abstract class VillagerEditorMixin extends Screen {
         int sh = mcaSlider.getHeight();
         removeWidget(mcaSlider);
 
-        // Stage-frozen (immortal OR ageless, e.g. skeletons) gets the frozen-stage picker; everyone
-        // else gets the bio-age slider. Ageless villagers ignore birth, so the bio-age slider would
-        // be a no-op for them.
-        if (snap.immortal() || snap.ageless()) townstead$buildImmortalLife(snap, sx, sy, sw, sh);
-        else townstead$buildMortalLife(snap, sx, sy, sw, sh);
+        // Everyone gets the continuous bio-age slider: the admin sets an apparent age that smoothly
+        // scales the body. The server advances that age over time for mortals, and holds it fixed for
+        // the frozen-in-time (ageless skeletons, and immortals, which additionally can't die).
+        townstead$buildMortalLife(snap, sx, sy, sw, sh);
     }
 
     // Width reserved at the right edge of the stage bar for the read-only age field.
@@ -397,6 +398,8 @@ public abstract class VillagerEditorMixin extends Screen {
                     townstead$previewAge(townstead$modelAgeForBio(snap, bio),
                             LifeStageScale.interpolate(snap.stageScales(), snap.stageDays(), bio));
                     SeniorHairDesat.setPreviewProgress(villager.getId(), snap.seniorProgressForBio(bio));
+                    com.aetherianartificer.townstead.client.species.RigModels.setPreviewStage(
+                            villager.getId(), snap.stageIndexForBioAge(bio));
                 });
         addRenderableWidget(slider);
         int bio0 = townstead$bioForSliderValue(snap, slider.sliderValue());
@@ -404,6 +407,8 @@ public abstract class VillagerEditorMixin extends Screen {
         townstead$previewAge(townstead$modelAgeForBio(snap, bio0),
                 LifeStageScale.interpolate(snap.stageScales(), snap.stageDays(), bio0));
         SeniorHairDesat.setPreviewProgress(villager.getId(), snap.seniorProgressForBio(bio0));
+        com.aetherianartificer.townstead.client.species.RigModels.setPreviewStage(
+                villager.getId(), snap.stageIndexForBioAge(bio0));
         ageRefresh.run();
 
         // Editable "< Month > < Day >" birthday row — celebrated date only, decoupled
@@ -467,46 +472,6 @@ public abstract class VillagerEditorMixin extends Screen {
     }
 
     @Unique
-    private void townstead$buildImmortalLife(LifeClientStore.Snapshot snap, int sx, int sy, int sw, int sh) {
-        CalendarClientStore.Snapshot cal = CalendarClientStore.get();
-        int sliderW = Math.max(40, sw - TOWNSTEAD_AGE_W - 4);
-
-        Button ageField = addRenderableWidget(Button.builder(Component.empty(), b -> {})
-                .pos(sx + sw - TOWNSTEAD_AGE_W, sy).size(TOWNSTEAD_AGE_W, sh).build());
-        int[] ymd = townstead$seedYmd(snap, cal);
-        // Immortal: the bar picks the frozen biological appearance (a stage); the age
-        // field shows the apparent age of that frozen stage, not the calendar age.
-        int n = Math.max(1, snap.stageCount());
-        int[] idxRef = {0};
-        Runnable ageRefresh = () -> ageField.setMessage(Component.translatable(
-                "townstead.life_stage.age_short", Math.round(snap.narrativeAgeAtIndex(idxRef[0]))));
-
-        int start = Math.max(0, Math.min(
-                villagerData.contains(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX)
-                        ? villagerData.getInt(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX)
-                        : snap.currentStageIndex(), n - 1));
-        idxRef[0] = start;
-        double init = n <= 1 ? 0.0 : (double) start / (n - 1);
-        LifeAgeSlider slider = new LifeAgeSlider(sx, sy, sliderW, sh, init,
-                v -> townstead$frozenReadout(snap, n <= 1 ? 0 : (int) Math.round(v * (n - 1))),
-                v -> {
-                    int idx = n <= 1 ? 0 : (int) Math.round(v * (n - 1));
-                    idxRef[0] = idx;
-                    villagerData.putInt(LifeData.EDITOR_KEY_FROZEN_STAGE_INDEX, idx);
-                    ageRefresh.run();
-                    townstead$previewAge(townstead$modelAgeAtIndex(snap, idx), townstead$scaleAtIndex(snap, idx));
-                    SeniorHairDesat.setPreviewProgress(villager.getId(), townstead$frozenSeniorProgress(snap, idx));
-                });
-        addRenderableWidget(slider);
-        townstead$previewAge(townstead$modelAgeAtIndex(snap, start), townstead$scaleAtIndex(snap, start));
-        SeniorHairDesat.setPreviewProgress(villager.getId(), townstead$frozenSeniorProgress(snap, start));
-        ageRefresh.run();
-
-        townstead$shiftBelow(sy + sh + 2, TOWNSTEAD_LIFE_SHIFT);
-        townstead$buildBirthdayRow(sx, sy + sh + 4, sw, ymd, cal);
-    }
-
-    @Unique
     private void townstead$shiftBelow(int below, int dy) {
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget w && w != doneWidget && w.getY() >= below) w.setY(w.getY() + dy);
@@ -532,28 +497,13 @@ public abstract class VillagerEditorMixin extends Screen {
      */
     @Unique
     private int townstead$bioForSliderValue(LifeClientStore.Snapshot snap, double v) {
-        int[] days = snap.stageDays();
-        int n = (days == null) ? 0 : days.length;
-        if (n == 0) return 0;
-        double scaled = Math.max(0.0, Math.min(n, v * n));
-        int idx = Math.min(n - 1, (int) Math.floor(scaled));
-        double f = Math.max(0.0, Math.min(1.0, scaled - idx));
-        int cum = 0;
-        for (int i = 0; i < idx; i++) cum += Math.max(0, days[i]);
-        return cum + (int) Math.round(f * Math.max(0, days[idx]));
+        return com.aetherianartificer.townstead.root.LifeStageBar.bioForSliderValue(snap.stageDays(), v);
     }
 
     /** Inverse of {@link #townstead$bioForSliderValue}: slider position for a biological age. */
     @Unique
     private double townstead$sliderValueForBio(LifeClientStore.Snapshot snap, int bio) {
-        int[] days = snap.stageDays();
-        int n = (days == null) ? 0 : days.length;
-        if (n == 0) return 0.0;
-        int idx = Math.max(0, snap.stageIndexForBioAge(bio));
-        int cum = 0;
-        for (int i = 0; i < idx; i++) cum += Math.max(0, days[i]);
-        double f = Math.max(0.0, Math.min(1.0, (bio - cum) / (double) Math.max(1, days[idx])));
-        return (idx + f) / n;
+        return com.aetherianartificer.townstead.root.LifeStageBar.sliderValueForBio(snap.stageDays(), bio);
     }
 
     /**
@@ -564,6 +514,7 @@ public abstract class VillagerEditorMixin extends Screen {
     private void townstead$previewAge(int mcaAge, float stageScale) {
         // Age the preview model to match the CURRENT STAGE (not a linear sweep), so
         // the rendered proportions track the stage label. Plus the stage size override.
+        villagerBreedingAge = mcaAge;
         villager.setAge(mcaAge);
         LifeStageScale.setPreviewOverride(villager.getId(), stageScale);
         villager.refreshDimensions(); // MCA's slider does this too; without it the model won't rescale
@@ -589,22 +540,6 @@ public abstract class VillagerEditorMixin extends Screen {
         return ages[ages.length - 1];
     }
 
-    /** Immortal preview: full grey when the frozen stage is the senior stage, else none. */
-    @Unique
-    private float townstead$frozenSeniorProgress(LifeClientStore.Snapshot snap, int idx) {
-        return snap.seniorStageIndex() >= 0 && idx == snap.seniorStageIndex() ? 1f : 0f;
-    }
-
-    /** Immortal: show the stage's mid appearance, off the AgeState boundary. */
-    @Unique
-    private int townstead$modelAgeAtIndex(LifeClientStore.Snapshot snap, int idx) {
-        int[] ages = snap.stageModelAges();
-        if (ages == null || idx < 0 || idx >= ages.length) return 0;
-        int a = ages[idx];
-        int b = (idx + 1 < ages.length) ? ages[idx + 1] : ages[idx];
-        return (a + b) / 2;
-    }
-
     /**
      * Keep a model age a hair inside its AgeState band. MCA's per-age dimension
      * interpolation spikes toward the next stage's size exactly at a band boundary
@@ -623,24 +558,11 @@ public abstract class VillagerEditorMixin extends Screen {
     }
 
     @Unique
-    private float townstead$scaleAtIndex(LifeClientStore.Snapshot snap, int idx) {
-        float[] scales = snap.stageScales();
-        return (scales != null && idx >= 0 && idx < scales.length) ? scales[idx] : 1f;
-    }
-
-    @Unique
     private Component townstead$lifeReadout(LifeClientStore.Snapshot snap, int bioAgeDays) {
         int idx = snap.stageIndexForBioAge(bioAgeDays);
         Component stage = idx >= 0 ? snap.stageLabel(idx)
                 : Component.translatable("townstead.life_stage.unknown");
         return Component.translatable("townstead.life_stage.editor_slider", stage);
-    }
-
-    @Unique
-    private Component townstead$frozenReadout(LifeClientStore.Snapshot snap, int stageIndex) {
-        Component stage = stageIndex >= 0 ? snap.stageLabel(stageIndex)
-                : Component.translatable("townstead.life_stage.unknown");
-        return Component.translatable("townstead.life_stage.editor_frozen", stage);
     }
 
     //? if neoforge {
@@ -654,6 +576,7 @@ public abstract class VillagerEditorMixin extends Screen {
         FatigueClientStore.clearOnChange();
         LifeClientStore.clearOnChange();
         LifeStageScale.clearPreviewOverride(villager.getId());
+        com.aetherianartificer.townstead.client.species.RigModels.clearPreviewStage(villager.getId());
         SeniorHairDesat.clearPreviewProgress(villager.getId());
         townstead$hungerDisplay = null;
         townstead$thirstDisplay = null;

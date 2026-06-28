@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.pheno;
 
-import com.aetherianartificer.townstead.origin.port.ApoliBiEntityConditionTranslator;
-import com.aetherianartificer.townstead.origin.port.ApoliConditionTranslator;
+import com.aetherianartificer.townstead.root.port.ApoliBiEntityConditionTranslator;
+import com.aetherianartificer.townstead.root.port.ApoliConditionTranslator;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;

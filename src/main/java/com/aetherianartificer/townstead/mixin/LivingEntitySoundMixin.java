@@ -1,8 +1,8 @@
 package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.pheno.sound.SoundSpec;
-import com.aetherianartificer.townstead.origin.gene.types.CustomSoundGeneType.Slot;
-import com.aetherianartificer.townstead.origin.sound.CustomSounds;
+import com.aetherianartificer.townstead.root.gene.types.CustomSoundGeneType.Slot;
+import com.aetherianartificer.townstead.root.sound.CustomSounds;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;

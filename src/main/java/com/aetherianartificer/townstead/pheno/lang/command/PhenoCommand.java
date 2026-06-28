@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.pheno.lang.command;
 
-import com.aetherianartificer.townstead.origin.gene.GeneRegistry;
-import com.aetherianartificer.townstead.origin.gene.types.AbilityGeneType;
+import com.aetherianartificer.townstead.root.gene.GeneRegistry;
+import com.aetherianartificer.townstead.root.gene.types.AbilityGeneType;
 import com.aetherianartificer.townstead.pheno.capability.Capabilities;
 import com.aetherianartificer.townstead.pheno.capability.CapabilityContribution;
 import com.aetherianartificer.townstead.pheno.capability.CapabilityView;
@@ -177,13 +177,13 @@ public final class PhenoCommand {
         // Modifier parity: the capability apply-to-base fold vs a direct sequential gene fold on a
         // unit base. They match for the common single-op case; a mismatch is the fold-order delta
         // (capability does all adds then all multiplies; the legacy applier folded in gene order).
-        java.util.Map<com.aetherianartificer.townstead.pheno.capability.CapabilityKey, java.util.List<com.aetherianartificer.townstead.origin.gene.types.ModifierGeneType.Instance>> byKey =
+        java.util.Map<com.aetherianartificer.townstead.pheno.capability.CapabilityKey, java.util.List<com.aetherianartificer.townstead.root.gene.types.ModifierGeneType.Instance>> byKey =
                 new java.util.LinkedHashMap<>();
         for (Power power : Powers.active(living)) {
-            if (power.component() instanceof com.aetherianartificer.townstead.origin.gene.types.ModifierGeneType.Instance m) {
+            if (power.component() instanceof com.aetherianartificer.townstead.root.gene.types.ModifierGeneType.Instance m) {
                 if (m.condition() != null && !m.condition().test(ctx)) continue;
                 com.aetherianartificer.townstead.pheno.capability.CapabilityKey key =
-                        com.aetherianartificer.townstead.origin.modifier.ModifierCapability.key(m.modifier(), m.discriminator());
+                        com.aetherianartificer.townstead.root.modifier.ModifierCapability.key(m.modifier(), m.discriminator());
                 byKey.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(m);
             }
         }
