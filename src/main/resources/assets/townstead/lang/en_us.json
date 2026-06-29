@@ -199,6 +199,7 @@
   "townstead.hunger.hungry": "Hungry",
   "townstead.hunger.famished": "Famished",
   "townstead.hunger.starving": "Starving",
+  "townstead.character.tabs": "Character tabs",
   "townstead.hunger.editor": "Hunger: %d",
   "townstead.hunger.icon.tooltip": "Hunger: %s (%s/100)",
   "townstead.thirst.label": "Thirst: %s",

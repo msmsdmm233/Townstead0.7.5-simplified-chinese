@@ -54,7 +54,9 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
                         : rig.base().equals(Rig.VILLAGER.base());
                 float admixture = Math.max(0f, Math.min(1f, GsonHelper.getAsFloat(obj, "admixture_chance", 0f)));
                 Genome genome = RootJsonParsing.genes(obj, file.toString(), LOGGER);
-                parsed.put(file, new Species(file, displayName, rig, animations, breasts, admixture, genome));
+                CharacterEditorLayout characterEditor = parseCharacterEditor(obj, file.toString(), lang);
+                parsed.put(file, new Species(file, displayName, rig, animations, breasts, admixture, genome,
+                        characterEditor));
                 policies.put(file, PersonalityPolicies.parse(obj));
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse species {}: {}", file, ex.getMessage());
@@ -63,6 +65,39 @@ public final class SpeciesJsonLoader extends SimpleJsonResourceReloadListener {
         SpeciesRegistry.replaceAll(parsed);
         PersonalityPolicyRegistry.setSpecies(policies);
         LOGGER.info("Loaded {} origin species", parsed.size());
+    }
+
+    /**
+     * Parse the optional {@code "character_editor"} block (null when absent → opt-out, keeping MCA's
+     * full native Character tab). {@code "native"} is the list of MCA-native groups to keep;
+     * {@code "tabs"} is an optional explicit tab list (else the client auto-derives from genes).
+     */
+    private static CharacterEditorLayout parseCharacterEditor(JsonObject obj, String file, Map<String, String> lang) {
+        if (!obj.has("character_editor") || !obj.get("character_editor").isJsonObject()) return null;
+        JsonObject ce = obj.getAsJsonObject("character_editor");
+        List<String> nativeGroups = new ArrayList<>();
+        if (ce.has("native") && ce.get("native").isJsonArray()) {
+            for (JsonElement e : ce.getAsJsonArray("native")) if (e.isJsonPrimitive()) nativeGroups.add(e.getAsString());
+        }
+        List<CharacterEditorLayout.Tab> tabs = new ArrayList<>();
+        if (ce.has("tabs") && ce.get("tabs").isJsonArray()) {
+            for (JsonElement te : ce.getAsJsonArray("tabs")) {
+                if (!te.isJsonObject()) continue;
+                JsonObject t = te.getAsJsonObject();
+                String id = GsonHelper.getAsString(t, "id", "");
+                if (id.isEmpty()) continue;
+                Component labelC = t.has("label") ? DataPackLang.parseComponent(t.get("label"), file, lang) : null;
+                String label = labelC != null ? labelC.getString() : "";
+                String labelKey = labelC != null && labelC.getContents()
+                        instanceof net.minecraft.network.chat.contents.TranslatableContents tc ? tc.getKey() : "";
+                List<String> fields = new ArrayList<>();
+                if (t.has("fields") && t.get("fields").isJsonArray()) {
+                    for (JsonElement f : t.getAsJsonArray("fields")) if (f.isJsonPrimitive()) fields.add(f.getAsString());
+                }
+                tabs.add(new CharacterEditorLayout.Tab(id, label, labelKey, fields));
+            }
+        }
+        return new CharacterEditorLayout(nativeGroups, tabs);
     }
 
     /**

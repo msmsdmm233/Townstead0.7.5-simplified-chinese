@@ -83,6 +83,7 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
             buf.writeBoolean(e.breasts());
             buf.writeVarInt(e.stageRigs().size());
             for (String r : e.stageRigs()) buf.writeUtf(r == null ? "" : r);
+            writeCharacterEditor(buf, e.characterEditor());
         }
         buf.writeVarInt(genes.size());
         for (GeneCatalogEntry g : genes) {
@@ -162,6 +163,7 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
             int stageRigCount = buf.readVarInt();
             List<String> stageRigs = new ArrayList<>(stageRigCount);
             for (int s = 0; s < stageRigCount; s++) stageRigs.add(buf.readUtf());
+            CharacterEditorLayout characterEditor = readCharacterEditor(buf);
             entries.add(new RootCatalogEntry(id,
                     localize(nameKey, name),
                     localize(singularKey, singular),
@@ -173,7 +175,7 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
                     inherited, ranges,
                     nameKey, singularKey, pluralKey, backstoryKey,
                     speciesNameKey, ancestryNameKey, lineageNameKey,
-                    rigBase, rigScale, animations, breasts, stageRigs));
+                    rigBase, rigScale, animations, breasts, stageRigs, characterEditor));
         }
         int m = buf.readVarInt();
         List<GeneCatalogEntry> genes = new ArrayList<>(m);
@@ -497,6 +499,41 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
         List<String> providers = new ArrayList<>(pn);
         for (int i = 0; i < pn; i++) providers.add(buf.readUtf());
         return new Animations(map, providers);
+    }
+
+    /** Write the optional Character-editor layout: a present flag, then native groups + explicit tabs. */
+    private static void writeCharacterEditor(FriendlyByteBuf buf, CharacterEditorLayout layout) {
+        buf.writeBoolean(layout != null);
+        if (layout == null) return;
+        buf.writeVarInt(layout.nativeGroups().size());
+        for (String g : layout.nativeGroups()) buf.writeUtf(g);
+        buf.writeVarInt(layout.tabs().size());
+        for (CharacterEditorLayout.Tab t : layout.tabs()) {
+            buf.writeUtf(t.id());
+            buf.writeUtf(t.label());
+            buf.writeUtf(t.labelKey());
+            buf.writeVarInt(t.fields().size());
+            for (String f : t.fields()) buf.writeUtf(f);
+        }
+    }
+
+    private static CharacterEditorLayout readCharacterEditor(FriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return null;
+        int gn = buf.readVarInt();
+        List<String> nativeGroups = new ArrayList<>(gn);
+        for (int i = 0; i < gn; i++) nativeGroups.add(buf.readUtf());
+        int tn = buf.readVarInt();
+        List<CharacterEditorLayout.Tab> tabs = new ArrayList<>(tn);
+        for (int i = 0; i < tn; i++) {
+            String id = buf.readUtf();
+            String label = buf.readUtf();
+            String labelKey = buf.readUtf();
+            int fn = buf.readVarInt();
+            List<String> fields = new ArrayList<>(fn);
+            for (int j = 0; j < fn; j++) fields.add(buf.readUtf());
+            tabs.add(new CharacterEditorLayout.Tab(id, localize(labelKey, label), labelKey, fields));
+        }
+        return new CharacterEditorLayout(nativeGroups, tabs);
     }
 
     /**
