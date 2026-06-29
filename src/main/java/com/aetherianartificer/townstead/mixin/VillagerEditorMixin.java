@@ -17,6 +17,7 @@ import com.aetherianartificer.townstead.thirst.ThirstSetPayload;
 import com.aetherianartificer.townstead.calendar.CalendarClientStore;
 import com.aetherianartificer.townstead.calendar.LifeClientStore;
 import com.aetherianartificer.townstead.calendar.LifeData;
+import com.aetherianartificer.townstead.client.gui.McaEditorCompat;
 import com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider;
 import com.aetherianartificer.townstead.client.skin.SeniorHairDesat;
 import com.aetherianartificer.townstead.root.LifeStageScale;
@@ -335,15 +336,10 @@ public abstract class VillagerEditorMixin extends Screen {
 
     @Unique
     private void townstead$replaceAgeSlider(LifeClientStore.Snapshot snap) {
-        // MCA's age slider is the only AbstractSliderButton on the general page;
-        // match the vanilla base so this is independent of the MCA fork's widget class.
-        AbstractSliderButton mcaSlider = null;
-        for (GuiEventListener child : this.children()) {
-            if (child instanceof AbstractSliderButton asb) {
-                mcaSlider = asb;
-                break;
-            }
-        }
+        // Target the age control by its stable translation key, not "first slider": the
+        // new MCA general page also carries voice tone/pitch sliders, so a first-match
+        // grab hijacks the wrong one. The key is identical across MCA versions.
+        AbstractSliderButton mcaSlider = McaEditorCompat.findSlider(this, McaEditorCompat.AGE_KEY);
         if (mcaSlider == null) return; // self-edit hides the age slider; nothing to replace
 
         int sx = mcaSlider.getX();

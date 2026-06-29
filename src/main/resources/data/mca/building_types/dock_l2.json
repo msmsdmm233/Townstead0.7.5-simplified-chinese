@@ -8,6 +8,7 @@
   "blocks": {
     "#townstead:dock_surfaces": 24,
     "#minecraft:fences": 6,
-    "minecraft:lantern": 3
+    "minecraft:lantern": 3,
+    "minecraft:barrel": 1
   }
 }

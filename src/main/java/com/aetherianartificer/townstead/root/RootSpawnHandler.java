@@ -37,7 +37,15 @@ public final class RootSpawnHandler {
      */
     public static void onTrueSpawn(VillagerEntityMCA villager) {
         TownsteadVillager state = TownsteadVillagers.get(villager);
+        assignSpawnRoot(villager, state);
+        // Persist immediately: the root/heritage/genotype live in a data attachment that only persists
+        // when the snapshot is written, and there is no reliable periodic flush before world save. Without
+        // this the spawn-assigned root (and a bred child's inherited root) is dropped on reload, and
+        // backfillIfMissing then re-stamps the default Overworlder, e.g. Websters reverting on reload.
+        TownsteadVillagers.flush(villager);
+    }
 
+    private static void assignSpawnRoot(VillagerEntityMCA villager, TownsteadVillager state) {
         // A bred child already had its origin, heritage and genotype set by the breeding
         // hook before this fires. Keep all of that (its floats are MCA's parent blend);
         // only roll its stage durations against the inherited origin.

@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
+import com.aetherianartificer.townstead.root.reproduction.DirectBirth;
 import com.aetherianartificer.townstead.root.reproduction.GestationLength;
 import com.aetherianartificer.townstead.root.reproduction.LitterSize;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -43,7 +44,9 @@ public abstract class LitterGestationMixin {
         VillagerEntityMCA child = cir.getReturnValue();
         if (child == null || mother == null || partner == null || child.level().isClientSide) return;
         if (townstead$litterGuard.get()) return;
-        int litter = LitterSize.forMother(mother);
+        // The direct-birth path (non-overworlders) spawns the whole clutch itself.
+        if (DirectBirth.spawning()) return;
+        int litter = LitterSize.roll(mother, mother.getRandom());
         if (litter <= 1) return;
         townstead$litterGuard.set(true);
         try {
@@ -51,7 +54,7 @@ public abstract class LitterGestationMixin {
             for (int i = 1; i < litter; i++) {
                 VillagerEntityMCA extra = self.createChild(gender, partner);
                 if (extra == null) continue;
-                extra.setPos(mother.getX(), mother.getY(), mother.getZ());
+                DirectBirth.scatterAround(extra, mother, mother.getRandom());
                 WorldUtils.spawnEntity(mother.level(), extra, MobSpawnType.BREEDING);
             }
         } finally {

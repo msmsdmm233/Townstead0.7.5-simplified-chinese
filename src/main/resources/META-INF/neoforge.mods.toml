@@ -34,7 +34,9 @@ side = "BOTH"
 [[dependencies.townstead]]
 modId = "mca"
 type = "required"
-versionRange = "[7.7.0,)"
+# Accept the 7.7.0+ releases, or the 1.21.1-SNAPSHOT dev build (which versions as 1.x,
+# below 7.7.0, so it needs its own ascending, non-overlapping range set).
+versionRange = "[1.21.1-SNAPSHOT],[7.7.0,)"
 ordering = "AFTER"
 side = "BOTH"
 

@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
+import com.aetherianartificer.townstead.client.gui.McaEditorCompat;
 import com.aetherianartificer.townstead.client.gui.root.RootPicker;
 import com.aetherianartificer.townstead.client.root.RootClientStore;
 import com.aetherianartificer.townstead.client.root.PreviewParticles;
@@ -145,13 +146,17 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // On the Body page, repaint MCA's skin color-picker square to the origin's tinted skin
         // field so the picker is WYSIWYG with the rendered villager, and add the tone-variant
         // cycler above it for palette species (a conditional/optional field).
-        if ("body".equals(page)) {
+        if (McaEditorCompat.isBodyPage(page)) {
             townstead$recolorSkinPicker();
             townstead$addTonePicker();
             townstead$trimInertBodySliders();
         }
-        if ("head".equals(page)) {
+        // Old MCA kept hair + face on a single "head" page; the new layout splits them
+        // (hair -> "hair_style", face/FACE gene -> "eyes"), so gate each independently.
+        if (McaEditorCompat.isHairPage(page)) {
             townstead$trimInertHair();
+        }
+        if (McaEditorCompat.isFacePage(page)) {
             townstead$addFaceCyclers();
         }
         if ("personality".equals(page)) {

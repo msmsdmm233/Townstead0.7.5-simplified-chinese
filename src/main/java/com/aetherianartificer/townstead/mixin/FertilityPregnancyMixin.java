@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
+import com.aetherianartificer.townstead.root.reproduction.DirectBirth;
 import com.aetherianartificer.townstead.root.reproduction.Fertility;
 import com.aetherianartificer.townstead.root.reproduction.SpeciesBreeding;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -54,6 +55,13 @@ public abstract class FertilityPregnancyMixin {
         if (other != null && !SpeciesBreeding.sameSpecies(mother, other)) {
             ci.cancel();
             SpeciesBreeding.notifyIfPlayer(spouse);
+            return;
+        }
+        // A fertile, same-species pair. Non-overworlder species bear young directly
+        // rather than handing the player a (human) baby item.
+        if (DirectBirth.bypassesBabyItem(mother)) {
+            DirectBirth.spawnOffspring(mother, spouse);
+            ci.cancel();
         }
     }
 

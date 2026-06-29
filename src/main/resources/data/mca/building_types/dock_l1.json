@@ -6,6 +6,7 @@
   "iconU": 240,
   "iconV": 188,
   "blocks": {
-    "#townstead:dock_surfaces": 5
+    "#townstead:dock_surfaces": 5,
+    "minecraft:barrel": 1
   }
 }

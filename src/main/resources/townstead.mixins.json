@@ -30,6 +30,8 @@
     "PregnancyInheritanceMixin",
     "FertilityPregnancyMixin",
     "LitterGestationMixin",
+    "ProcreateDialogueAckMixin",
+    "accessor.EntityCommandHandlerAccessor",
     "MessengerVoiceMixin",
     "VillagerHungerMixin",
     "VillagerServerTickMixin",

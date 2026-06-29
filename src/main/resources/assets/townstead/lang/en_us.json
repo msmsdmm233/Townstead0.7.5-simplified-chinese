@@ -797,6 +797,7 @@
   "message.townstead.scarf_arthropod_only": "Only spider-folk can wear this.",
   "message.townstead.equip_slot_unavailable": "This body can't wear that.",
   "message.townstead.breeding_different_species": "Different species can't have children together.",
+  "message.townstead.procreate_confirmed": "Let's hope for the best!",
   "block.townstead.calendar": "Calendar",
   "block.townstead.field_post": "Oak Field Post",
   "block.townstead.field_post_spruce": "Spruce Field Post",
