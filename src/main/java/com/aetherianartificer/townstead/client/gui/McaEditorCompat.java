@@ -46,6 +46,19 @@ public final class McaEditorCompat {
     }
 
     /**
+     * True for the new 1.21.1 editor (Character subpage hub) vs the old one (separate top-level Body and
+     * Head pages). Detected structurally: the old editor lists "head" as a top-level page in
+     * {@code getPages()}; the new editor demoted it to a subpage, so its top pages don't contain "head".
+     * The scrollable Character tab strip only fits the new layout; on the old one we keep the per-page
+     * cyclers/tone swatch instead.
+     */
+    public static boolean isNewCharacterEditor(String[] pages) {
+        if (pages == null) return false;
+        for (String p : pages) if ("head".equals(p)) return false;
+        return true;
+    }
+
+    /**
      * The first slider on the screen whose label is the given translation key, or null.
      * MCA's {@code GeneSliderWidget} keeps the plain translatable label on
      * {@link AbstractSliderButton#getMessage()}, so this matches it across versions even

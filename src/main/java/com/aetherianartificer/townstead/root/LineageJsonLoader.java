@@ -45,12 +45,17 @@ public final class LineageJsonLoader extends SimpleJsonResourceReloadListener {
                 JsonObject obj = GsonHelper.convertToJsonObject(entry.getValue(), ctx);
                 TownsteadSchema.validate(obj, "townstead:lineage/v1");
                 Component displayName = DataPackLang.parseComponent(obj.get("display_name"), ctx, lang);
-                List<ResourceLocation> ancestries = RootJsonParsing.idList(obj, "ancestries");
+                ResourceLocation ancestry = RootJsonParsing.optionalId(obj, "ancestry", ctx, LOGGER);
+                if (ancestry == null) {
+                    // Migration fallback for early packs that used "ancestries": ["ns:id"].
+                    List<ResourceLocation> ancestries = RootJsonParsing.idList(obj, "ancestries");
+                    if (!ancestries.isEmpty()) ancestry = ancestries.get(0);
+                }
                 Demonym demonym = RootJsonParsing.demonym(obj, ctx, lang);
                 Component backstory = RootJsonParsing.backstory(obj, ctx, lang);
                 Genome genome = RootJsonParsing.genes(obj, ctx, LOGGER);
                 SpawnBias spawnBias = RootJsonParsing.spawnBias(obj, ctx, LOGGER);
-                parsed.put(file, new Lineage(file, displayName, ancestries, demonym, backstory, genome, spawnBias));
+                parsed.put(file, new Lineage(file, displayName, ancestry, demonym, backstory, genome, spawnBias));
                 policies.put(file, PersonalityPolicies.parse(obj));
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse lineage {}: {}", file, ex.getMessage());

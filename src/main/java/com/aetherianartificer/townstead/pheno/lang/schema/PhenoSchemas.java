@@ -76,10 +76,12 @@ public final class PhenoSchemas {
                 .field(of("condition", PhenoType.CONDITION)).build());
 
         NodeSchemas.register(NodeSchema.of("pheno:particle", NodeDomain.GENE)
-                .doc("Emits a particle on an interval, optionally gated by a condition.")
+                .doc("Emits ambient simple particles around the holder, optionally gated by a condition.")
                 .field(required("particle", PhenoType.ID))
                 .field(of("count", PhenoType.INT))
-                .field(of("interval", PhenoType.DURATION))
+                .field(of("spread", PhenoType.FLOAT))
+                .field(of("speed", PhenoType.FLOAT))
+                .field(of("y_offset", PhenoType.FLOAT))
                 .field(of("condition", PhenoType.CONDITION)).build());
 
         NodeSchemas.register(NodeSchema.of("pheno:action_over_time", NodeDomain.GENE)

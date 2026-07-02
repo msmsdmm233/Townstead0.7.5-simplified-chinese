@@ -73,6 +73,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Shadow(remap = false) public abstract void syncVillagerData();
     @Shadow(remap = false) protected String page;
     @Shadow(remap = false) protected abstract void setPage(String page);
+    @Shadow(remap = false) protected abstract String[] getPages();
 
     @Unique private boolean townstead$previewDirty;
     @Unique private float[] townstead$geneSnapshot;
@@ -152,7 +153,11 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // so MCA's native Character tab stays exactly as it is (humanoid/MCA-derived species).
         CharacterEditorResolver.Resolved charLayout = CharacterEditorResolver.resolve(
                 com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target)));
-        if (charLayout != null && townstead$isCharacterPage(page)) {
+        // The scrollable Character tab strip only fits the new 1.21.1 editor (Character subpage hub).
+        // On the old editor (separate Body/Head top pages) we keep the per-page cyclers + tone swatch
+        // instead (the "natural split": tone on Body, face cyclers on Head), so the strip never builds.
+        boolean useCharacterEditor = charLayout != null && McaEditorCompat.isNewCharacterEditor(getPages());
+        if (useCharacterEditor && townstead$isCharacterPage(page)) {
             // Entering Character lands on MCA's "body" subpage; if the species dropped that group,
             // jump to the first resolved tab instead.
             if ("body".equals(page) && charLayout.byPage("body") == null && !charLayout.tabs().isEmpty()) {
@@ -168,19 +173,18 @@ public abstract class VillagerEditorRootMixin extends Screen {
 
         // On the Body page, repaint MCA's skin color-picker square to the origin's tinted skin
         // field so the picker is WYSIWYG with the rendered villager, and add the tone-variant
-        // cycler above it for palette species (a conditional/optional field). With a custom layout
-        // the gene tabs own variant cyclers, so the ad-hoc tone/face cyclers are suppressed.
+        // cycler above it for palette species. When the new Character editor is active its gene tabs
+        // own the variant cyclers, so the ad-hoc tone/face cyclers are suppressed there; on the old
+        // editor (or a species without a layout) they render per-page as before.
         if (McaEditorCompat.isBodyPage(page)) {
             townstead$recolorSkinPicker();
-            if (charLayout == null) townstead$addTonePicker();
+            if (!useCharacterEditor) townstead$addTonePicker();
             townstead$trimInertBodySliders();
         }
-        // Old MCA kept hair + face on a single "head" page; the new layout splits them
-        // (hair -> "hair_style", face/FACE gene -> "eyes"), so gate each independently.
         if (McaEditorCompat.isHairPage(page)) {
             townstead$trimInertHair();
         }
-        if (McaEditorCompat.isFacePage(page) && charLayout == null) {
+        if (McaEditorCompat.isFacePage(page) && !useCharacterEditor) {
             townstead$addFaceCyclers();
         }
         if ("personality".equals(page)) {
