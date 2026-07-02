@@ -11,6 +11,7 @@ import com.aetherianartificer.townstead.pheno.power.Powers;
 import com.aetherianartificer.townstead.root.ability.GeneAbilityTicker;
 import com.aetherianartificer.townstead.root.attribute.GeneAttributeApplier;
 import com.aetherianartificer.townstead.root.personality.PersonalityResolver;
+import com.aetherianartificer.townstead.root.reproduction.Fertility;
 import net.conczin.mca.entity.ai.relationship.Personality;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
@@ -92,6 +93,8 @@ public final class RootServerLogic {
         if (changed || state.life().personalityId().isEmpty()) {
             RootSpawnHandler.assignPersonality(villager, state, id);
         }
+        // Reseeding may have changed the fertility gene; keep MCA's infertile trait in step.
+        Fertility.syncMcaInfertileTrait(villager);
         // Flush now: the origin lives in a data attachment that only persists when
         // the snapshot is written, and the periodic flush may not run before the
         // world saves/exits — which lost the origin (and so the skin tint) on reload.
@@ -130,6 +133,8 @@ public final class RootServerLogic {
         TownsteadVillager state = TownsteadVillagers.get(villager);
         state.life().genotype().set(locus, allele, allele);
         Heredity.recomputeExpressed(state.life());
+        // Pinning the fertility variant flips sterility; mirror it onto MCA's infertile trait.
+        Fertility.syncMcaInfertileTrait(villager);
         TownsteadVillagers.flush(villager);
         return villager.getId();
     }

@@ -38,6 +38,9 @@ public final class RootSpawnHandler {
     public static void onTrueSpawn(VillagerEntityMCA villager) {
         TownsteadVillager state = TownsteadVillagers.get(villager);
         assignSpawnRoot(villager, state);
+        // Root + genotype are now resolved, so the fertility gene expresses; reflect it onto MCA's
+        // infertile trait (when this MCA version defines one) before the flush below persists it.
+        com.aetherianartificer.townstead.root.reproduction.Fertility.syncMcaInfertileTrait(villager);
         // Persist immediately: the root/heritage/genotype live in a data attachment that only persists
         // when the snapshot is written, and there is no reliable periodic flush before world save. Without
         // this the spawn-assigned root (and a bred child's inherited root) is dropped on reload, and
@@ -139,6 +142,13 @@ public final class RootSpawnHandler {
      * fraction-weighted sum of its occurrence across the contributing origins
      * (a half-elf gets half the elf-trait chance plus half the human-trait chance).
      */
+    // MCA's Trait.valueOf returns null for an unknown id on newer builds, and a sentinel
+    // trait (id "unknown") on older ones. Treat both as unregistered so gene data referencing
+    // a missing trait is skipped rather than applying a bogus trait or NPEing.
+    private static boolean isUnregisteredTrait(net.conczin.mca.entity.ai.Traits.Trait trait) {
+        return trait == null || "unknown".equals(trait.id());
+    }
+
     private static void rollBlendedTraitGenes(VillagerEntityMCA villager, List<RootSelector.Weighted> mix) {
         Map<String, Float> chance = new LinkedHashMap<>();
         for (RootSelector.Weighted w : mix) {
@@ -149,7 +159,7 @@ public final class RootSpawnHandler {
         }
         for (Map.Entry<String, Float> entry : chance.entrySet()) {
             net.conczin.mca.entity.ai.Traits.Trait trait = net.conczin.mca.entity.ai.Traits.Trait.valueOf(entry.getKey());
-            if (trait == net.conczin.mca.entity.ai.Traits.UNKNOWN) continue;
+            if (isUnregisteredTrait(trait)) continue;
             float p = Math.min(1f, entry.getValue());
             if (p >= 1f || villager.getRandom().nextFloat() < p) {
                 villager.getTraits().addTrait(trait);
@@ -254,12 +264,28 @@ public final class RootSpawnHandler {
         if (base != null) villager.getVillagerBrain().setPersonality(base);
     }
 
+    /**
+     * Re-roll the personality within the villager's root policy when its life stage changes, so a
+     * villager's disposition shifts as it grows (matching MCA's own age-up randomization, but kept
+     * inside the root's allowlist). Driven by {@code VillagerEntityMCALifeStageMixin} at the TAIL of a
+     * genuine {@code setAgeState} transition. A root with no personality policy rolls a null ref and is
+     * left as MCA set it. Older MCA never randomized on age-up, so this hook is what makes the drift
+     * happen there too; on newer MCA it overwrites MCA's out-of-policy pick.
+     */
+    public static void rerollPersonalityForAgeChange(VillagerEntityMCA villager) {
+        TownsteadVillager state = TownsteadVillagers.get(villager);
+        ResourceLocation rootId = ResourceLocation.tryParse(state.life().rootId());
+        if (rootId == null) rootId = RootRegistry.DEFAULT_ID;
+        assignPersonality(villager, state, rootId);
+        TownsteadVillagers.flush(villager);
+    }
+
     private static void rollTraitGenes(VillagerEntityMCA villager, TownsteadVillager state, ResourceLocation rootId) {
         for (com.aetherianartificer.townstead.root.gene.types.TraitOccurrenceGeneType.Instance gene
                 : RootRegistry.traitGenes(rootId)) {
             net.conczin.mca.entity.ai.Traits.Trait trait =
                     net.conczin.mca.entity.ai.Traits.Trait.valueOf(gene.trait());
-            if (trait == net.conczin.mca.entity.ai.Traits.UNKNOWN) continue; // not a registered trait
+            if (isUnregisteredTrait(trait)) continue;
             if (gene.delta() >= 1.0f || villager.getRandom().nextFloat() < gene.delta()) {
                 villager.getTraits().addTrait(trait);
             }
