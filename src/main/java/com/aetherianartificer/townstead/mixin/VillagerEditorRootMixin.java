@@ -1,6 +1,8 @@
 package com.aetherianartificer.townstead.mixin;
 
 import com.aetherianartificer.townstead.client.gui.McaEditorCompat;
+import com.aetherianartificer.townstead.client.gui.character.CharacterEditorResolver;
+import com.aetherianartificer.townstead.client.gui.character.CharacterTabStrip;
 import com.aetherianartificer.townstead.client.gui.root.RootPicker;
 import com.aetherianartificer.townstead.client.root.RootClientStore;
 import com.aetherianartificer.townstead.client.root.PreviewParticles;
@@ -69,6 +71,9 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Shadow(remap = false) @Final UUID villagerUUID;
     @Shadow(remap = false) @Final UUID playerUUID;
     @Shadow(remap = false) public abstract void syncVillagerData();
+    @Shadow(remap = false) protected String page;
+    @Shadow(remap = false) protected abstract void setPage(String page);
+    @Shadow(remap = false) protected abstract String[] getPages();
 
     @Unique private boolean townstead$previewDirty;
     @Unique private float[] townstead$geneSnapshot;
@@ -143,20 +148,43 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // carried face variants from the real target so the preview matches the game, on every page.
         townstead$seedFaceVariants();
 
+        // Data-pack-driven Character layout: when the species declares one, replace MCA's fixed
+        // subpage bar with our scrollable strip and render gene fields ourselves. null = no layout,
+        // so MCA's native Character tab stays exactly as it is (humanoid/MCA-derived species).
+        CharacterEditorResolver.Resolved charLayout = CharacterEditorResolver.resolve(
+                com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target)));
+        // The scrollable Character tab strip only fits the new 1.21.1 editor (Character subpage hub).
+        // On the old editor (separate Body/Head top pages) we keep the per-page cyclers + tone swatch
+        // instead (the "natural split": tone on Body, face cyclers on Head), so the strip never builds.
+        boolean useCharacterEditor = charLayout != null && McaEditorCompat.isNewCharacterEditor(getPages());
+        if (useCharacterEditor && townstead$isCharacterPage(page)) {
+            // Entering Character lands on MCA's "body" subpage; if the species dropped that group,
+            // jump to the first resolved tab instead.
+            if ("body".equals(page) && charLayout.byPage("body") == null && !charLayout.tabs().isEmpty()) {
+                setPage(charLayout.tabs().get(0).pageId());
+                return;
+            }
+            townstead$removeSubpageTabs();
+            townstead$buildCharacterStrip(charLayout, page);
+            if (CharacterEditorResolver.isCustomPage(page)) {
+                townstead$buildGeneTab(charLayout.byPage(page));
+            }
+        }
+
         // On the Body page, repaint MCA's skin color-picker square to the origin's tinted skin
         // field so the picker is WYSIWYG with the rendered villager, and add the tone-variant
-        // cycler above it for palette species (a conditional/optional field).
+        // cycler above it for palette species. When the new Character editor is active its gene tabs
+        // own the variant cyclers, so the ad-hoc tone/face cyclers are suppressed there; on the old
+        // editor (or a species without a layout) they render per-page as before.
         if (McaEditorCompat.isBodyPage(page)) {
             townstead$recolorSkinPicker();
-            townstead$addTonePicker();
+            if (!useCharacterEditor) townstead$addTonePicker();
             townstead$trimInertBodySliders();
         }
-        // Old MCA kept hair + face on a single "head" page; the new layout splits them
-        // (hair -> "hair_style", face/FACE gene -> "eyes"), so gate each independently.
         if (McaEditorCompat.isHairPage(page)) {
             townstead$trimInertHair();
         }
-        if (McaEditorCompat.isFacePage(page)) {
+        if (McaEditorCompat.isFacePage(page) && !useCharacterEditor) {
             townstead$addFaceCyclers();
         }
         if ("personality".equals(page)) {
@@ -177,6 +205,136 @@ public abstract class VillagerEditorRootMixin extends Screen {
         addRenderableWidget(ws.description());
         addRenderableWidget(ws.master());
         addRenderableWidget(ws.apply());
+    }
+
+    // Keep MCA's "Character" top tab highlighted while we're on one of our own gene subpages
+    // (townstead_char:*), which MCA's private check doesn't know about. require=0: the method is new
+    // to the 1.21.1 MCA, so on the older forge MCA (no Character hub) this simply doesn't apply.
+    @Inject(method = "isMainPageSelected", remap = false, at = @At("HEAD"), cancellable = true, require = 0)
+    private void townstead$customPageUnderCharacter(String mainPage, CallbackInfoReturnable<Boolean> cir) {
+        if ("body".equals(mainPage) && CharacterEditorResolver.isCustomPage(this.page)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    /** Any page that lives under the Character hub: MCA's subpages plus our own gene pages. */
+    @Unique
+    private boolean townstead$isCharacterPage(String page) {
+        return McaEditorCompat.isBodyPage(page) || McaEditorCompat.isHairPage(page)
+                || McaEditorCompat.isFacePage(page) || "clothing_style".equals(page)
+                || CharacterEditorResolver.isCustomPage(page);
+    }
+
+    /** Strip MCA's fixed 4-button subpage bar; our scrollable tab strip replaces it. */
+    @Unique
+    private void townstead$removeSubpageTabs() {
+        for (GuiEventListener child : new ArrayList<>(children())) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget w) {
+                String k = townstead$widgetKey(w);
+                if (k != null && k.startsWith("gui.villager_editor.subpage.")) removeWidget(w);
+            }
+        }
+    }
+
+    // MCA's subpage tab bar sits at height/2 - 80 (the Presets/Quick-Export row); its content begins
+    // 24px below. The strip takes the bar's row so native content lines up under it, not over it.
+    @Unique private static final int TOWNSTEAD_STRIP_Y = -80;
+
+    /** Build the scrollable Character tab strip where MCA's subpage bar sat, current tab pressed. */
+    @Unique
+    private void townstead$buildCharacterStrip(CharacterEditorResolver.Resolved layout, String page) {
+        addRenderableWidget(new CharacterTabStrip(this.width / 2, this.height / 2 + TOWNSTEAD_STRIP_Y, 175, 20,
+                CharacterTabStrip.entriesOf(layout), page, this::setPage));
+    }
+
+    /** Render a gene tab's fields down the right-hand data column (below the strip). */
+    @Unique
+    private void townstead$buildGeneTab(CharacterEditorResolver.Tab tab) {
+        if (tab == null) return;
+        int x = this.width / 2;
+        int w = 175;
+        int rowH = 20;
+        int yStart = this.height / 2 + TOWNSTEAD_STRIP_Y + 24;
+        // Fit the column above the Done button: shrink any tone swatch(es) when a tab is field-heavy.
+        int tones = 0, cyclers = 0;
+        for (CharacterEditorResolver.Field f : tab.fields()) {
+            if (f.gene() == null) continue;
+            if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) tones++;
+            else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) cyclers++;
+        }
+        int swatch = 64;
+        if (tones > 0) {
+            int free = (this.height / 2 + 92) - yStart - cyclers * (rowH + 2) - tones * (rowH + 4);
+            swatch = Math.max(36, Math.min(64, free / tones));
+        }
+        int y = yStart;
+        for (CharacterEditorResolver.Field f : tab.fields()) {
+            if (f.gene() == null) continue;
+            if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) {
+                y += townstead$buildToneField(f.gene(), x, y, w, swatch);
+            } else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) {
+                townstead$variantCycler(f.gene(), x, y, w, 20, rowH);
+                y += rowH + 2;
+            }
+        }
+    }
+
+    /**
+     * A palette {@code skin_tone} field: a hue cycler over the draggable melanin×hemoglobin swatch (a
+     * recolored MCA {@link net.conczin.mca.client.gui.widget.ColorPickerWidget}), exactly the body-page
+     * tone control but rendered standalone here. Cycling re-tints the swatch; dragging shades within the
+     * hue. Returns the vertical space consumed. neoforge-only: this is a 1.21 MCA feature.
+     */
+    @Unique
+    private int townstead$buildToneField(GeneCatalogEntry gene, int x, int y, int w, int size) {
+        //? if neoforge {
+        java.util.List<GeneCatalogEntry.Variant> opts = new ArrayList<>();
+        for (GeneCatalogEntry.Variant v : gene.variants()) if (v.tint() >= 0) opts.add(v);
+        if (opts.isEmpty()) { townstead$variantCycler(gene, x, y, w, 20, 20); return 22; }
+        String geneId = gene.id();
+        String current = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        int start = 0;
+        for (int i = 0; i < opts.size(); i++) if (opts.get(i).id().equals(current)) { start = i; break; }
+        RootClientStore.setCarriedVariant(villager.getId(), geneId, opts.get(start).id());
+
+        int arrowW = 20, rowH = 20;
+        int midW = Math.max(20, w - arrowW * 2);
+        int swatchX = x + (w - size) / 2;
+        int swatchY = y + rowH + 2;
+
+        Genetics genetics = villager.getGenetics();
+        ColorPickerWidget swatch = new ColorPickerWidget(swatchX, swatchY, size, size,
+                genetics.getGene(Genetics.HEMOGLOBIN), genetics.getGene(Genetics.MELANIN),
+                RootSkinPickerTexture.forPaletteHue(opts.get(start).tint()),
+                (vx, vy) -> {
+                    // Palette tone comes from melanin/hemoglobin via RigSkinTone, not skinDye, so we
+                    // just drive those two genes (and skip clearSkinDye, which isn't in the 7.7.7 jar).
+                    genetics.setGene(Genetics.HEMOGLOBIN, vx.floatValue());
+                    genetics.setGene(Genetics.MELANIN, vy.floatValue());
+                });
+
+        int[] idx = { start };
+        String name = gene.name();
+        ButtonWidget[] mid = new ButtonWidget[1];
+        java.util.function.IntConsumer cycle = delta -> {
+            idx[0] = Math.floorMod(idx[0] + delta, opts.size());
+            GeneCatalogEntry.Variant v = opts.get(idx[0]);
+            mid[0].setMessage(Component.literal(name + ": " + v.label()));
+            RootClientStore.setCarriedVariant(villager.getId(), geneId, v.id());
+            ((ColorPickerWidgetAccessor) swatch).townstead$setTexture(RootSkinPickerTexture.forPaletteHue(v.tint()));
+            townstead$sendSetVariant(townstead$target, geneId, v.id());
+        };
+        addRenderableWidget(new ButtonWidget(x, y, arrowW, rowH, Component.literal("<"), b -> cycle.accept(-1)));
+        mid[0] = new ButtonWidget(x + arrowW, y, midW, rowH,
+                Component.literal(name + ": " + opts.get(start).label()), b -> { });
+        addRenderableWidget(mid[0]);
+        addRenderableWidget(new ButtonWidget(x + arrowW + midW, y, arrowW, rowH, Component.literal(">"), b -> cycle.accept(1)));
+        addRenderableWidget(swatch);
+        return rowH + 2 + size + 2;
+        //?} else {
+        /*townstead$variantCycler(gene, x, y, w, 20, 20);
+        return 22;
+        *///?}
     }
 
     /**

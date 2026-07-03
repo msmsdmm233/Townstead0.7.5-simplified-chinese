@@ -1,6 +1,8 @@
 package com.aetherianartificer.townstead.root.personality;
 
 import com.aetherianartificer.townstead.data.DataPackLang;
+import com.aetherianartificer.townstead.root.Lineage;
+import com.aetherianartificer.townstead.root.LineageRegistry;
 import com.aetherianartificer.townstead.root.Root;
 import com.aetherianartificer.townstead.root.RootRegistry;
 import net.conczin.mca.entity.ai.relationship.Personality;
@@ -15,8 +17,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Resolves which personality a villager of a given origin may roll, and rolls one. Walks the origin
- * tree most-specific first (origin, lineage, ancestry, species): the nearest node with a non-empty
+ * Resolves which personality a villager of a given root may roll, and rolls one. Walks the identity
+ * tree most-specific first (lineage, ancestry, species): the nearest node with a non-empty
  * {@link Personalities} policy defines the pool; {@code inherit:true} merges the parent's beneath it
  * (more-specific weights win), and every processed node's {@code deny} subtracts. No policy anywhere
  * yields an empty pool, i.e. vanilla MCA personality assignment.
@@ -30,12 +32,17 @@ public final class PersonalityResolver {
         Map<String, Integer> allow = new LinkedHashMap<>();
         Set<String> deny = new HashSet<>();
         Root origin = RootRegistry.byId(rootId);
+        ResourceLocation lineageId = origin == null ? null : origin.lineage();
+        ResourceLocation ancestryId = origin == null ? null : origin.ancestry();
+        if (ancestryId == null && lineageId != null) {
+            Lineage lineage = LineageRegistry.byId(lineageId);
+            if (lineage != null) ancestryId = lineage.ancestry();
+        }
 
-        for (int level = 0; level < 4; level++) {
+        for (int level = 0; level < 3; level++) {
             Personalities policy = switch (level) {
-                case 0 -> PersonalityPolicyRegistry.origin(rootId);
-                case 1 -> origin == null ? Personalities.EMPTY : PersonalityPolicyRegistry.lineage(origin.lineage());
-                case 2 -> origin == null ? Personalities.EMPTY : PersonalityPolicyRegistry.ancestry(origin.ancestry());
+                case 0 -> PersonalityPolicyRegistry.lineage(lineageId);
+                case 1 -> PersonalityPolicyRegistry.ancestry(ancestryId);
                 default -> PersonalityPolicyRegistry.species(RootRegistry.effectiveSpecies(rootId));
             };
             if (policy.isEmpty()) continue;

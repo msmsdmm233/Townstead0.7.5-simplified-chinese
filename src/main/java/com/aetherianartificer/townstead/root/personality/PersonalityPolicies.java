@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Parses the optional {@code personalities} block shared by the four origin loaders. Tolerant: a
+ * Parses the optional {@code personalities} block shared by species, ancestry, and lineage loaders. Tolerant: a
  * malformed entry is skipped, an absent block yields {@link Personalities#EMPTY}.
  *
  * <pre>

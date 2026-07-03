@@ -3,9 +3,6 @@ package com.aetherianartificer.townstead.root;
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.data.DataPackLang;
 import com.aetherianartificer.townstead.data.TownsteadSchema;
-import com.aetherianartificer.townstead.root.personality.Personalities;
-import com.aetherianartificer.townstead.root.personality.PersonalityPolicies;
-import com.aetherianartificer.townstead.root.personality.PersonalityPolicyRegistry;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -40,24 +37,22 @@ public final class RootJsonLoader extends SimpleJsonResourceReloadListener {
                          ProfilerFiller profiler) {
         Map<String, String> lang = DataPackLang.loadLangIndex(resourceManager);
         Map<ResourceLocation, Root> parsed = new LinkedHashMap<>();
-        Map<ResourceLocation, Personalities> policies = new LinkedHashMap<>();
-        loadLegacyOrigins(resourceManager, lang, parsed, policies);
+        loadLegacyOrigins(resourceManager, lang, parsed);
         for (Map.Entry<ResourceLocation, JsonElement> entry : entries.entrySet()) {
             ResourceLocation file = entry.getKey();
             try {
                 parseRoot(file, GsonHelper.convertToJsonObject(entry.getValue(), file.toString()),
-                        lang, parsed, policies, true);
+                        lang, parsed, true);
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse root {}: {}", file, ex.getMessage());
             }
         }
         RootRegistry.replaceAll(parsed);
-        PersonalityPolicyRegistry.setRoot(policies);
         LOGGER.info("Loaded {} roots", parsed.size());
     }
 
     private static void loadLegacyOrigins(ResourceManager resourceManager, Map<String, String> lang,
-            Map<ResourceLocation, Root> parsed, Map<ResourceLocation, Personalities> policies) {
+            Map<ResourceLocation, Root> parsed) {
         Map<ResourceLocation, Resource> resources = resourceManager.listResources("origin",
                 id -> id.getPath().endsWith(".json"));
         for (Map.Entry<ResourceLocation, Resource> entry : resources.entrySet()) {
@@ -74,7 +69,7 @@ public final class RootJsonLoader extends SimpleJsonResourceReloadListener {
             try (InputStream in = entry.getValue().open();
                     InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 JsonObject obj = GSON.fromJson(reader, JsonObject.class);
-                if (obj != null) parseRoot(file, obj, lang, parsed, policies, false);
+                if (obj != null) parseRoot(file, obj, lang, parsed, false);
             } catch (Exception ex) {
                 LOGGER.warn("Failed to parse legacy origin {}: {}", location, ex.getMessage());
             }
@@ -82,8 +77,7 @@ public final class RootJsonLoader extends SimpleJsonResourceReloadListener {
     }
 
     private static void parseRoot(ResourceLocation file, JsonObject obj, Map<String, String> lang,
-            Map<ResourceLocation, Root> parsed, Map<ResourceLocation, Personalities> policies,
-            boolean currentSchema) {
+            Map<ResourceLocation, Root> parsed, boolean currentSchema) {
         String ctx = file.toString();
         try {
             TownsteadSchema.validate(obj, currentSchema ? "townstead:root/v1" : "townstead:origin/v1");
@@ -96,7 +90,6 @@ public final class RootJsonLoader extends SimpleJsonResourceReloadListener {
             Genome genome = RootJsonParsing.genes(obj, ctx, LOGGER);
             SpawnBias spawnBias = RootJsonParsing.spawnBias(obj, ctx, LOGGER);
             parsed.put(file, new Root(file, displayName, species, ancestry, lineage, demonym, backstory, genome, spawnBias));
-            policies.put(file, PersonalityPolicies.parse(obj));
         } catch (Exception ex) {
             LOGGER.warn("Failed to parse root {}: {}", file, ex.getMessage());
         }

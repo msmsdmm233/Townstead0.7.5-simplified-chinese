@@ -45,7 +45,9 @@ public record RootCatalogEntry(
         // Per-life-stage rig override, one entry per stage of this origin's effective life cycle (empty
         // string = species rig). Empty list when no stage overrides the rig. Lets a stage (e.g. "egg")
         // render a different model; the client renderer indexes it by the villager's current stage.
-        List<String> stageRigs
+        List<String> stageRigs,
+        // Data-pack Character-editor layout from the species (null = keep MCA's full native tab).
+        CharacterEditorLayout characterEditor
 ) {
     /** A gene this origin inherits, with its base occurrence (presence probability). */
     public record Inherited(String geneId, float occurrence) {}

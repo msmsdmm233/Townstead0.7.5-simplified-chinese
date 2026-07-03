@@ -15,7 +15,8 @@ import net.minecraft.resources.ResourceLocation;
  * blend of two or more of its origins instead of a single one (0 disables it).</p>
  */
 public record Species(ResourceLocation id, Component displayName, Rig rig, Animations animations,
-                      boolean breasts, float admixtureChance, Genome genome) {
+                      boolean breasts, float admixtureChance, Genome genome,
+                      CharacterEditorLayout characterEditor) {
     public Species {
         animations = animations == null ? Animations.DEFAULT : animations;
     }
