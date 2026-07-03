@@ -134,60 +134,110 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
      * custom face, worn boots, and held items still draw, each resolving its bone by name from the baked
      * root and tracking the posed body.
      */
-    // Per-entity ease for the crouch pose: {factor 0..1, last ageInTicks}, so the pose fades in/out instead
-    // of snapping. Keyed by entity id; lightly pruned when it grows.
-    private static final java.util.Map<Integer, float[]> POSE_EASE = new java.util.HashMap<>();
+    // Per-entity-and-state ease: {factor 0..1, last ageInTicks} so each pose fades in/out instead of
+    // snapping. Keyed by "entityId:state"; lightly pruned when it grows.
+    private static final java.util.Map<String, float[]> POSE_EASE = new java.util.HashMap<>();
     private static final float POSE_EASE_RATE = 0.25f; // per tick (~4 ticks in/out)
     // Baked base position {x,y,z} per posed bone (rigBase+":"+bone), captured pristine on first use, so the
-    // pose offset is assigned from base each frame instead of accumulating (see applyRigPose).
+    // pose offset is composed from base each frame instead of accumulating (see applyRigPose).
     private static final java.util.Map<String, float[]> POSE_BASE = new java.util.HashMap<>();
 
     /**
-     * Applies the rig's data-driven pose for the entity's current state (currently {@code crouch}) on top of
-     * the model's posed bones, so a pack authors per-rig poses (e.g. a spider splaying its legs when sneaking)
-     * as data instead of engine code. Rotations are additive degrees (on the setupAnim-reset pose); position
-     * offsets are assigned from each bone's baked base (NOT accumulated), scaled by an eased 0..1 factor.
+     * Applies the rig's data-driven state poses on top of the model's posed bones, so a pack authors per-rig
+     * poses (a spider splaying its legs when sneaking, or settling onto a bed to sleep) as data instead of
+     * engine code. Two states are driven here: {@code crouch} (sneaking) and {@code sleep} (in bed). Rotations
+     * are additive degrees on the setupAnim-reset pose; position offsets are composed from each bone's baked
+     * base (summed across states, NOT accumulated across frames), each scaled by an eased 0..1 factor.
      */
-    private void applyRigPose(String rigBase, T entity, float ageInTicks) {
+    private float[] applyRigPose(String rigBase, T entity, float ageInTicks) {
+        float[] bodyOffset = new float[3];
         RigDefinition def = RigModels.definition(rigBase);
-        if (def == null) return;
-        java.util.List<RigDefinition.PoseBone> pose = def.poses().get("crouch");
-        if (pose == null) return;
+        if (def == null) return bodyOffset;
+        boolean sleeping = entity.isSleeping();
+        // Sleep and crouch are mutually exclusive states; ease each independently.
+        float crouch = easeState(entity, ageInTicks, "crouch", entity.isCrouching() && !sleeping);
+        float sleep = easeState(entity, ageInTicks, "sleep", sleeping);
 
-        int id = entity.getId();
-        float[] st = POSE_EASE.get(id);
-        float target = entity.isCrouching() ? 1f : 0f;
+        // Compose each posed bone's position offset from its baked base across states, so a bone named by more
+        // than one state sums instead of the later state overwriting the earlier. Every touched bone is
+        // assigned from base each frame (even at total 0) so a posed bone on the SHARED cached rig model is
+        // restored for the next entity rendered.
+        java.util.Map<ModelPart, float[]> targets = new java.util.HashMap<>();
+        accumulatePose(rigBase, def.poseBones("crouch"), crouch, targets);
+        accumulatePose(rigBase, def.poseBones("sleep"), sleep, targets);
+        for (java.util.Map.Entry<ModelPart, float[]> e : targets.entrySet()) {
+            ModelPart part = e.getKey();
+            float[] t = e.getValue();
+            part.x = t[0];
+            part.y = t[1];
+            part.z = t[2];
+        }
+
+        // A state's whole-body offset (not per-bone) shifts the entire model as one; sum it eased across
+        // states so the caller can translate the pose by it. Applied by the caller in the model frame, so
+        // it reads the same units and sign as the per-bone offsets above.
+        addBodyOffset(def.bodyPose("crouch"), crouch, bodyOffset);
+        addBodyOffset(def.bodyPose("sleep"), sleep, bodyOffset);
+        return bodyOffset;
+    }
+
+    /** Adds a state's eased whole-body offset (model pixels) into {@code out}; null pose or factor 0 is a no-op. */
+    private static void addBodyOffset(RigDefinition.BodyPose body, float factor, float[] out) {
+        if (body == null || factor == 0f) return;
+        float[] o = body.offset();
+        out[0] += o[0] * factor;
+        out[1] += o[1] * factor;
+        out[2] += o[2] * factor;
+    }
+
+    /** Eases the 0..1 factor for one entity/state toward {@code active}, advancing by elapsed ticks. */
+    private static float easeState(LivingEntity entity, float ageInTicks, String state, boolean active) {
+        String key = entity.getId() + ":" + state;
+        float[] st = POSE_EASE.get(key);
+        float target = active ? 1f : 0f;
         float factor = st == null ? target : st[0];
         float dt = st == null ? 0f : Math.max(0f, ageInTicks - st[1]);
         float step = dt * POSE_EASE_RATE;
         factor = factor < target ? Math.min(target, factor + step) : Math.max(target, factor - step);
-        POSE_EASE.put(id, new float[]{factor, ageInTicks});
-        if (POSE_EASE.size() > 256) POSE_EASE.keySet().removeIf(e -> {
+        POSE_EASE.put(key, new float[]{factor, ageInTicks});
+        if (POSE_EASE.size() > 512) POSE_EASE.keySet().removeIf(k -> {
             var level = net.minecraft.client.Minecraft.getInstance().level;
-            return level == null || level.getEntity(e) == null;
+            int id = Integer.parseInt(k.substring(0, k.indexOf(':')));
+            return level == null || level.getEntity(id) == null;
         });
+        return factor;
+    }
 
-        // Always run (even at factor 0) so the SHARED cached rig model's posed bones are restored to base for
-        // a non-crouching entity; otherwise a crouching one's pose leaks onto the next entity rendered.
+    /**
+     * Adds one state's contribution to the target bone transforms: rotations additively onto the part (safe,
+     * since setupAnim reset them this frame) and position offsets summed into {@code targets}, seeded from each
+     * bone's captured baked base. A null pose list or factor 0 still seeds the base so the bone is restored.
+     */
+    private static void accumulatePose(String rigBase, java.util.List<RigDefinition.PoseBone> pose, float factor,
+                                       java.util.Map<ModelPart, float[]> targets) {
+        if (pose == null) return;
         for (RigDefinition.PoseBone pb : pose) {
             ModelPart part = RigModels.bakedBone(rigBase, pb.bone());
             if (part == null) continue;
-            // Rotations are additive on top of the model's per-frame setupAnim reset, so factor 0 is a no-op.
             part.xRot += (float) Math.toRadians(pb.rotation()[0]) * factor;
             part.yRot += (float) Math.toRadians(pb.rotation()[1]) * factor;
             part.zRot += (float) Math.toRadians(pb.rotation()[2]) * factor;
-            // Positions are NOT reset by setupAnim, so adding each frame accumulates without bound and the
-            // model marches off (the spider sank into the ground and vanished on crouch). Assign from the
-            // captured baked base instead: factor 0 restores base exactly, and a crouch is a fixed offset.
-            String key = rigBase + ":" + pb.bone();
-            float[] base = POSE_BASE.get(key);
-            if (base == null) {
-                base = new float[]{part.x, part.y, part.z};
-                POSE_BASE.put(key, base);
+            float[] t = targets.get(part);
+            if (t == null) {
+                // Positions are NOT reset by setupAnim, so composing from the captured baked base (rather than
+                // adding each frame) keeps a factor-0 bone at base and avoids the model marching off over time.
+                String bkey = rigBase + ":" + pb.bone();
+                float[] base = POSE_BASE.get(bkey);
+                if (base == null) {
+                    base = new float[]{part.x, part.y, part.z};
+                    POSE_BASE.put(bkey, base);
+                }
+                t = new float[]{base[0], base[1], base[2]};
+                targets.put(part, t);
             }
-            part.x = base[0] + pb.offset()[0] * factor;
-            part.y = base[1] + pb.offset()[1] * factor;
-            part.z = base[2] + pb.offset()[2] * factor;
+            t[0] += pb.offset()[0] * factor;
+            t[1] += pb.offset()[1] * factor;
+            t[2] += pb.offset()[2] * factor;
         }
     }
 
@@ -222,7 +272,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
             limbSwing = ageInTicks * 0.6f;
         }
         model.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
-        applyRigPose(rigBase, entity, ageInTicks);
+        float[] bodyOffset = applyRigPose(rigBase, entity, ageInTicks);
         // Emotes on a non-humanoid body: the humanoid bridge can't drive this model, so apply the rig's
         // emote remap directly onto its bones, on top of the gait pose just set. genericModel() above has
         // populated the baked root, so bakedRoot() is non-null here.
@@ -235,6 +285,11 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
             pose.translate(0f, 1.501f, 0f);
             pose.scale(scale, scale, scale);
             pose.translate(0f, -1.501f, 0f);
+        }
+        // Whole-body pose offset (e.g. a sleep settle), in model pixels, applied uniformly to the model,
+        // face, boots and held items rendered inside this block. Divided by 16 to reach block units.
+        if (bodyOffset[0] != 0f || bodyOffset[1] != 0f || bodyOffset[2] != 0f) {
+            pose.translate(bodyOffset[0] / 16f, bodyOffset[1] / 16f, bodyOffset[2] / 16f);
         }
         int tone = RigSkinTone.forEntity(entity);
         //? if neoforge {

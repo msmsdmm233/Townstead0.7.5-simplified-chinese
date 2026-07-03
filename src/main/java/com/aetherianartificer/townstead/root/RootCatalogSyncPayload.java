@@ -262,10 +262,19 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
         writeGrip(buf, r.hold().offhand());
         buf.writeBoolean(r.hair());
         buf.writeVarInt(r.poses().size());
-        for (Map.Entry<String, List<RigDefinition.PoseBone>> e : r.poses().entrySet()) {
+        for (Map.Entry<String, RigDefinition.PoseState> e : r.poses().entrySet()) {
             buf.writeUtf(e.getKey());
-            buf.writeVarInt(e.getValue().size());
-            for (RigDefinition.PoseBone p : e.getValue()) {
+            RigDefinition.BodyPose body = e.getValue().body();
+            buf.writeBoolean(body != null);
+            if (body != null) {
+                buf.writeFloat(body.yaw());
+                buf.writeFloat(body.pitch());
+                buf.writeFloat(body.roll());
+                for (int k = 0; k < 3; k++) buf.writeFloat(body.offset()[k]);
+            }
+            List<RigDefinition.PoseBone> bones = e.getValue().bones();
+            buf.writeVarInt(bones.size());
+            for (RigDefinition.PoseBone p : bones) {
                 buf.writeUtf(p.bone());
                 for (int k = 0; k < 3; k++) buf.writeFloat(p.rotation()[k]);
                 for (int k = 0; k < 3; k++) buf.writeFloat(p.offset()[k]);
@@ -422,9 +431,13 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
         Hold hold = new Hold(readGrip(buf), readGrip(buf));
         boolean hair = buf.readBoolean();
         int pn = buf.readVarInt();
-        Map<String, List<RigDefinition.PoseBone>> poses = new java.util.LinkedHashMap<>();
+        Map<String, RigDefinition.PoseState> poses = new java.util.LinkedHashMap<>();
         for (int i = 0; i < pn; i++) {
             String state = buf.readUtf();
+            RigDefinition.BodyPose body = buf.readBoolean()
+                    ? new RigDefinition.BodyPose(buf.readFloat(), buf.readFloat(), buf.readFloat(),
+                            new float[]{buf.readFloat(), buf.readFloat(), buf.readFloat()})
+                    : null;
             int cnt = buf.readVarInt();
             List<RigDefinition.PoseBone> list = new ArrayList<>(cnt);
             for (int j = 0; j < cnt; j++) {
@@ -433,7 +446,7 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
                 float[] off = {buf.readFloat(), buf.readFloat(), buf.readFloat()};
                 list.add(new RigDefinition.PoseBone(bone, rot, off));
             }
-            poses.put(state, List.copyOf(list));
+            poses.put(state, new RigDefinition.PoseState(body, List.copyOf(list)));
         }
         RigDefinition.Hitbox hitbox = null;
         if (buf.readBoolean()) {

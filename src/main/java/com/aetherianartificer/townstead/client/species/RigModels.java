@@ -326,6 +326,12 @@ public final class RigModels {
         return offHand ? def.hold().offhand() : def.hold().mainhand();
     }
 
+    /** The rig's authored whole-body sleep orientation, or null when it rests upright with no lean. */
+    public static RigDefinition.BodyPose sleepPose(String rigBase) {
+        RigDefinition def = RootCatalogClient.rig(rigBase);
+        return def == null ? null : def.bodyPose("sleep");
+    }
+
     public static ResourceLocation texture(String rigBase) {
         RigDefinition def = RootCatalogClient.rig(rigBase);
         if (def == null || def.texture() == null || def.texture().isEmpty()) return null;
