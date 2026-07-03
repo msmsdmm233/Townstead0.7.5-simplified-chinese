@@ -93,7 +93,11 @@ public final class ClimbState {
             Vector3f previous = s == null ? null : s.normal;
             Vector3f n = le == mc.player ? ClimbMove.activeNormal() : null;
             if (n == null) n = ClimbRender.wallNormal(le, alreadyOn, previous);
-            if (n != null && le == mc.player && !alreadyOn && !ClimbRender.startIntent(le)) {
+            // Starting a climb needs intent AND the crouch (grip) key: push into a wall you face while
+            // crouching. Once attached it holds on proximity without crouch (hysteresis / stick), so crouch is
+            // only ever needed to CHANGE surface, never to stay on one.
+            if (n != null && le == mc.player && !alreadyOn
+                    && (!ClimbRender.startIntent(le) || !mc.player.isShiftKeyDown())) {
                 n = null;
             }
             if (n != null) {

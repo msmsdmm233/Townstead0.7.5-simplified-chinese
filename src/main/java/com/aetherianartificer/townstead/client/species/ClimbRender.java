@@ -92,10 +92,11 @@ public final class ClimbRender {
         // isActive reads the synced expressed genes, which RootClientStore zeroes for a player not embodied
         // as its species (Player/Vanilla model mode), so the climber gene stays inheritance-only there.
         if (!ClientAbilities.isActive(entity, Ability.CLIMBING)) return null;
-        // The local player lets go (drops to the ground) while sneaking: force-detach so it falls clean
-        // instead of crouch-sliding down the wall.
+        // The local player lets go (drops to the ground) on jump: force-detach so the tilt drops at once for a
+        // clean push-off instead of lingering until they leave the wall's reach. (Crouch is now the wrap
+        // modifier, not a release.)
         Minecraft mc = Minecraft.getInstance();
-        if (entity == mc.player && mc.player.isShiftKeyDown()) return null;
+        if (entity == mc.player && mc.player.input.jumping) return null;
         float reach = attached ? STICKY_REACH : REACH;
         AABB box = entity.getBoundingBox();
         Vector3f best = null;

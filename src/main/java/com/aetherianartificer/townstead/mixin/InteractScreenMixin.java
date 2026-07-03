@@ -53,17 +53,19 @@ import java.util.List;
 
 @Mixin(InteractScreen.class)
 public abstract class InteractScreenMixin extends Screen {
+    // Icons live in the townstead_icons namespace (assets/townstead_icons/*.png).
     //? if >=1.21 {
-    private static final ResourceLocation FOOD_FULL = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_full.png");
-    private static final ResourceLocation FOOD_HALF = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_half.png");
-    private static final ResourceLocation FOOD_EMPTY = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_empty.png");
+    private static final ResourceLocation HUNGER_FULL = ResourceLocation.fromNamespaceAndPath("townstead_icons", "hunger_full.png");
+    private static final ResourceLocation HUNGER_HALF = ResourceLocation.fromNamespaceAndPath("townstead_icons", "hunger_half.png");
+    private static final ResourceLocation HUNGER_LOW = ResourceLocation.fromNamespaceAndPath("townstead_icons", "hunger_low.png");
     //?} else {
-    /*private static final ResourceLocation ICONS = new ResourceLocation("minecraft", "textures/gui/icons.png");
+    /*private static final ResourceLocation HUNGER_FULL = new ResourceLocation("townstead_icons", "hunger_full.png");
+    private static final ResourceLocation HUNGER_HALF = new ResourceLocation("townstead_icons", "hunger_half.png");
+    private static final ResourceLocation HUNGER_LOW = new ResourceLocation("townstead_icons", "hunger_low.png");
     *///?}
     private static final int HUNGER_ICON_X = 70;
-    private static final int HUNGER_ICON_Y = 120;
+    private static final int HUNGER_ICON_Y = 121;
     private static final int HUNGER_ICON_SIZE = 24;
-    private static final float HUNGER_ICON_SCALE = 16.0f / 9.0f;
     private static final int THIRST_ICON_X = 70;
     private static final int THIRST_ICON_Y = 145;
     private static final int THIRST_ICON_SIZE = 24;
@@ -71,19 +73,21 @@ public abstract class InteractScreenMixin extends Screen {
     private static final int FATIGUE_ICON_X = 70;
     private static final int FATIGUE_ICON_Y = 170;
     private static final int FATIGUE_ICON_SIZE = 24;
-    private static final float FATIGUE_ICON_SCALE = 16.0f / 9.0f;
+    // The icon art is a glyph-tight 12px sprite; render it at 24px so it fills the same
+    // footprint as MCA's own status icons (16px sprites drawn at 1.5x = 24px). 12 -> 24
+    // is a clean 2x.
+    private static final int NEED_ICON_TEX = 12;
+    private static final int NEED_ICON_PX = 24;
+    private static final int HUNGER_ICON_PX = 20;
+    private static final int ENERGY_ICON_PX = 18;
     //? if >=1.21 {
-    private static final ResourceLocation ENERGY_FULL = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_full.png");
-    private static final ResourceLocation ENERGY_THREE_QUARTER = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_three_quarter.png");
-    private static final ResourceLocation ENERGY_HALF = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_half.png");
-    private static final ResourceLocation ENERGY_QUARTER = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_quarter.png");
-    private static final ResourceLocation ENERGY_EMPTY = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_empty.png");
+    private static final ResourceLocation ENERGY_FULL = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_full.png");
+    private static final ResourceLocation ENERGY_HALF = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_half.png");
+    private static final ResourceLocation ENERGY_LOW = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_low.png");
     //?} else {
-    /*private static final ResourceLocation ENERGY_FULL = new ResourceLocation("townstead", "textures/gui/energy_full.png");
-    private static final ResourceLocation ENERGY_THREE_QUARTER = new ResourceLocation("townstead", "textures/gui/energy_three_quarter.png");
-    private static final ResourceLocation ENERGY_HALF = new ResourceLocation("townstead", "textures/gui/energy_half.png");
-    private static final ResourceLocation ENERGY_QUARTER = new ResourceLocation("townstead", "textures/gui/energy_quarter.png");
-    private static final ResourceLocation ENERGY_EMPTY = new ResourceLocation("townstead", "textures/gui/energy_empty.png");
+    /*private static final ResourceLocation ENERGY_FULL = new ResourceLocation("townstead_icons", "energy_full.png");
+    private static final ResourceLocation ENERGY_HALF = new ResourceLocation("townstead_icons", "energy_half.png");
+    private static final ResourceLocation ENERGY_LOW = new ResourceLocation("townstead_icons", "energy_low.png");
     *///?}
 
     @Shadow(remap = false) @Final private VillagerLike<?> villager;
@@ -352,35 +356,16 @@ public abstract class InteractScreenMixin extends Screen {
         var pose = context.pose();
         if (TownsteadConfig.isVillagerHungerEnabled()) {
             int hunger = HungerClientStore.get(villager.asEntity().getId());
-            int iconX = HUNGER_ICON_X + ((HUNGER_ICON_SIZE - 16) / 2);
-            int iconY = HUNGER_ICON_Y + ((HUNGER_ICON_SIZE - 16) / 2);
-
-            pose.pushPose();
-            pose.translate(iconX, iconY, 0);
-            pose.scale(HUNGER_ICON_SCALE, HUNGER_ICON_SCALE, 1.0f);
-            //? if >=1.21 {
             ResourceLocation sprite = townstead$hungerIconSprite(HungerData.getState(hunger));
-            context.blit(sprite, 0, 0, 0, 0, 9, 9, 9, 9);
-            //?} else {
-            /*int u = townstead$hungerIconU(HungerData.getState(hunger));
-            context.blit(ICONS, 0, 0, u, 27, 9, 9, 256, 256);
-            *///?}
-            pose.popPose();
+            townstead$drawNeedIcon(context, sprite, HUNGER_ICON_X, HUNGER_ICON_Y, HUNGER_ICON_PX);
         }
 
         // Draw energy bolt icon
         if (TownsteadConfig.isVillagerFatigueEnabled()) {
-        int fatigue = FatigueClientStore.getFatigue(villager.asEntity().getId());
-        FatigueData.FatigueState fatigueState = FatigueData.getState(fatigue);
-        int energyIconX = FATIGUE_ICON_X + ((FATIGUE_ICON_SIZE - 16) / 2);
-        int energyIconY = FATIGUE_ICON_Y + ((FATIGUE_ICON_SIZE - 16) / 2);
-
-        pose.pushPose();
-        pose.translate(energyIconX, energyIconY, 0);
-        pose.scale(FATIGUE_ICON_SCALE, FATIGUE_ICON_SCALE, 1.0f);
-        ResourceLocation energySprite = townstead$energyIconSprite(fatigueState);
-        context.blit(energySprite, 0, 0, 0, 0, 9, 9, 9, 9);
-        pose.popPose();
+            int fatigue = FatigueClientStore.getFatigue(villager.asEntity().getId());
+            FatigueData.FatigueState fatigueState = FatigueData.getState(fatigue);
+            ResourceLocation energySprite = townstead$energyIconSprite(fatigueState);
+            townstead$drawNeedIcon(context, energySprite, FATIGUE_ICON_X, FATIGUE_ICON_Y, ENERGY_ICON_PX);
         }
 
         ThirstCompatBridge bridge = ThirstBridgeResolver.get();
@@ -395,6 +380,22 @@ public abstract class InteractScreenMixin extends Screen {
         pose.translate(thirstX, thirstY, 0);
         pose.scale(THIRST_ICON_SCALE, THIRST_ICON_SCALE, 1.0f);
         context.blit(icon.texture(), 0, 0, icon.u(), icon.v(), 9, 9, icon.texW(), icon.texH());
+        pose.popPose();
+    }
+
+    // Draw a 16px icon sprite at MCA's icon footprint (1.5x -> 24px) with its origin at
+    // the given screen slot, so our need icons match the size of MCA's own status icons.
+    // Renders the 12px icon sprite at displayPx, centered within MCA's 24px icon slot at
+    // (slotX, slotY). Hunger fills the slot; the battery is nudged a little smaller.
+    @Unique
+    private void townstead$drawNeedIcon(GuiGraphics context, ResourceLocation sprite, int slotX, int slotY, int displayPx) {
+        float scale = (float) displayPx / NEED_ICON_TEX;
+        int inset = (NEED_ICON_PX - displayPx) / 2;
+        var pose = context.pose();
+        pose.pushPose();
+        pose.scale(scale, scale, 1.0f);
+        context.blit(sprite, Math.round((slotX + inset) / scale), Math.round((slotY + inset) / scale),
+                0, 0, NEED_ICON_TEX, NEED_ICON_TEX, NEED_ICON_TEX, NEED_ICON_TEX);
         pose.popPose();
     }
 
@@ -488,31 +489,19 @@ public abstract class InteractScreenMixin extends Screen {
         return mx >= x && mx <= x + w && my >= y && my <= y + h;
     }
 
-    //? if >=1.21 {
     private ResourceLocation townstead$hungerIconSprite(HungerData.HungerState state) {
         return switch (state) {
-            case WELL_FED, ADEQUATE -> FOOD_FULL;
-            case HUNGRY -> FOOD_HALF;
-            case FAMISHED, STARVING -> FOOD_EMPTY;
+            case WELL_FED, ADEQUATE -> HUNGER_FULL;
+            case HUNGRY -> HUNGER_HALF;
+            case FAMISHED, STARVING -> HUNGER_LOW;
         };
     }
-    //?} else {
-    /*private int townstead$hungerIconU(HungerData.HungerState state) {
-        return switch (state) {
-            case WELL_FED, ADEQUATE -> 52;
-            case HUNGRY -> 61;
-            case FAMISHED, STARVING -> 16;
-        };
-    }
-    *///?}
 
     private ResourceLocation townstead$energyIconSprite(FatigueData.FatigueState state) {
         return switch (state) {
-            case RESTED -> ENERGY_FULL;
-            case ALERT -> ENERGY_THREE_QUARTER;
+            case RESTED, ALERT -> ENERGY_FULL;
             case TIRED -> ENERGY_HALF;
-            case DROWSY -> ENERGY_QUARTER;
-            case EXHAUSTED -> ENERGY_EMPTY;
+            case DROWSY, EXHAUSTED -> ENERGY_LOW;
         };
     }
 

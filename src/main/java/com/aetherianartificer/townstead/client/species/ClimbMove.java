@@ -16,6 +16,10 @@ import org.joml.Vector3f;
  * looking. Forward goes toward the look direction flattened onto the wall, strafe along the surface; no input
  * sticks in place. Replaces the vanilla push-into-wall climb while clung. Client-side only (player movement is
  * client-authoritative); third person and villagers keep the vanilla climb.
+ *
+ * <p>The player stays locked to the current surface; holding crouch is the wrap modifier that lets the climb
+ * commit to an adjoining surface (wall-&gt;ceiling, around a corner), and jump lets go. Without crouch, walking
+ * toward a convex edge sticks at the lip instead of stepping off.</p>
  */
 public final class ClimbMove {
 
@@ -73,12 +77,15 @@ public final class ClimbMove {
             activeNormal = null;
             return false;
         }
-        if (mc.player.input.jumping || player.isShiftKeyDown()) {
+        if (mc.player.input.jumping) {
             activeNormal = null;
             return false;
         }
+        // Crouch is the wrap modifier (commit to an adjoining surface), consumed in chooseSurface and the
+        // edge-stop below; it no longer detaches. Jump is the sole release.
+        boolean wrap = player.isShiftKeyDown();
 
-        Vector3f normal = chooseSurface(player);
+        Vector3f normal = chooseSurface(player, wrap);
         if (normal == null) {
             activeNormal = null;
             return false;
@@ -110,7 +117,10 @@ public final class ClimbMove {
         double vx = -normal.x() * STICK;
         double vy = -normal.y() * STICK;
         double vz = -normal.z() * STICK;
-        if (dir.lengthSquared() > 1.0e-4f) {
+        // Locked to one plane (not wrapping): only move if the plane continues ahead, so walking toward a
+        // convex lip sticks at the edge instead of stepping off into a fall. Holding crouch (wrap) lifts this
+        // so the corner logic can carry you over; moving along the edge still finds the plane and passes.
+        if (dir.lengthSquared() > 1.0e-4f && (wrap || planeAhead(player, normal, dir))) {
             dir.normalize().mul((float) SPEED);
             vx += dir.x();
             vy += dir.y();
@@ -133,8 +143,24 @@ public final class ClimbMove {
         return true;
     }
 
-    private static Vector3f chooseSurface(Player player) {
+    private static Vector3f chooseSurface(Player player, boolean wrap) {
         Vector3f previous = activeNormal != null ? activeNormal : ClimbState.normal(player.getId());
+
+        // Plane-lock: with no wrap key held, never switch faces. Re-confirm the current plane is still there
+        // (probe only toward it) and keep its normal, so reaching a corner or a ceiling lip holds this face
+        // instead of the best-contact probe swinging onto a neighbouring surface on its own. Once on a surface
+        // you stick to it; crouch is the only thing that changes surface.
+        if (!wrap && previous != null) {
+            Candidate held = contactToward(player, previous, STICKY_PROBE, player.getBoundingBox());
+            return held != null && held.normal.y() <= 0.5f ? held.normal : null;
+        }
+
+        // A fresh grab (no plane yet) also needs the crouch key, so walking into a wall does not auto-latch;
+        // crouch is required to change surface from the ground onto a wall just as from a wall onto a ceiling.
+        if (previous == null && !wrap) return null;
+
+        // Wrap held (or a crouch-gated fresh attach): full best-contact plus a corner look-ahead so the climb
+        // can commit to an adjoining surface.
         Vector3f look = previous != null
                 ? ClimbState.lookForward(new Vector3f(previous).normalize(), player.getYRot())
                 : worldLook(player);
@@ -152,6 +178,32 @@ public final class ClimbMove {
         if (best != null && best.normal.y() > 0.5f) return null;
         if (best != null && (previous != null || startIntent(player))) return best.normal;
         return null;
+    }
+
+    /** Whether the current plane still continues just ahead of the intended move (locked edge-stop probe). */
+    private static boolean planeAhead(Player player, Vector3f normal, Vector3f move) {
+        Vector3f m = new Vector3f(move);
+        if (m.lengthSquared() < 1.0e-4f) return true;
+        m.normalize();
+        AABB dest = player.getBoundingBox().move(m.x() * CORNER_AHEAD, m.y() * CORNER_AHEAD, m.z() * CORNER_AHEAD);
+        return contactToward(player, normal, STICKY_PROBE, dest) != null;
+    }
+
+    /** Contact with the single face the entity is pressed against (the axis of {@code normal}); null if gone. */
+    private static Candidate contactToward(Player player, Vector3f normal, double reach, AABB box) {
+        Direction into = dominantInto(normal);
+        float distance = firstHit(player, box, into, reach);
+        if (distance <= 0f) return null;
+        return new Candidate(normalForProbe(into), 1.0f / distance);
+    }
+
+    /** The block-face direction the entity is pressed into for a surface with outward {@code normal}. */
+    private static Direction dominantInto(Vector3f normal) {
+        float x = -normal.x(), y = -normal.y(), z = -normal.z();
+        float ax = Math.abs(x), ay = Math.abs(y), az = Math.abs(z);
+        if (ay >= ax && ay >= az) return y > 0f ? Direction.UP : Direction.DOWN;
+        if (ax >= az) return x > 0f ? Direction.EAST : Direction.WEST;
+        return z > 0f ? Direction.SOUTH : Direction.NORTH;
     }
 
     private static Vector3f desiredMoveOn(Vector3f normal, Vector3f look, float forwardInput, float strafeInput) {

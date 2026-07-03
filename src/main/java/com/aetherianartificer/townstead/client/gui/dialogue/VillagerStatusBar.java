@@ -21,27 +21,27 @@ import net.minecraft.resources.ResourceLocation;
  * Reusable across different screens.
  */
 public class VillagerStatusBar {
+    // Icons live in the townstead_icons namespace (assets/townstead_icons/*.png).
     //? if >=1.21 {
-    private static final ResourceLocation FOOD_FULL = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_full.png");
-    private static final ResourceLocation FOOD_HALF = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_half.png");
-    private static final ResourceLocation FOOD_EMPTY = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_empty.png");
-    private static final ResourceLocation ENERGY_FULL = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_full.png");
-    private static final ResourceLocation ENERGY_THREE_QUARTER = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_three_quarter.png");
-    private static final ResourceLocation ENERGY_HALF = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_half.png");
-    private static final ResourceLocation ENERGY_QUARTER = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_quarter.png");
-    private static final ResourceLocation ENERGY_EMPTY = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_empty.png");
+    private static final ResourceLocation HUNGER_FULL = ResourceLocation.fromNamespaceAndPath("townstead_icons", "hunger_full.png");
+    private static final ResourceLocation HUNGER_HALF = ResourceLocation.fromNamespaceAndPath("townstead_icons", "hunger_half.png");
+    private static final ResourceLocation HUNGER_LOW = ResourceLocation.fromNamespaceAndPath("townstead_icons", "hunger_low.png");
+    private static final ResourceLocation ENERGY_FULL = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_full.png");
+    private static final ResourceLocation ENERGY_HALF = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_half.png");
+    private static final ResourceLocation ENERGY_LOW = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_low.png");
     //?} else {
-    /*private static final ResourceLocation ICONS = new ResourceLocation("minecraft", "textures/gui/icons.png");
-    private static final ResourceLocation ENERGY_FULL = new ResourceLocation("townstead", "textures/gui/energy_full.png");
-    private static final ResourceLocation ENERGY_THREE_QUARTER = new ResourceLocation("townstead", "textures/gui/energy_three_quarter.png");
-    private static final ResourceLocation ENERGY_HALF = new ResourceLocation("townstead", "textures/gui/energy_half.png");
-    private static final ResourceLocation ENERGY_QUARTER = new ResourceLocation("townstead", "textures/gui/energy_quarter.png");
-    private static final ResourceLocation ENERGY_EMPTY = new ResourceLocation("townstead", "textures/gui/energy_empty.png");
+    /*private static final ResourceLocation HUNGER_FULL = new ResourceLocation("townstead_icons", "hunger_full.png");
+    private static final ResourceLocation HUNGER_HALF = new ResourceLocation("townstead_icons", "hunger_half.png");
+    private static final ResourceLocation HUNGER_LOW = new ResourceLocation("townstead_icons", "hunger_low.png");
+    private static final ResourceLocation ENERGY_FULL = new ResourceLocation("townstead_icons", "energy_full.png");
+    private static final ResourceLocation ENERGY_HALF = new ResourceLocation("townstead_icons", "energy_half.png");
+    private static final ResourceLocation ENERGY_LOW = new ResourceLocation("townstead_icons", "energy_low.png");
     *///?}
 
     private static final int ICON_SIZE = 16;
     private static final int ICON_SPACING = 20;
-    private static final float ICON_SCALE = 16.0f / 9.0f;
+    // Thirst still uses a 9px bridge sprite; hunger/energy are native 16px.
+    private static final float THIRST_ICON_SCALE = 16.0f / 9.0f;
 
     private final int entityId;
 
@@ -113,17 +113,16 @@ public class VillagerStatusBar {
 
     private void renderHungerIcon(GuiGraphics graphics, int x, int y) {
         int hunger = HungerClientStore.get(entityId);
+        drawIcon(graphics, hungerSprite(HungerData.getState(hunger)), x, y);
+    }
+
+    // Icon art is a glyph-tight 12px sprite; scale it to the ICON_SIZE footprint.
+    private void drawIcon(GuiGraphics graphics, ResourceLocation sprite, int x, int y) {
         var pose = graphics.pose();
         pose.pushPose();
         pose.translate(x, y, 0);
-        pose.scale(ICON_SCALE, ICON_SCALE, 1.0f);
-        //? if >=1.21 {
-        ResourceLocation sprite = hungerSprite(HungerData.getState(hunger));
-        graphics.blit(sprite, 0, 0, 0, 0, 9, 9, 9, 9);
-        //?} else {
-        /*int u = hungerU(HungerData.getState(hunger));
-        graphics.blit(ICONS, 0, 0, u, 27, 9, 9, 256, 256);
-        *///?}
+        pose.scale(ICON_SIZE / 12.0f, ICON_SIZE / 12.0f, 1.0f);
+        graphics.blit(sprite, 0, 0, 0, 0, 12, 12, 12, 12);
         pose.popPose();
     }
 
@@ -133,7 +132,7 @@ public class VillagerStatusBar {
         var pose = graphics.pose();
         pose.pushPose();
         pose.translate(x, y, 0);
-        pose.scale(ICON_SCALE, ICON_SCALE, 1.0f);
+        pose.scale(THIRST_ICON_SCALE, THIRST_ICON_SCALE, 1.0f);
         graphics.blit(icon.texture(), 0, 0, icon.u(), icon.v(), 9, 9, icon.texW(), icon.texH());
         pose.popPose();
     }
@@ -141,12 +140,7 @@ public class VillagerStatusBar {
     private void renderEnergyIcon(GuiGraphics graphics, int x, int y) {
         int fatigue = FatigueClientStore.getFatigue(entityId);
         FatigueData.FatigueState state = FatigueData.getState(fatigue);
-        var pose = graphics.pose();
-        pose.pushPose();
-        pose.translate(x, y, 0);
-        pose.scale(ICON_SCALE, ICON_SCALE, 1.0f);
-        graphics.blit(energySprite(state), 0, 0, 0, 0, 9, 9, 9, 9);
-        pose.popPose();
+        drawIcon(graphics, energySprite(state), x, y);
     }
 
     private boolean isHovering(int mouseX, int mouseY, int iconX, int iconY) {
@@ -154,31 +148,19 @@ public class VillagerStatusBar {
                 && mouseY >= iconY && mouseY <= iconY + ICON_SIZE;
     }
 
-    //? if >=1.21 {
     private static ResourceLocation hungerSprite(HungerData.HungerState state) {
         return switch (state) {
-            case WELL_FED, ADEQUATE -> FOOD_FULL;
-            case HUNGRY -> FOOD_HALF;
-            case FAMISHED, STARVING -> FOOD_EMPTY;
+            case WELL_FED, ADEQUATE -> HUNGER_FULL;
+            case HUNGRY -> HUNGER_HALF;
+            case FAMISHED, STARVING -> HUNGER_LOW;
         };
     }
-    //?} else {
-    /*private static int hungerU(HungerData.HungerState state) {
-        return switch (state) {
-            case WELL_FED, ADEQUATE -> 52;
-            case HUNGRY -> 61;
-            case FAMISHED, STARVING -> 16;
-        };
-    }
-    *///?}
 
     private static ResourceLocation energySprite(FatigueData.FatigueState state) {
         return switch (state) {
-            case RESTED -> ENERGY_FULL;
-            case ALERT -> ENERGY_THREE_QUARTER;
+            case RESTED, ALERT -> ENERGY_FULL;
             case TIRED -> ENERGY_HALF;
-            case DROWSY -> ENERGY_QUARTER;
-            case EXHAUSTED -> ENERGY_EMPTY;
+            case DROWSY, EXHAUSTED -> ENERGY_LOW;
         };
     }
 }

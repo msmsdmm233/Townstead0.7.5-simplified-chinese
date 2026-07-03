@@ -17,9 +17,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * {@link LivingEntity#onClimbable()} (the once-per-10-ticks velocity nudge it replaced could not beat
  * gravity). Control scheme, for a player:
  * <ul>
- *   <li>push into a wall to climb up (vanilla's {@code horizontalCollision || jumping} climb boost);</li>
- *   <li>stop, and stick in place rather than slide off (slide suppressed below);</li>
- *   <li>sneak to ease down the wall;</li>
+ *   <li>hold crouch and push into a wall you face to grab it (crouch = change surface);</li>
+ *   <li>once grabbed, push to climb up and stick in place rather than slide off (slide suppressed below);</li>
+ *   <li>hold crouch again to wrap onto an adjoining surface (the movement controller owns this);</li>
  *   <li>jump to let go and fall.</li>
  * </ul>
  *
@@ -80,21 +80,22 @@ public abstract class LivingEntityClimbMixin {
             if (pushingIntoWall) cir.setReturnValue(true);
             return;
         }
-        // Jump or sneak = deliberate release: let go of the wall and fall (sneak drops the player straight to
-        // the ground instead of the vanilla slow crouch-slide).
-        if (townstead$holdingJump() || self.isShiftKeyDown()) {
+        // Jump = deliberate release: let go of the wall and fall. (Crouch is the surface-wrap modifier, owned
+        // by the movement controller, so it no longer releases here.)
+        if (townstead$holdingJump()) {
             townstead$clinging = false;
             return;
         }
         boolean beside = townstead$wallBeside(self);
         if (!beside) townstead$clinging = false;
-        if (pushingIntoWall) {
-            // Pushing into a wall it faces: this is the intent signal, so arm the cling and climb up.
+        if (pushingIntoWall && (townstead$clinging || self.isShiftKeyDown())) {
+            // Push into a wall you face WHILE CROUCHING to grab it (crouch = change surface). Once armed, stay
+            // clung and keep climbing by pushing, without holding crouch, until you jump off or leave.
             townstead$clinging = true;
             cir.setReturnValue(true);
         } else if (!grounded && beside && townstead$clinging) {
-            // Armed earlier by a push and still beside the wall: stick in place instead of sliding off.
-            // Brushing past or jumping near a wall without ever pushing never arms this, so it won't grab.
+            // Armed earlier by a crouch-grab and still beside the wall: stick in place instead of sliding off.
+            // Brushing past or jumping near a wall without ever grabbing never arms this, so it won't grab.
             cir.setReturnValue(true);
         }
     }
@@ -107,9 +108,10 @@ public abstract class LivingEntityClimbMixin {
     private void townstead$stickToWall(CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
         if (!MovementAbilities.isActive(self, Ability.CLIMBING)) return;
-        // Stick by default (suppress the slow slide); sneak to ease down. Vanilla only consults this for
-        // players inside handleOnClimbable, so a villager climber is unaffected and keeps the basic climb.
-        cir.setReturnValue(!self.isShiftKeyDown());
+        // Always stick (suppress the slow slide). Crouch is the surface-wrap modifier now, not a descend
+        // control; the player climbs down by looking/moving down (first person) or lets go with jump. Vanilla
+        // only consults this for players inside handleOnClimbable, so a villager climber is unaffected.
+        cir.setReturnValue(true);
     }
 
     /** True when a solid block sits against the entity horizontally, so it has a wall to cling to. */
