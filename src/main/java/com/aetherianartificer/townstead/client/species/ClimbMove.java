@@ -159,25 +159,58 @@ public final class ClimbMove {
         // crouch is required to change surface from the ground onto a wall just as from a wall onto a ceiling.
         if (previous == null && !wrap) return null;
 
-        // Wrap held (or a crouch-gated fresh attach): full best-contact plus a corner look-ahead so the climb
-        // can commit to an adjoining surface.
-        Vector3f look = previous != null
-                ? ClimbState.lookForward(new Vector3f(previous).normalize(), player.getYRot())
-                : worldLook(player);
-        Vector3f desired = desiredMoveOn(previous, look, player.zza, player.xxa);
-
-        Candidate best = bestContact(player, previous, STICKY_PROBE, player.getBoundingBox());
-        Candidate ahead = desired == null ? null : bestContact(player, previous, STICKY_PROBE,
-                player.getBoundingBox().move(desired.x() * CORNER_AHEAD, desired.y() * CORNER_AHEAD, desired.z() * CORNER_AHEAD));
-        if (ahead != null && best != null && ahead.normal.dot(best.normal) < 0.25f) {
-            best = ahead;
-        } else if (ahead != null && (best == null || ahead.score > best.score + 0.5f)) {
-            best = ahead;
+        // Wrap held, already on a plane: DEFAULT to holding the current plane (the same lock as no-wrap) and
+        // switch only when the move is carrying us INTO an adjoining surface. A plain nearest-contact pick
+        // thrashes at a corner -- while easing from one face to the next both faces stay within probe range,
+        // so an omnidirectional "closest surface" flip-flops between them every tick. Requiring the new face
+        // to OPPOSE the move direction (transitionTarget) makes it fire once, when we actually head off this
+        // plane onto that one, and ignore surfaces we're merely sliding parallel to (e.g. the ceiling above a
+        // wall you strafe along).
+        if (previous != null) {
+            Vector3f look = ClimbState.lookForward(new Vector3f(previous).normalize(), player.getYRot());
+            Vector3f desired = desiredMoveOn(previous, look, player.zza, player.xxa);
+            if (desired != null) {
+                Candidate into = transitionTarget(player, previous, desired);
+                if (into != null && into.normal.y() <= 0.5f) return into.normal;
+            }
+            Candidate held = contactToward(player, previous, STICKY_PROBE, player.getBoundingBox());
+            return held != null && held.normal.y() <= 0.5f ? held.normal : null;
         }
 
-        if (best != null && best.normal.y() > 0.5f) return null;
-        if (best != null && (previous != null || startIntent(player))) return best.normal;
-        return null;
+        // Fresh grab (previous == null, wrap held): omnidirectional latch onto the wall being pushed into;
+        // there is no plane to leave yet, so nearest-contact is the right pick here.
+        Candidate best = bestContact(player, null, STICKY_PROBE, player.getBoundingBox());
+        if (best == null || best.normal.y() > 0.5f) return null;
+        return startIntent(player) ? best.normal : null;
+    }
+
+    /**
+     * The surface a crouch-wrap should switch onto: the face the player is moving INTO. Steps the box a
+     * corner-ahead along {@code desired} and, among the faces there (skipping the plane being left), picks the
+     * nearest one whose outward normal OPPOSES the move -- that's the wall/ceiling we press into as we round
+     * the corner. The directional test is what stops the thrash: near a concave corner the old plane and the
+     * new one are both close, so a plain nearest-contact oscillates; a face we're only sliding parallel to
+     * (opposition ~0) is rejected, so the switch fires once, in the direction we actually travel. Null when
+     * nothing ahead opposes the move (stay locked to the current plane).
+     */
+    private static Candidate transitionTarget(Player player, Vector3f previous, Vector3f desired) {
+        Vector3f ex = new Vector3f(previous).normalize();
+        Vector3f move = new Vector3f(desired).normalize();
+        AABB box = player.getBoundingBox().move(
+                desired.x() * CORNER_AHEAD, desired.y() * CORNER_AHEAD, desired.z() * CORNER_AHEAD);
+        Candidate best = null;
+        for (Direction d : Direction.values()) {
+            if (d == Direction.DOWN) continue;
+            Vector3f normal = normalForProbe(d);
+            if (normal.dot(ex) > 0.85f) continue;      // skip the plane we're leaving
+            float opp = -normal.dot(move);             // >0 means we press into this face as we move
+            if (opp < 0.35f) continue;                 // reject faces we only slide parallel to
+            float distance = firstHit(player, box, d, STICKY_PROBE);
+            if (distance <= 0f) continue;
+            float score = opp / distance;              // nearest, most head-on face wins
+            if (best == null || score > best.score) best = new Candidate(normal, score);
+        }
+        return best;
     }
 
     /** Whether the current plane still continues just ahead of the intended move (locked edge-stop probe). */
@@ -219,11 +252,7 @@ public final class ClimbMove {
         return desired.normalize();
     }
 
-    private static Vector3f worldLook(Player player) {
-        Vec3 v = player.getViewVector(1.0f);
-        return new Vector3f((float) v.x, (float) v.y, (float) v.z);
-    }
-
+    /** Best (nearest, ceiling- and continuity-weighted) surface contact around {@code box}; null if none. */
     private static Candidate bestContact(Player player, Vector3f previous, double reach, AABB box) {
         Candidate best = null;
         for (Direction d : Direction.values()) {
