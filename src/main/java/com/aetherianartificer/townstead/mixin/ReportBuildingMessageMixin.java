@@ -23,6 +23,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Optional;
+
 import org.spongepowered.asm.mixin.Mixin;
 //? if <1.21 {
 /*import org.spongepowered.asm.mixin.Shadow;
@@ -86,17 +89,26 @@ public abstract class ReportBuildingMessageMixin {
                 return;
             }
             if (dock != null) {
-                VillageManager.get(level).findNearestVillage(player).ifPresent(v ->
-                        DockSuppression.clearAllOverlapping(level, v, dock.bounds()));
-                DockBuildingSync.sync(level, dock, pos);
-                VillageManager.get(level).findNearestVillage(player).ifPresent(v -> {
-                    BuildingTierReconciler.reconcileVillage(v, level);
-                    DockLocationIndex.rebuildVillage(level, v);
-                    BuildingRecognitionTracker.reconcile(level, v);
-                    SpiritReconciler.reconcileVillage(level, v);
-                });
-                if (act != ReportBuildingMessage.Action.AUTO_SCAN) ci.cancel();
-                return;
+                Optional<Village> villageOpt = VillageManager.get(level).findNearestVillage(player);
+                boolean insideHouse = villageOpt
+                        .map(v -> townstead$insideEnclosedBuilding(v, pos))
+                        .orElse(false);
+                if (!insideHouse) {
+                    villageOpt.ifPresent(v ->
+                            DockSuppression.clearAllOverlapping(level, v, dock.bounds()));
+                    DockBuildingSync.sync(level, dock, pos);
+                    villageOpt.ifPresent(v -> {
+                        BuildingTierReconciler.reconcileVillage(v, level);
+                        DockLocationIndex.rebuildVillage(level, v);
+                        BuildingRecognitionTracker.reconcile(level, v);
+                        SpiritReconciler.reconcileVillage(level, v);
+                    });
+                    if (act != ReportBuildingMessage.Action.AUTO_SCAN) ci.cancel();
+                    return;
+                }
+                // Player is standing inside an existing enclosed building, so
+                // this footprint is a house, not a dock. Fall through to
+                // enclosure / MCA handling rather than injecting a phantom dock.
             }
 
             Enclosure enclosure;
@@ -174,7 +186,7 @@ public abstract class ReportBuildingMessageMixin {
                             // suppression HEAD hook records the bounds, and
                             // DockBuildingSync checks it before re-syncing.
                             if (act != ReportBuildingMessage.Action.REMOVE) {
-                                townstead$detectAndSyncDockFromReport(level, player);
+                                townstead$detectAndSyncDockFromReport(level, player, v);
                             }
                             DockLocationIndex.rebuildVillage(level, v);
                             BuildingRecognitionTracker.reconcile(level, v);
@@ -192,14 +204,34 @@ public abstract class ReportBuildingMessageMixin {
     // an undersized plank component and false-downgrade the tier.
     private static final int TOWNSTEAD$REPORT_SCAN_RADIUS = 24;
 
-    private static void townstead$detectAndSyncDockFromReport(ServerLevel level, ServerPlayer player) {
+    private static void townstead$detectAndSyncDockFromReport(ServerLevel level, ServerPlayer player, Village village) {
         try {
-            Dock dock = DockScanner.scanForReport(level, player.blockPosition(), TOWNSTEAD$REPORT_SCAN_RADIUS);
+            BlockPos pos = player.blockPosition();
+            // Don't double-classify: a report fired from inside an existing
+            // enclosed building is that house, not a dock at the player's feet.
+            if (townstead$insideEnclosedBuilding(village, pos)) return;
+            Dock dock = DockScanner.scanForReport(level, pos, TOWNSTEAD$REPORT_SCAN_RADIUS);
             if (dock != null) {
-                DockBuildingSync.sync(level, dock, player.blockPosition());
+                DockBuildingSync.sync(level, dock, pos);
             }
         } catch (Throwable t) {
             TOWNSTEAD$LOG.warn("Dock detection from report-building failed: {}", t.toString());
         }
+    }
+
+    /**
+     * Is this position inside an existing enclosed building (a house or other
+     * roofed MCA building)? Dock and open-air enclosure types are excluded,
+     * since those are open structures a player can legitimately stand on.
+     */
+    private static boolean townstead$insideEnclosedBuilding(Village village, BlockPos pos) {
+        for (Building b : village.getBuildings().values()) {
+            String t = b.getType();
+            if (t == null) continue;
+            if (t.startsWith("dock_")) continue;
+            if (EnclosureTypeIndex.isEnclosureType(t)) continue;
+            if (b.containsPos(pos)) return true;
+        }
+        return false;
     }
 }

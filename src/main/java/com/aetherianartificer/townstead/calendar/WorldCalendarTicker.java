@@ -141,6 +141,12 @@ public final class WorldCalendarTicker {
                 - Math.floorDiv(lastSample, TICKS_PER_DAY));
         data.advance(current, delta, daysAdvanced);
         if (daysAdvanced > 0) {
+            // Track Serene's cycle for the year counter. Reads the live
+            // day-of-year once per in-game day (cheap; empty when Serene isn't
+            // present) and rolls the year over when Serene wraps to spring.
+            com.aetherianartificer.townstead.compat.calendar.bridge.SereneBridge
+                    .currentState(overworld)
+                    .ifPresent(s -> data.noteSereneDayOfYear(s.dayOfYear()));
             // Keep AgeableMob.lastSeenWorldDay stamps current so autosaves
             // between sessions persist the latest value (otherwise the next
             // load would see a stale stamp and incorrectly catch up).

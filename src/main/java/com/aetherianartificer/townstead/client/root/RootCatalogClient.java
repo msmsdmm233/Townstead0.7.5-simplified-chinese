@@ -37,6 +37,10 @@ public final class RootCatalogClient {
         RIGS = Map.copyOf(rigs);
         // Rig defs may have changed (e.g. a new camera bone); drop the derived eye-height cache.
         com.aetherianartificer.townstead.client.species.RigCamera.invalidate();
+        // A rig's declared hitbox may have changed too (e.g. an edited height on /reload). Client dimensions
+        // are only recomputed in refreshDimensions, so re-run it on the loaded rigged entities now, otherwise
+        // an in-place data-pack tweak won't apply until each entity respawns.
+        refreshRiggedDimensions();
         // Bridge data-pack traits into MCA's registry client-side so the editor lists them.
         // (enabledTraits comes from the server via MCA's own config sync.) Defensive against MCA drift.
         boolean any = false;
@@ -49,6 +53,18 @@ public final class RootCatalogClient {
             }
         }
         if (any) com.aetherianartificer.townstead.root.trait.TraitJsonLoader.enableRegisteredTraits();
+    }
+
+    /** Recompute dimensions for loaded rigged entities so an edited rig hitbox applies on /reload (client). */
+    private static void refreshRiggedDimensions() {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        mc.execute(() -> {
+            if (mc.level == null) return;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (e instanceof net.conczin.mca.entity.VillagerEntityMCA) e.refreshDimensions();
+            }
+            if (mc.player != null) mc.player.refreshDimensions();
+        });
     }
 
     public static List<RootCatalogEntry> origins() {

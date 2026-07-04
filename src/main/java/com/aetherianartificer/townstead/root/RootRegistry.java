@@ -67,10 +67,9 @@ public final class RootRegistry {
     }
 
     /**
-     * The ancestry-fraction vector a founder of this origin is seeded with: a single
-     * ancestry at 1.0 for an ancestry-based origin, or an even split across a
-     * lineage's listed ancestries. Heritage tracks ancestry, not lineage, so a
-     * pure Dark Elf seeds {@code {elf:1}} (its "Dark Elf" name comes from the origin).
+     * The ancestry-fraction vector a founder of this origin is seeded with. Heritage tracks ancestry,
+     * not lineage, so a pure Moon Elf seeds {@code {elf:1}} while its "Moon Elf" name comes from the
+     * selected root/lineage.
      */
     public static Heritage seedHeritage(@Nullable ResourceLocation id) {
         Root origin = resolveOrDefault(id);
@@ -78,20 +77,15 @@ public final class RootRegistry {
         if (origin.ancestry() != null) return Heritage.pure(origin.ancestry());
         if (origin.lineage() != null) {
             Lineage lineage = LineageRegistry.byId(origin.lineage());
-            if (lineage != null && !lineage.ancestries().isEmpty()) {
-                Map<ResourceLocation, Float> shares = new LinkedHashMap<>();
-                float share = 1f / lineage.ancestries().size();
-                for (ResourceLocation ancestry : lineage.ancestries()) shares.merge(ancestry, share, Float::sum);
-                return new Heritage(shares);
-            }
+            if (lineage != null && lineage.ancestry() != null) return Heritage.pure(lineage.ancestry());
         }
         return Heritage.EMPTY;
     }
 
     /**
      * Effective spawn bias for an assignment profile, composed bottom-up the same way as the
-     * genome: ancestry (or the union of a lineage's ancestries, then the lineage)
-     * → the origin's own bias, each level overriding per key and replacing the
+     * genome: ancestry (or lineage ancestry, then the lineage) → the origin's own bias,
+     * each level overriding per key and replacing the
      * default if it sets one. Drives the biome-weighted founder roll.
      */
     public static SpawnBias effectiveSpawnBias(@Nullable ResourceLocation id) {
@@ -100,10 +94,8 @@ public final class RootRegistry {
         SpawnBias bias = SpawnBias.EMPTY;
         Lineage lineage = origin.lineage() != null ? LineageRegistry.byId(origin.lineage()) : null;
         if (lineage != null) {
-            for (ResourceLocation ancestryId : lineage.ancestries()) {
-                Ancestry ancestry = AncestryRegistry.byId(ancestryId);
-                if (ancestry != null) bias = bias.mergedWith(ancestry.spawnBias());
-            }
+            Ancestry ancestry = AncestryRegistry.byId(lineage.ancestry());
+            if (ancestry != null) bias = bias.mergedWith(ancestry.spawnBias());
             bias = bias.mergedWith(lineage.spawnBias());
         } else if (origin.ancestry() != null) {
             // Lineage missing/unloaded — degrade to the declared ancestry's bias.
@@ -115,7 +107,7 @@ public final class RootRegistry {
 
     /**
      * The species an assignment profile selects: its own {@code species}, else its
-     * ancestry's, else the first species among its lineage's ancestries.
+     * ancestry's, else its lineage ancestry's species.
      * {@code null} if none resolves. Used to gate mixing within a species.
      */
     @Nullable
@@ -134,10 +126,8 @@ public final class RootRegistry {
         if (origin.lineage() != null) {
             Lineage lineage = LineageRegistry.byId(origin.lineage());
             if (lineage != null) {
-                for (ResourceLocation ancestryId : lineage.ancestries()) {
-                    Ancestry ancestry = AncestryRegistry.byId(ancestryId);
-                    if (ancestry != null && ancestry.species() != null) return ancestry.species();
-                }
+                Ancestry ancestry = AncestryRegistry.byId(lineage.ancestry());
+                if (ancestry != null && ancestry.species() != null) return ancestry.species();
             }
         }
         return null;
@@ -164,15 +154,13 @@ public final class RootRegistry {
         }
         Lineage lineage = origin.lineage() != null ? LineageRegistry.byId(origin.lineage()) : null;
         if (lineage != null) {
-            for (ResourceLocation ancestryId : lineage.ancestries()) {
-                Ancestry ancestry = AncestryRegistry.byId(ancestryId);
-                if (ancestry != null) base = base.mergedWith(ancestry.genome());
-            }
+            Ancestry ancestry = AncestryRegistry.byId(lineage.ancestry());
+            if (ancestry != null) base = base.mergedWith(ancestry.genome());
             base = base.mergedWith(lineage.genome());
         } else if (origin.ancestry() != null) {
             // Either an ancestry-based assignment profile, or a lineage-based one whose lineage
             // failed to load — degrade to the declared ancestry rather than a blank
-            // genome (a Dark Elf becomes a plain Elf, not a featureless villager).
+            // genome (a Moon Elf becomes a plain Elf, not a featureless villager).
             Ancestry ancestry = AncestryRegistry.byId(origin.ancestry());
             if (ancestry != null) base = base.mergedWith(ancestry.genome());
         }

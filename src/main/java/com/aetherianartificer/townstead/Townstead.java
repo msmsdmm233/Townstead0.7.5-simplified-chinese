@@ -550,6 +550,10 @@ public class Townstead {
                                 e.getDispatcher(), e.getBuildContext()));
         NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.BirthCommand.register(
+                                e.getDispatcher(), e.getBuildContext()));
+        NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.commands.CalendarCommands.register(
                                 e.getDispatcher(), e.getBuildContext()));
         NeoForge.EVENT_BUS.addListener(
@@ -842,6 +846,10 @@ public class Townstead {
                                 e.getDispatcher(), e.getBuildContext()));
         MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.BirthCommand.register(
+                                e.getDispatcher(), e.getBuildContext()));
+        MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.commands.CalendarCommands.register(
                                 e.getDispatcher(), e.getBuildContext()));
         MinecraftForge.EVENT_BUS.addListener(
@@ -1039,6 +1047,15 @@ public class Townstead {
             }
         });
         event.enqueueWork(RusticDelightThirstCompat::register);
+        // Seasonal calendars: synthesize the serene / ecliptic profiles from
+        // the partner mod's live term length so the grid follows the player's
+        // config instead of the fixed month lengths in the bundled JSON.
+        event.enqueueWork(() -> {
+            com.aetherianartificer.townstead.calendar.DynamicProfileSources.register(
+                    new com.aetherianartificer.townstead.compat.calendar.bridge.SereneProfileSource());
+            com.aetherianartificer.townstead.calendar.DynamicProfileSources.register(
+                    new com.aetherianartificer.townstead.compat.calendar.bridge.EclipticProfileSource());
+        });
         //? if forge {
         /*event.enqueueWork(Townstead::townstead$registerLifeBrewing);
         *///?}
@@ -2392,6 +2409,16 @@ public class Townstead {
                                 com.aetherianartificer.townstead.root.ExpressedGenesS2CPayload.forEntity(tracked.getId(), living);
                         PacketDistributor.sendToPlayer(sp, genes);
                         PacketDistributor.sendToPlayersTrackingEntity(tracked, genes);
+                    }
+                    // The root change re-rolls the villager's personality (and life-stage-derived
+                    // fields); push a fresh life sync so the inspector/editor reflect it immediately
+                    // instead of waiting for the next periodic broadcast.
+                    if (tracked instanceof VillagerEntityMCA villager) {
+                        com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
+                        if (lifeSync != null) {
+                            PacketDistributor.sendToPlayer(sp, lifeSync);
+                            PacketDistributor.sendToPlayersTrackingEntity(villager, lifeSync);
+                        }
                     }
                 }
             } else {

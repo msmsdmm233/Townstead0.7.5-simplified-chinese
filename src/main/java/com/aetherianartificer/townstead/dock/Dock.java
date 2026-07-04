@@ -9,10 +9,11 @@ import net.minecraft.world.phys.Vec3;
  * margin around the plank surface plus ~2 blocks above, so decorations sitting
  * just next to or above the deck fall inside the box.
  *
- * A dock is defined purely by its structure (planks, water, lights, railings,
- * pillars, deep-water reach) — see {@link DockScanner} for the requirements
- * ladder. Barrels and other fisherman plumbing aren't part of the dock itself;
- * the fisherman task decides separately whether to work a given dock.
+ * A dock is defined by its structure (planks, water, lights, railings) plus a
+ * fisherman's barrel anchored on or beside the deck — see {@link DockScanner}
+ * for the requirements ladder. The barrel is the keystone: a deck without one
+ * is just shoreline flooring and won't register. The fisherman task decides
+ * separately whether to actually work a given dock.
  *
  * plankCount is retained for debug output and future UI "you have X planks,
  * need Y" hints.

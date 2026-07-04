@@ -11,18 +11,18 @@ import java.util.List;
  *
  * <p>{@code id} is the stable identifier the runtime uses (NBT, telemetry,
  * dialogue). {@code label} is the localized name shown to players (caterpillar,
- * elder, …). {@code presentsAs} maps the stage onto the canonical axis so
- * MCA's hardcoded {@code == ADULT} gates still work for an origin that calls
+ * elder, ...). {@code presentsAs} maps the stage onto the canonical axis so
+ * MCA's hardcoded {@code == ADULT} gates still work for a root that calls
  * its adult stage "Butterfly".</p>
  *
  * <p>Two independent axes carry the time model:</p>
  * <ul>
- *   <li>{@code days} — how long the stage lasts in <em>game-days</em> (pacing).
- *       Calendar-independent like MCA's tick-based aging, so a villager grows up
- *       in the same wall-clock time regardless of the world's year length.
- *       Scaled per-villager by the Lifespan variance at spawn.</li>
+ *   <li>{@code days} - how long the stage lasts in Townstead life days. Life
+ *       days are the biological age counter, protected from calendar relabeling
+ *       so changing the displayed date does not age villagers. Scaled
+ *       per-villager by the Lifespan variance at spawn.</li>
  *   <li>{@code narrativeStart}/{@code narrativeEnd} — the <em>apparent</em> age
- *       range in "life years" this stage represents (e.g. adult 18→64). Display
+ *       range in "life years" this stage represents (e.g. adult 18 to 64). Display
  *       interpolates across it by progress, giving the dog-years age shown to
  *       players (the real elapsed game-time is far too small to be a headline).</li>
  * </ul>
@@ -42,7 +42,7 @@ public record LifeStage(
         float scale,
         boolean explicitNarrative,
         // Optional rig id this stage renders as, overriding the species rig (e.g. an "egg" stage rendering
-        // an egg model). Null/empty = use the species rig. Reaches the client per-origin via the origin
+        // an egg model). Null/empty = use the species rig. Reaches the client per-root via the root
         // catalog (RootCatalogEntry.stageRigs).
         @Nullable String rig,
         // Server-side stage behavior flags (all default true). An "egg" stage sets them false: it can't

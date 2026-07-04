@@ -28,12 +28,12 @@ final class GeneVisuals {
     private static final ResourceLocation STONE = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/block/stone.png");
     private static final ResourceLocation FOOD_ICON = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/food_full.png");
     private static final ResourceLocation HEART_ICON = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/sprites/hud/heart/full.png");
-    private static final ResourceLocation ENERGY_ICON = ResourceLocation.fromNamespaceAndPath("townstead", "textures/gui/energy_full.png");
+    private static final ResourceLocation ENERGY_ICON = ResourceLocation.fromNamespaceAndPath("townstead_icons", "energy_full.png");
     private static final ResourceLocation STEVE_SKIN = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/entity/player/wide/steve.png");
     //?} else {
     /*private static final ResourceLocation STONE = new ResourceLocation("minecraft", "textures/block/stone.png");
     private static final ResourceLocation VANILLA_ICONS = new ResourceLocation("minecraft", "textures/gui/icons.png");
-    private static final ResourceLocation ENERGY_ICON = new ResourceLocation("townstead", "textures/gui/energy_full.png");
+    private static final ResourceLocation ENERGY_ICON = new ResourceLocation("townstead_icons", "energy_full.png");
     private static final ResourceLocation STEVE_SKIN = new ResourceLocation("minecraft", "textures/entity/player/wide/steve.png");
     *///?}
 
@@ -91,11 +91,21 @@ final class GeneVisuals {
             case "lifespan":   itemIcon(g, LIFESPAN_ITEM, x, y); break;
             case "abilities":  itemIcon(g, ABILITIES_ITEM, x, y); break;
             case "reproduction": itemIcon(g, REPRODUCTION_ITEM, x, y); break;
-            case "activity":   g.blit(ENERGY_ICON, x, y, 0, 0, 9, 9, 9, 9); break;
+            case "activity":   energyIcon(g, x, y); break;
             case "appearance": g.blit(STEVE_SKIN, x, y, 8, 8, 8, 8, 64, 64); break; // default-skin face
             case "hydration":  thirstIcon(g, x, y); break;
             default: break;
         }
+    }
+
+    // Energy art is a 12px sprite; scale it to the 9px category-icon footprint.
+    private static void energyIcon(GuiGraphics g, int x, int y) {
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(x, y, 0);
+        pose.scale(ICON_SIZE / 12.0f, ICON_SIZE / 12.0f, 1.0f);
+        g.blit(ENERGY_ICON, 0, 0, 0, 0, 12, 12, 12, 12);
+        pose.popPose();
     }
 
     private static void foodIcon(GuiGraphics g, int x, int y) {

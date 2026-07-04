@@ -59,10 +59,12 @@ public record RigDefinition(
         // Whether this rig uses MCA hair. False by default (a custom rig draws its own head and a
         // skeleton has no hair, so the editor hides the hair controls); set true to opt back in.
         boolean hair,
-        // Per-state bone poses (e.g. "crouch"): each state names bones to rotate/offset on top of the
-        // model's own setupAnim, so a pack authors a rig's crouch (a spider splays its legs) as data
-        // instead of engine code. Empty when the rig declares none.
-        Map<String, List<PoseBone>> poses,
+        // Per-state poses (e.g. "crouch", "sleep"): each state names bones to rotate/offset on top of the
+        // model's own setupAnim, and optionally a whole-body transform (yaw/pitch/roll of the entity root,
+        // for a turn a per-bone pose can't express on a rig whose bones aren't under a common root). So a
+        // pack authors a rig's crouch (a spider splays its legs) or how it rests asleep as data instead of
+        // engine code. Empty when the rig declares none.
+        Map<String, PoseState> poses,
         // The collision/interaction box this rig gives the entity, in blocks, or null to keep MCA's
         // scale-derived default (0.6 x 2.0). Absolute (not gene-scaled): the number you write is the box
         // you get, so a full-block egg rig declares 1 x 1 instead of inheriting a 2-tall humanoid column.
@@ -88,6 +90,21 @@ public record RigDefinition(
 
     /** The collision/interaction box a rig imposes, in blocks (width is the square footprint side). */
     public record Hitbox(float width, float height) {}
+
+    /**
+     * One named pose: an optional whole-body {@code body} transform (entity-root yaw/pitch/roll, applied
+     * by the render mixin for states that hook it, e.g. sleep) plus the per-bone {@code bones} list. A
+     * state authored as a bare JSON array has a null body (bones only); an object form carries both.
+     */
+    public record PoseState(@Nullable BodyPose body, List<PoseBone> bones) {}
+
+    /**
+     * A whole-body pose transform. {@code yaw}/{@code pitch}/{@code roll} are degrees added to the entity
+     * root (applied by the render mixin, on top of the bed/stance-aligned rest). {@code offset} is model
+     * pixels applied uniformly to the whole rendered body (all bones together, in the model frame, so it
+     * reads the same way and sign as a per-bone offset). Not per-bone: it shifts the entire body as one.
+     */
+    public record BodyPose(float yaw, float pitch, float roll, float[] offset) {}
 
     /**
      * One bone in a named pose: the {@code bone}'s geo name, an additive {@code rotation} in degrees
@@ -244,5 +261,19 @@ public record RigDefinition(
         String bone = bones.get(channel);
         if (bone != null) return bone;
         return channel.equals("headwear") ? "hat" : channel;
+    }
+
+    /** The per-bone list for a pose state, or null when the rig declares no such state. */
+    @Nullable
+    public List<PoseBone> poseBones(String state) {
+        PoseState s = poses.get(state);
+        return s == null ? null : s.bones();
+    }
+
+    /** The whole-body transform for a pose state, or null when the state (or rig) declares none. */
+    @Nullable
+    public BodyPose bodyPose(String state) {
+        PoseState s = poses.get(state);
+        return s == null ? null : s.body();
     }
 }

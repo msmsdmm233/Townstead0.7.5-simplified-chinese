@@ -2,6 +2,8 @@ package com.aetherianartificer.townstead.root.reproduction;
 
 import com.aetherianartificer.townstead.root.ExpressedGenes;
 import com.aetherianartificer.townstead.root.gene.types.FertilityGeneType;
+import net.conczin.mca.entity.VillagerEntityMCA;
+import net.conczin.mca.entity.ai.Traits;
 import net.minecraft.world.entity.LivingEntity;
 
 import java.util.List;
@@ -30,5 +32,24 @@ public final class Fertility {
     /** Whether two prospective parents can produce offspring (both fertile). */
     public static boolean canBreed(LivingEntity a, LivingEntity b) {
         return isFertile(a) && isFertile(b);
+    }
+
+    /**
+     * Mirror the genetic fertility state onto MCA's own {@code infertile} trait, so MCA's gestation
+     * gate (and other mods reading traits) agree with the {@code townstead_roots:fertility} gene.
+     * The trait is version-specific: MCA registered it recently, and older builds lack it entirely.
+     * We resolve it by id rather than the {@code Traits.INFERTILE} field so this compiles and runs on
+     * both; when the trait is absent this is a no-op and only the breeding mixins enforce sterility.
+     */
+    public static void syncMcaInfertileTrait(VillagerEntityMCA villager) {
+        if (villager == null) return;
+        Traits.Trait infertile = Traits.Trait.valueOf("infertile");
+        // Absent on this MCA version: valueOf yields null (newer builds) or the "unknown" sentinel (older).
+        if (infertile == null || "unknown".equals(infertile.id())) return;
+        if (isFertile(villager)) {
+            villager.getTraits().removeTrait(infertile);
+        } else {
+            villager.getTraits().addTrait(infertile);
+        }
     }
 }

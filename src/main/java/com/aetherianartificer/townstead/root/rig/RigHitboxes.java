@@ -26,6 +26,17 @@ public final class RigHitboxes {
     private RigHitboxes() {}
 
     /**
+     * Max collision WIDTH any rig's hitbox is clamped to, so a rig can render large yet still path through a
+     * 1-block doorway. An open door leaf juts ~3px (0.1875) into the opening, leaving ~0.81 clear, and MCA's
+     * village/building navigation assumes a roughly vanilla width; 0.9 could not fit. The on-screen size is a
+     * separate client render scale, so this clamp never changes how big the entity looks.
+     */
+    private static final float DOOR_SAFE_WIDTH = 0.7f;
+
+    private static final boolean DEBUG = false; // flip true to log per-side hitbox resolution (latest.log, townstead/rig)
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("townstead/rig");
+
+    /**
      * The dimensions this entity's rig imposes, or null to leave MCA's scale-derived default. Sleeping
      * villagers keep MCA's sleeping box. Non-villagers and rigs without a declared hitbox return null.
      */
@@ -36,9 +47,17 @@ public final class RigHitboxes {
         // (the default humanoid origins) resolves null below and stays vanilla 0.6 x 1.8.
         if (!(entity instanceof VillagerEntityMCA) && !(entity instanceof Player)) return null;
         if (!(entity instanceof LivingEntity living)) return null;
-        RigDefinition.Hitbox box = entity.level().isClientSide ? forClient(living) : forServer(living);
+        boolean client = entity.level().isClientSide;
+        RigDefinition.Hitbox box = client ? forClient(living) : forServer(living);
+        if (DEBUG && client && entity instanceof VillagerEntityMCA) {
+            LOG.info("hitbox CLIENT id={} pose={} -> {}", entity.getId(), pose,
+                    box == null ? "NULL (keeps MCA default)" : (box.width() + "x" + box.height()));
+        }
         if (box == null) return null;
-        return EntityDimensions.scalable(box.width(), box.height());
+        // Clamp width to stay door-passable (see DOOR_SAFE_WIDTH); height is left as declared (short is fine,
+        // tall just needs headroom). Visual size is unaffected — it is a separate client render scale.
+        float width = Math.min(box.width(), DOOR_SAFE_WIDTH);
+        return EntityDimensions.scalable(width, box.height());
     }
 
     private static RigDefinition.Hitbox forServer(LivingEntity entity) {
@@ -49,10 +68,15 @@ public final class RigHitboxes {
     private static RigDefinition.Hitbox forClient(LivingEntity entity) {
         String rootId = RootClientStore.resolve(entity);
         RootCatalogEntry origin = RootCatalogClient.origin(rootId);
-        if (origin == null) return null;
+        if (origin == null) {
+            if (DEBUG) LOG.info("forClient id={} rootId={} -> origin NULL", entity.getId(), rootId);
+            return null;
+        }
         String rigBase = clientStageRig(entity, origin);
         if (rigBase == null || rigBase.isEmpty()) rigBase = origin.rigBase();
         RigDefinition def = RootCatalogClient.rig(rigBase);
+        if (DEBUG) LOG.info("forClient id={} rootId={} rigBase={} def={} hitbox={}", entity.getId(), rootId,
+                rigBase, def == null ? "NULL" : "ok", def == null || def.hitbox() == null ? "NULL" : (def.hitbox().width() + "x" + def.hitbox().height()));
         return def == null ? null : def.hitbox();
     }
 

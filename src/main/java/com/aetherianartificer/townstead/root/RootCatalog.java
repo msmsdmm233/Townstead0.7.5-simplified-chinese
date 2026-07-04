@@ -80,7 +80,8 @@ public final class RootCatalog {
                     spc != null ? spc.rig().scale() : Rig.VILLAGER.scale(),
                     spc != null ? spc.animations() : Animations.DEFAULT,
                     spc == null || spc.breasts(),
-                    stageRigsFor(origin.id())));
+                    stageRigsFor(origin.id()),
+                    spc != null ? spc.characterEditor() : null));
         }
         return new Snapshot(origins, new ArrayList<>(genes.values()), traits,
                 com.aetherianartificer.townstead.root.rig.RigRegistry.all());

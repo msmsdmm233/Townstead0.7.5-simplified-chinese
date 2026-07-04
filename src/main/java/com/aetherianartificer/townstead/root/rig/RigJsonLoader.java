@@ -127,22 +127,45 @@ public final class RigJsonLoader extends SimpleJsonResourceReloadListener {
 
         boolean hair = GsonHelper.getAsBoolean(obj, "hair", false);
 
-        // Per-state bone poses: { "<state>": [ { "bone": ..., "rotation": [x,y,z], "offset": [x,y,z] } ] }.
-        Map<String, java.util.List<RigDefinition.PoseBone>> poses = new LinkedHashMap<>();
+        // Per-state poses. A state value is either a bare bone array (bones only) or an object with an
+        // optional whole-body transform and its bone list:
+        //   "<state>": [ { "bone": ..., "rotation": [x,y,z], "offset": [x,y,z] } ]
+        //   "<state>": { "body": { "yaw": .., "pitch": .., "roll": .. }, "bones": [ ... ] }
+        Map<String, RigDefinition.PoseState> poses = new LinkedHashMap<>();
         if (obj.has("poses") && obj.get("poses").isJsonObject()) {
             for (Map.Entry<String, JsonElement> state : obj.getAsJsonObject("poses").entrySet()) {
-                if (!state.getValue().isJsonArray()) continue;
-                java.util.List<RigDefinition.PoseBone> bonePoses = new java.util.ArrayList<>();
-                for (JsonElement el : state.getValue().getAsJsonArray()) {
-                    if (!el.isJsonObject()) continue;
-                    JsonObject po = el.getAsJsonObject();
-                    String bone = GsonHelper.getAsString(po, "bone", "");
-                    if (bone.isEmpty()) continue;
-                    bonePoses.add(new RigDefinition.PoseBone(bone,
-                            vec(po, "rotation", 3, new float[]{0f, 0f, 0f}),
-                            vec(po, "offset", 3, new float[]{0f, 0f, 0f})));
+                JsonElement val = state.getValue();
+                RigDefinition.BodyPose body = null;
+                JsonElement bonesEl = null;
+                if (val.isJsonArray()) {
+                    bonesEl = val;
+                } else if (val.isJsonObject()) {
+                    JsonObject so = val.getAsJsonObject();
+                    if (so.has("body") && so.get("body").isJsonObject()) {
+                        JsonObject b = so.getAsJsonObject("body");
+                        body = new RigDefinition.BodyPose(
+                                GsonHelper.getAsFloat(b, "yaw", 0f),
+                                GsonHelper.getAsFloat(b, "pitch", 0f),
+                                GsonHelper.getAsFloat(b, "roll", 0f),
+                                vec(b, "offset", 3, new float[]{0f, 0f, 0f}));
+                    }
+                    if (so.has("bones") && so.get("bones").isJsonArray()) bonesEl = so.get("bones");
+                } else {
+                    continue;
                 }
-                poses.put(state.getKey(), java.util.List.copyOf(bonePoses));
+                java.util.List<RigDefinition.PoseBone> bonePoses = new java.util.ArrayList<>();
+                if (bonesEl != null) {
+                    for (JsonElement el : bonesEl.getAsJsonArray()) {
+                        if (!el.isJsonObject()) continue;
+                        JsonObject po = el.getAsJsonObject();
+                        String bone = GsonHelper.getAsString(po, "bone", "");
+                        if (bone.isEmpty()) continue;
+                        bonePoses.add(new RigDefinition.PoseBone(bone,
+                                vec(po, "rotation", 3, new float[]{0f, 0f, 0f}),
+                                vec(po, "offset", 3, new float[]{0f, 0f, 0f})));
+                    }
+                }
+                poses.put(state.getKey(), new RigDefinition.PoseState(body, java.util.List.copyOf(bonePoses)));
             }
         }
 

@@ -93,7 +93,11 @@ public final class ClimbState {
             Vector3f previous = s == null ? null : s.normal;
             Vector3f n = le == mc.player ? ClimbMove.activeNormal() : null;
             if (n == null) n = ClimbRender.wallNormal(le, alreadyOn, previous);
-            if (n != null && le == mc.player && !alreadyOn && !ClimbRender.startIntent(le)) {
+            // Starting a climb needs intent AND the crouch (grip) key: push into a wall you face while
+            // crouching. Once attached it holds on proximity without crouch (hysteresis / stick), so crouch is
+            // only ever needed to CHANGE surface, never to stay on one.
+            if (n != null && le == mc.player && !alreadyOn
+                    && (!ClimbRender.startIntent(le) || !mc.player.isShiftKeyDown())) {
                 n = null;
             }
             if (n != null) {
@@ -110,8 +114,14 @@ public final class ClimbState {
                 }
                 s.factor = Math.min(1f, s.factor + STEP);
             } else if (s != null) {
-                s.factor = Math.max(0f, s.factor - DECAY);
-                if (s.factor <= 0f) SURFACES.remove(e.getId());
+                // Jump is an instant release: snap straight back to normal gravity for the local player rather
+                // than the gentle ease-out (which exists only to coast across corner probe gaps mid-climb).
+                if (le == mc.player && mc.player.input.jumping) {
+                    SURFACES.remove(e.getId());
+                } else {
+                    s.factor = Math.max(0f, s.factor - DECAY);
+                    if (s.factor <= 0f) SURFACES.remove(e.getId());
+                }
             }
         }
         SURFACES.keySet().removeIf(id -> mc.level.getEntity(id) == null);
@@ -257,6 +267,25 @@ public final class ClimbState {
     /** The world direction the surface-frame camera looks, used to steer look-relative movement. */
     public static Vector3f lookForward(Vector3f n, float entityYaw) {
         return cameraOrientation(n, entityYaw).transform(new Vector3f(0f, 0f, -1f));
+    }
+
+    /**
+     * The world look direction the local player's REORIENTED crosshair points, as a raycast view vector, or
+     * null when the player is not reoriented onto a surface. Block/entity picking uses the entity's raw
+     * {@code getViewVector} (from yaw/pitch), but while clung the camera is tipped onto the surface by
+     * {@link ClimbView} without changing those fields -- so the pick ray and the crosshair diverge and blocks
+     * land where the un-tipped look points. A mixin swaps in this vector for the local clung player so what you
+     * place/hit follows the crosshair. Client-only; callers guard on {@code level.isClientSide} first.
+     */
+    public static net.minecraft.world.phys.Vec3 reorientedPick(LivingEntity self) {
+        Minecraft mc = Minecraft.getInstance();
+        if (self != mc.player || !reorientedView()) return null;
+        int id = self.getId();
+        if (factor(id) <= 0f) return null;
+        Vector3f n = normal(id);
+        if (n == null) return null;
+        Vector3f f = lookForward(n, self.getYRot());
+        return new net.minecraft.world.phys.Vec3(f.x(), f.y(), f.z());
     }
 
     private static String fmtVec(Vector3f v) {

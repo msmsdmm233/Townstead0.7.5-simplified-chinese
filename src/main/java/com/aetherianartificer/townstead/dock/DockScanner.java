@@ -33,8 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Detects a dock/wharf structure around a given position. Results cached per
  * scan origin with a short TTL. Callers include the fisherman AI (scans from
  * its barrel) and the player's building-report flow (scans from the player's
- * feet) — both just hand in a position; the dock itself doesn't require any
- * particular block at the origin.
+ * feet) — both just hand in a position. No block is required at the origin
+ * itself, but a fisherman's barrel must sit on or beside the deck somewhere
+ * for the structure to register as a dock at all.
  *
  * Tier ladder (each tier fully includes the prior — pure structure, no
  * fisherman-specific requirements):
@@ -42,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   Tier 1 — Landing
  *     - 5+ horizontally connected crafted deck blocks at the same Y-level
  *       (wooden surfaces, stone/brick surfaces, or similar built dock flooring)
+ *     - a barrel resting on or immediately beside the deck (the anchor)
  *     - at least 1 deck block beside water or over/near water within a short drop
  *     - Perimeter deck blocks cannot be almost fully walled; a solid block above
  *       most perimeter blocks reads as a house wall, not a landing.
@@ -192,16 +194,26 @@ public final class DockScanner {
 
     private static @Nullable Dock scanUncached(ServerLevel level, BlockPos near, int horizontalRadius, boolean diagnostics) {
         Set<Long> planks = new HashSet<>();
+        Set<Long> barrels = new HashSet<>();
         for (BlockPos p : BlockPos.betweenClosed(
                 near.offset(-horizontalRadius, -VERTICAL_RADIUS, -horizontalRadius),
                 near.offset(horizontalRadius, VERTICAL_RADIUS, horizontalRadius))) {
             BlockState s = level.getBlockState(p);
             if (isDockSurface(s)) {
                 planks.add(p.asLong());
+            } else if (s.is(Blocks.BARREL)) {
+                barrels.add(p.asLong());
             }
         }
         if (planks.size() < T1_MIN_PLANKS) {
             if (diagnostics) logReject("not enough dock surfaces in scan box", near, horizontalRadius, planks.size(), 0, 0, 0, 0.0f, 0.0f, null);
+            return null;
+        }
+        // A dock is anchored by a fisherman's barrel on or beside the deck.
+        // Without one the structure is just shoreline flooring (a house, path,
+        // patio) and shouldn't register as a dock.
+        if (barrels.isEmpty()) {
+            if (diagnostics) logReject("no barrel near deck", near, horizontalRadius, planks.size(), 0, 0, 0, 0.0f, 0.0f, null);
             return null;
         }
 
@@ -244,6 +256,15 @@ public final class DockScanner {
                 closestOver = componentWater.over();
                 closestWalled = componentWalled;
                 closestOpenSky = componentOpenSky;
+            }
+            // Anchor gate: the deck component must have a barrel sitting on it
+            // or right beside it. This both enforces the fisherman-workstation
+            // requirement and scopes detection to the deliberately-built deck,
+            // so reporting a waterside house (no deckside barrel) can't spawn a
+            // phantom dock from the player's feet.
+            if (!componentHasBarrel(component, barrels)) {
+                if (closestBounds == componentBounds) closestReject = "no barrel on deck";
+                continue;
             }
             if (!meetsWaterContact(componentWater, T1_MIN_WATER_TOUCH, T1_MIN_PLANKS_OVER_WATER)) {
                 if (closestBounds == componentBounds) closestReject = "no qualifying water contact";
@@ -338,6 +359,25 @@ public final class DockScanner {
             components.add(component);
         }
         return components;
+    }
+
+    /**
+     * Is a barrel anchored to this deck component? True when a barrel rests
+     * directly on a deck block, or sits immediately beside the deck at deck
+     * level or one block above it (a barrel placed at the deck edge or on the
+     * shore lip). Generous on purpose so natural placements all count, while
+     * still demanding the barrel belong to this specific deck.
+     */
+    private static boolean componentHasBarrel(Set<Long> deck, Set<Long> barrels) {
+        for (long bk : barrels) {
+            BlockPos b = BlockPos.of(bk);
+            if (deck.contains(b.below().asLong())) return true;
+            for (Direction d : Direction.Plane.HORIZONTAL) {
+                if (deck.contains(b.relative(d).asLong())) return true;
+                if (deck.contains(b.below().relative(d).asLong())) return true;
+            }
+        }
+        return false;
     }
 
     private static double distanceToBoundsSqr(BlockPos pos, BoundingBox bb) {
