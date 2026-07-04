@@ -50,6 +50,8 @@ public class WorldCalendarSavedData extends SavedData {
     private static final String KEY_HAS_LAST_REAL_MILLIS = "hasLastRealMillis";
     private static final String KEY_TIME_MODE_OVERRIDE = "timeModeOverride";
     private static final String KEY_LIFE_EPOCH_SHIFT = "lifeEpochShift";
+    private static final String KEY_SERENE_CYCLE_COUNT = "sereneCycleCount";
+    private static final String KEY_SERENE_LAST_DOY = "sereneLastDayOfYear";
 
     public static final int DEFAULT_EPOCH_YEAR_OFFSET = 1000;
     private static final long MILLIS_PER_DAY = 86_400_000L;
@@ -64,6 +66,12 @@ public class WorldCalendarSavedData extends SavedData {
     // re-dating the calendar never ages villagers, while real elapsed time still does.
     private long lifeEpochShift = 0L;
     private boolean calendarInitialized = false;
+    // Serene-cycle year tracking: number of full Serene cycles (Late Winter ->
+    // Early Spring wraps) observed, and the last day-of-year we sampled so the
+    // ticker can detect the next wrap. -1 = not yet seeded. Only meaningful when
+    // Serene Seasons is present; ignored by every other calendar driver.
+    private int sereneCycleCount = 0;
+    private int sereneLastDayOfYear = -1;
     private long lastRealMillisAtSave = 0L;
     private boolean hasLastRealMillis = false;
     private boolean realClockCatchupApplied = false;
@@ -115,6 +123,8 @@ public class WorldCalendarSavedData extends SavedData {
         if (tag.contains(KEY_EPOCH)) data.epochYearOffset = tag.getInt(KEY_EPOCH);
         if (tag.contains(KEY_LIFE_EPOCH_SHIFT)) data.lifeEpochShift = tag.getLong(KEY_LIFE_EPOCH_SHIFT);
         if (tag.contains(KEY_INITIALIZED)) data.calendarInitialized = tag.getBoolean(KEY_INITIALIZED);
+        if (tag.contains(KEY_SERENE_CYCLE_COUNT)) data.sereneCycleCount = tag.getInt(KEY_SERENE_CYCLE_COUNT);
+        if (tag.contains(KEY_SERENE_LAST_DOY)) data.sereneLastDayOfYear = tag.getInt(KEY_SERENE_LAST_DOY);
         if (tag.contains(KEY_LAST_REAL_MILLIS)) data.lastRealMillisAtSave = tag.getLong(KEY_LAST_REAL_MILLIS);
         if (tag.contains(KEY_HAS_LAST_REAL_MILLIS)) data.hasLastRealMillis = tag.getBoolean(KEY_HAS_LAST_REAL_MILLIS);
         if (tag.contains(KEY_TIME_MODE_OVERRIDE)) {
@@ -170,6 +180,8 @@ public class WorldCalendarSavedData extends SavedData {
         tag.putInt(KEY_EPOCH, epochYearOffset);
         tag.putLong(KEY_LIFE_EPOCH_SHIFT, lifeEpochShift);
         tag.putBoolean(KEY_INITIALIZED, calendarInitialized);
+        tag.putInt(KEY_SERENE_CYCLE_COUNT, sereneCycleCount);
+        tag.putInt(KEY_SERENE_LAST_DOY, sereneLastDayOfYear);
         // Stamp current wall-clock millis at save time so Animal Crossing mode
         // can compute real-days-elapsed on the next load. Always written
         // (regardless of time_mode) so the timestamp is available if the user
@@ -219,8 +231,36 @@ public class WorldCalendarSavedData extends SavedData {
     public int epochYearOffset() { return epochYearOffset; }
     public long lifeEpochShift() { return lifeEpochShift; }
     public boolean calendarInitialized() { return calendarInitialized; }
+    public int sereneCycleCount() { return sereneCycleCount; }
+    public int sereneLastDayOfYear() { return sereneLastDayOfYear; }
     @Nullable
     public ResourceLocation activeProfileOverride() { return activeProfileOverride; }
+
+    /**
+     * Feed the current Serene cycle day-of-year (0-based) from the daily
+     * rollover. A drop versus the previous sample means Serene wrapped Late
+     * Winter → Early Spring, so the year (cycle count) ticks up. The first
+     * sample only seeds the baseline. No-op semantics when the value hasn't
+     * changed, to keep IO down.
+     */
+    public void noteSereneDayOfYear(int dayOfYear) {
+        if (dayOfYear < 0) return;
+        if (sereneLastDayOfYear < 0) {
+            sereneLastDayOfYear = dayOfYear;
+            setDirty();
+            return;
+        }
+        boolean changed = false;
+        if (dayOfYear < sereneLastDayOfYear) {
+            sereneCycleCount++;
+            changed = true;
+        }
+        if (dayOfYear != sereneLastDayOfYear) {
+            sereneLastDayOfYear = dayOfYear;
+            changed = true;
+        }
+        if (changed) setDirty();
+    }
     @Nullable
     public String timeModeOverride() { return timeModeOverride; }
 
