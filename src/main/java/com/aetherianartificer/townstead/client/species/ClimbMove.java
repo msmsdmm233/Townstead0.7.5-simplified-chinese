@@ -30,7 +30,7 @@ public final class ClimbMove {
     private static final double PROBE = 0.18;
     private static final double STICKY_PROBE = 0.42;
     private static final double CORNER_AHEAD = 0.34;
-    private static final boolean DEBUG = false; // flip true to log the clung movement each few ticks (latest.log)
+    private static final boolean DEBUG = true; // flip true to log the clung movement each few ticks (latest.log)
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("townstead/climb");
     private static final int GRACE = 8;       // ticks after release that vanilla climb stays suppressed
 
@@ -172,6 +172,10 @@ public final class ClimbMove {
             if (desired != null) {
                 Candidate into = transitionTarget(player, previous, desired);
                 if (into != null && into.normal.y() <= 0.5f) return into.normal;
+                // No inner-corner target: try wrapping AROUND an outer (convex) edge onto a wall that rises
+                // past the lip -- e.g. climbing up the side of a block that sits above a ceiling's edge.
+                Vector3f over = convexTarget(player, previous, desired);
+                if (over != null) return over;
             }
             Candidate held = contactToward(player, previous, STICKY_PROBE, player.getBoundingBox());
             return held != null && held.normal.y() <= 0.5f ? held.normal : null;
@@ -211,6 +215,64 @@ public final class ClimbMove {
             if (best == null || score > best.score) best = new Candidate(normal, score);
         }
         return best;
+    }
+
+    /**
+     * A crouch-wrap AROUND an outer (convex) edge, PULLING UP onto a wall that sits above the current plane's
+     * lip -- e.g. from a ceiling underside, over its edge, up onto the vertical face of the slab/block there.
+     * Two things make this the mirror of the inner-corner case ({@link #transitionTarget}) and mean a plain
+     * probe+stick can't do it (confirmed from live probe logs):
+     * <ul>
+     *   <li>the target wall faces the SAME way you are crawling -- you crawl to the edge and the face IS that
+     *       edge -- so its normal aligns with the move (opposite sign to an inner corner); and</li>
+     *   <li>it sits ABOVE the plane you hang from, with that plane itself occluding the straight-up path, so
+     *       there is a gap nothing can stick across.</li>
+     * </ul>
+     * So we find the lowest spot on the exposed face where the body fits -- raising past the plane and shifting
+     * onto the open side until the box is collision-free AND touching the wall -- and snap the player there,
+     * then attach with the wall's normal. The adjacency probe self-calibrates the lift: below the plane the
+     * face is not there, so only a box raised into the exposed part registers a hit. Least lift / least shift
+     * win, to keep the pull-up as small as possible. Returns the new wall normal (having repositioned the
+     * player) or null if nothing climbable sits above the lip (then the plane-lock/detach stands, as before).
+     */
+    private static Vector3f convexTarget(Player player, Vector3f previous, Vector3f desired) {
+        Vector3f move = new Vector3f(desired.x(), 0f, desired.z());
+        if (move.lengthSquared() < 1.0e-4f) return null; // need a horizontal crawl to have a lip to cross
+        move.normalize();
+        AABB box = player.getBoundingBox();
+        AABB ahead = box.move(move.x() * CORNER_AHEAD, 0.0, move.z() * CORNER_AHEAD);
+        // Must be AT the lip: on the current plane now, off it one step ahead. (Ceiling: UP-probe hits the
+        // slab from here but not past the edge.)
+        if (contactToward(player, previous, STICKY_PROBE, box) == null) return null;
+        if (contactToward(player, previous, STICKY_PROBE, ahead) != null) return null;
+
+        Vector3f up = new Vector3f(previous).normalize().negate();     // up & out through the current surface
+        Vector3f wallN = new Vector3f(move);                           // the wall at the edge faces the crawl
+        Direction intoWall = dominantInto(wallN);                      // body -> wall, for the adjacency probe
+        double bodyH = box.getYsize();
+        double bodySpan = Math.abs(wallN.x()) * box.getXsize() + Math.abs(wallN.z()) * box.getZsize();
+
+        for (int li = 1; li <= 8; li++) {
+            double lift = (bodyH + 0.4) * li / 8.0;
+            for (int si = 0; si <= 6; si++) {
+                double shift = bodySpan * si / 6.0 + (si == 0 ? 0.0 : 0.05); // push onto the open side
+                AABB t = box.move(up.x() * lift + wallN.x() * shift, up.y() * lift, up.z() * lift + wallN.z() * shift);
+                if (!player.level().noCollision(player, t)) continue;  // still in the slab / not clear here
+                float d = firstHit(player, t, intoWall, 0.4);          // wall touching? (also enforces min lift)
+                if (d <= 0f) continue;
+                double px = (t.minX + t.maxX) / 2.0;
+                double pz = (t.minZ + t.maxZ) / 2.0;
+                if (DEBUG) LOG.info("convex vault: lift={} shift={} d={} -> pos=({},{},{}) n=({},{},{})",
+                        f2(lift), f2(shift), f2(d), f2(px), f2(t.minY), f2(pz),
+                        f2(wallN.x()), f2(wallN.y()), f2(wallN.z()));
+                player.setPos(px, t.minY, pz);
+                player.setDeltaMovement(Vec3.ZERO);
+                player.resetFallDistance();
+                return wallN.normalize();
+            }
+        }
+        if (DEBUG) LOG.info("convex vault: at lip, no climbable wall above (move=({},{}))", f2(move.x()), f2(move.z()));
+        return null;
     }
 
     /** Whether the current plane still continues just ahead of the intended move (locked edge-stop probe). */
