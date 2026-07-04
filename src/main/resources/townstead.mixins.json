@@ -97,6 +97,7 @@
     "client.CapeLayerWearableMixin",
     "client.ElytraLayerWearableMixin",
     "compat.backpacked.BackpackLayerWearableMixin",
+    "compat.reliablebackpacks.ReliableBackpackLayerMixin",
     "InteractScreenMixin",
     "VillagerEditorMixin",
     "VillagerEditorRootMixin",
