@@ -1047,11 +1047,15 @@ public class Townstead {
             }
         });
         event.enqueueWork(RusticDelightThirstCompat::register);
-        // Serene Seasons: synthesize the serene calendar profile from Serene's
-        // live sub_season_duration so the grid follows the player's config.
-        event.enqueueWork(() ->
-                com.aetherianartificer.townstead.calendar.DynamicProfileSources.register(
-                        new com.aetherianartificer.townstead.compat.calendar.bridge.SereneProfileSource()));
+        // Seasonal calendars: synthesize the serene / ecliptic profiles from
+        // the partner mod's live term length so the grid follows the player's
+        // config instead of the fixed month lengths in the bundled JSON.
+        event.enqueueWork(() -> {
+            com.aetherianartificer.townstead.calendar.DynamicProfileSources.register(
+                    new com.aetherianartificer.townstead.compat.calendar.bridge.SereneProfileSource());
+            com.aetherianartificer.townstead.calendar.DynamicProfileSources.register(
+                    new com.aetherianartificer.townstead.compat.calendar.bridge.EclipticProfileSource());
+        });
         //? if forge {
         /*event.enqueueWork(Townstead::townstead$registerLifeBrewing);
         *///?}
