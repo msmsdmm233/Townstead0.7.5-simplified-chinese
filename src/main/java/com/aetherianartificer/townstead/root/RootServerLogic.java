@@ -104,22 +104,38 @@ public final class RootServerLogic {
     }
 
     /**
-     * Pin a target's carried variant for one variant gene (the editor's variant picker). Sets both
-     * genotype alleles to the chosen variant so it expresses, persists, and inherits like a roll,
-     * then returns the resolved entity id for re-sync, or {@link RootSetC2SPayload#NONE} if invalid.
+     * Pin a target's carried variant for one variant gene (the editor's variant picker), or the
+     * size roll of a sized attachment gene (the editor's size slider — {@code variantId} is the
+     * numeric payload, clamped to the gene's range). Sets both genotype alleles to the chosen
+     * value so it expresses, persists, and inherits like a roll, then returns the resolved
+     * entity id for re-sync, or {@link RootSetC2SPayload#NONE} if invalid.
      */
     public static int setVariant(ServerPlayer sp, int entityId, String geneId, String variantId) {
         ResourceLocation gid = DataPackLang.parseId(geneId);
         if (gid == null) return RootSetC2SPayload.NONE;
         Gene gene = GeneRegistry.byId(gid);
-        if (gene == null || !gene.hasVariants()) return RootSetC2SPayload.NONE;
-        boolean valid = false;
-        for (GeneVariant v : gene.variants()) {
-            if (v.id().equals(variantId)) { valid = true; break; }
+        if (gene == null) return RootSetC2SPayload.NONE;
+        Allele allele;
+        if (gene.instance() instanceof com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.Instance att
+                && att.size() != null) {
+            float value;
+            try {
+                value = Float.parseFloat(variantId);
+            } catch (NumberFormatException e) {
+                return RootSetC2SPayload.NONE;
+            }
+            value = Math.max(att.size().min(), Math.min(att.size().max(), value));
+            allele = Allele.of(gid, String.format(java.util.Locale.ROOT, "%.3f", value));
+        } else {
+            if (!gene.hasVariants()) return RootSetC2SPayload.NONE;
+            boolean valid = false;
+            for (GeneVariant v : gene.variants()) {
+                if (v.id().equals(variantId)) { valid = true; break; }
+            }
+            if (!valid) return RootSetC2SPayload.NONE;
+            allele = Allele.of(gid, variantId);
         }
-        if (!valid) return RootSetC2SPayload.NONE;
         ResourceLocation locus = Heredity.locusOf(gene);
-        Allele allele = Allele.of(gid, variantId);
 
         if (entityId == RootSetC2SPayload.SELF) {
             Genotype genotype = PlayerRoot.getGenotype(sp);

@@ -109,7 +109,7 @@ public final class RootCatalog {
         Gene gene = GeneRegistry.byId(geneId);
         if (gene == null) {
             return new GeneCatalogEntry(geneId.toString(), geneId.getPath(), "", "general",
-                    GeneDisplay.Kind.BOOLEAN.ordinal(), 0f, 1f, "", 0f, 0, "", 1, List.of(), "", "", "");
+                    GeneDisplay.Kind.BOOLEAN.ordinal(), 0f, 1f, "", 0f, 0, "", 1, List.of(), "", "", "", "", "");
         }
         GeneDisplay display = gene.display();
         List<GeneCatalogEntry.Variant> variants = new ArrayList<>();
@@ -119,6 +119,14 @@ public final class RootCatalog {
                         v.id(), v.displayName().getString(), v.weight(), keyOf(v.displayName()),
                         variantTint(v.instance()), variantTexture(v.instance()), variantGlow(v.instance())));
             }
+        }
+        String sizeLabel = "";
+        String sizeLabelKey = "";
+        if (gene.instance() instanceof com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.Instance att
+                && att.size() != null) {
+            sizeLabelKey = att.size().labelKey();
+            sizeLabel = com.aetherianartificer.townstead.data.DataPackLang.resolveFallback(
+                    sizeLabelKey, "en_us", att.size().labelText());
         }
         return new GeneCatalogEntry(
                 geneId.toString(),
@@ -134,7 +142,9 @@ public final class RootCatalog {
                 variants,
                 keyOf(gene.displayName()),
                 keyOf(gene.description()),
-                faceSlotOf(gene.instance()));
+                faceSlotOf(gene.instance()),
+                sizeLabel,
+                sizeLabelKey);
     }
 
     /** The colour tint a variant carries (skin tone or eye colour), or {@code -1} for none. */

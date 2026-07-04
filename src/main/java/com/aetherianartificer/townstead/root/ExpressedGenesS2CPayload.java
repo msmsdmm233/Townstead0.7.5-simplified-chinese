@@ -62,15 +62,22 @@ public record ExpressedGenesS2CPayload(int entityId, List<String> genes) impleme
     /** Build the payload for a living entity (villager or player), keyed by {@code entityId}. */
     public static ExpressedGenesS2CPayload forEntity(int entityId, LivingEntity entity) {
         com.aetherianartificer.townstead.root.gene.Genotype genotype;
+        Heritage heritage = null;
         if (entity instanceof VillagerEntityMCA villager) {
-            genotype = TownsteadVillagers.get(villager).life().genotype();
+            var life = TownsteadVillagers.get(villager).life();
+            genotype = life.genotype();
+            if (life.hasHeritage()) heritage = life.heritage();
         } else if (entity instanceof Player player) {
             genotype = PlayerRoot.getGenotype(player);
+            ResourceLocation rootId = ResourceLocation.tryParse(PlayerRoot.getRootId(player));
+            heritage = RootRegistry.seedHeritage(rootId == null ? RootRegistry.DEFAULT_ID : rootId);
         } else {
             genotype = new com.aetherianartificer.townstead.root.gene.Genotype();
         }
         List<String> genes = new ArrayList<>();
-        for (Allele allele : Heredity.expressedAlleles(genotype)) genes.add(allele.encode());
+        for (Allele allele : Heredity.expressedAlleles(genotype)) {
+            genes.add(Heredity.scaleByHeritage(allele, heritage).encode());
+        }
         return new ExpressedGenesS2CPayload(entityId, genes);
     }
 }

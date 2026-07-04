@@ -37,11 +37,17 @@ public record GeneCatalogEntry(
         String descriptionKey,
         // Face-overlay slot for a custom-face gene: "eyes" / "mouth" / "eye_color", else "". Lets the
         // client face layer identify the eyes/mouth/colour genes among an origin's inherited genes.
-        String faceSlot
+        String faceSlot,
+        // A sized attachment gene's editor-slider label ("Ear Size") + its translate key; both empty
+        // when the gene carries no size or authored no label (the editor uses the gene name then).
+        String sizeLabel,
+        String sizeLabelKey
 ) {
     public GeneCatalogEntry {
         variants = variants == null ? List.of() : List.copyOf(variants);
         faceSlot = faceSlot == null ? "" : faceSlot;
+        sizeLabel = sizeLabel == null ? "" : sizeLabel;
+        sizeLabelKey = sizeLabelKey == null ? "" : sizeLabelKey;
     }
 
     /**
@@ -110,6 +116,14 @@ public record GeneCatalogEntry(
 
     /** For ATTACHMENT genes, the attachment id (rides in {@code targetId}). */
     public String attachmentId() { return targetId; }
+
+    /**
+     * True for an ATTACHMENT gene whose scale is a heritable size roll (flagged in {@code amount};
+     * the roll range rides in {@code min}/{@code max}). The character editor offers a slider for it.
+     */
+    public boolean isSizedAttachment() {
+        return isAttachment() && Math.round(amount) == 1;
+    }
 
     public boolean isHideFeature() {
         return displayKind == GeneDisplay.Kind.HIDE_FEATURE.ordinal();

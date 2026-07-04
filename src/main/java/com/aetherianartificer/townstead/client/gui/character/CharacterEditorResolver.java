@@ -32,13 +32,15 @@ public final class CharacterEditorResolver {
     };
 
     /**
-     * A resolved field within a tab: a delegated MCA-native group, a plain variant cycler, or a TONE
-     * field (a palette {@code skin_tone} gene → hue cycler + the draggable melanin×hemoglobin swatch).
+     * A resolved field within a tab: a delegated MCA-native group, a plain variant cycler, a TONE
+     * field (a palette {@code skin_tone} gene → hue cycler + the draggable melanin×hemoglobin swatch),
+     * or a SLIDER (a sized attachment gene → its size roll over the gene's range).
      */
     public record Field(Kind kind, String nativeGroup, GeneCatalogEntry gene) {
-        public enum Kind { NATIVE, CYCLER, TONE }
+        public enum Kind { NATIVE, CYCLER, TONE, SLIDER }
         static Field nativeGroup(String g) { return new Field(Kind.NATIVE, g, null); }
         static Field gene(GeneCatalogEntry g) {
+            if (g.isSizedAttachment()) return new Field(Kind.SLIDER, null, g);
             // A palette skin-tone gene (tinted variants, no face slot) gets the draggable swatch;
             // face/other variant genes are plain cyclers.
             boolean tone = g.faceSlot().isEmpty() && hasTintedVariant(g);
@@ -63,6 +65,39 @@ public final class CharacterEditorResolver {
             for (Tab t : tabs) if (t.pageId().equals(pageId)) return t;
             return null;
         }
+    }
+
+    /**
+     * Resolve the authored layout, or — when the species authored none but its origin carries
+     * editable Townstead genes (a sized attachment like elf ears, variant genes) — synthesize the
+     * default: MCA's four native groups in canonical order, then the genes bucketed by category as
+     * extra tabs. {@code null} only when there is nothing of ours to edit, keeping plain MCA
+     * villagers on the untouched native Character tab.
+     */
+    public static Resolved resolveOrDefault(RootCatalogEntry entry) {
+        Resolved authored = resolve(entry);
+        if (authored != null) return authored;
+        if (entry == null) return null;
+        Map<String, List<Field>> byCategory = editableByCategory(entry);
+        if (byCategory.isEmpty()) return null;
+        List<Tab> tabs = new ArrayList<>();
+        for (String g : NATIVE_ORDER) {
+            tabs.add(new Tab(mcaSubpage(g), nativeLabel(g), List.of(Field.nativeGroup(g))));
+        }
+        for (Map.Entry<String, List<Field>> e : byCategory.entrySet()) {
+            tabs.add(new Tab(tabPageId(e.getKey()), Component.literal(e.getKey()), e.getValue()));
+        }
+        return new Resolved(tabs);
+    }
+
+    private static Map<String, List<Field>> editableByCategory(RootCatalogEntry entry) {
+        Map<String, List<Field>> byCategory = new LinkedHashMap<>();
+        for (RootCatalogEntry.Inherited in : entry.inheritedGenes()) {
+            GeneCatalogEntry g = RootCatalogClient.gene(in.geneId());
+            if (!isEditable(g)) continue;
+            byCategory.computeIfAbsent(g.category(), k -> new ArrayList<>()).add(Field.gene(g));
+        }
+        return byCategory;
     }
 
     /** Resolve, or {@code null} when the species has no custom layout (MCA native untouched). */
@@ -94,12 +129,7 @@ public final class CharacterEditorResolver {
         } else {
             // The species' own appearance genes come first (its identity), bucketed by category,
             // then any kept MCA-native groups in canonical order.
-            Map<String, List<Field>> byCategory = new LinkedHashMap<>();
-            for (RootCatalogEntry.Inherited in : entry.inheritedGenes()) {
-                GeneCatalogEntry g = RootCatalogClient.gene(in.geneId());
-                if (!isEditable(g)) continue;
-                byCategory.computeIfAbsent(g.category(), k -> new ArrayList<>()).add(Field.gene(g));
-            }
+            Map<String, List<Field>> byCategory = editableByCategory(entry);
             for (Map.Entry<String, List<Field>> e : byCategory.entrySet()) {
                 tabs.add(new Tab(tabPageId(e.getKey()), Component.literal(e.getKey()), e.getValue()));
             }
@@ -118,7 +148,8 @@ public final class CharacterEditorResolver {
     }
 
     private static boolean isEditable(GeneCatalogEntry g) {
-        return g != null && g.isVariants() && !g.variants().isEmpty();
+        if (g == null) return false;
+        return (g.isVariants() && !g.variants().isEmpty()) || g.isSizedAttachment();
     }
 
     private static String tabPageId(String id) {

@@ -53,12 +53,15 @@ public final class VillagerLifeStamper {
         // place the villager within the correct stage of its rolled cycle. (Assigns
         // the default origin id only; genes are left as MCA rolled them.)
         int lociBefore = state.life().genotype().loci().size();
+        java.util.List<String> expressedBefore = new java.util.ArrayList<>(state.life().expressedAlleles());
         boolean rolled = com.aetherianartificer.townstead.root.RootSpawnHandler.backfillIfMissing(villager);
         // migrateFounder may add diploid genes a pre-feature villager lacked (e.g. a skeletownie
-        // gaining diet/hydration "none"). That flips the server-side expressed set — but tracking
-        // clients cached the old one, so without a re-push their interact screen keeps showing a need
-        // that is now suppressed. The life sync below doesn't carry expressed genes, so push them too.
-        boolean genotypeGrew = state.life().genotype().loci().size() != lociBefore;
+        // gaining diet/hydration "none") or heal a sized allele's missing payload (elf ear size).
+        // Either flips the server-side expressed set — but tracking clients cached the old one, so
+        // without a re-push their interact screen keeps showing a need that is now suppressed (or
+        // neutral-size ears). The life sync below doesn't carry expressed genes, so push them too.
+        boolean genotypeGrew = state.life().genotype().loci().size() != lociBefore
+                || !expressedBefore.equals(state.life().expressedAlleles());
 
         boolean stamped = false;
         if (!state.life().hasBirth()) {

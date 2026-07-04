@@ -3,6 +3,7 @@ package com.aetherianartificer.townstead.client.attachment;
 import com.aetherianartificer.townstead.client.animation.AnimationTargetMap;
 import com.aetherianartificer.townstead.client.root.RootCatalogClient;
 import com.aetherianartificer.townstead.client.root.RootClientStore;
+import com.aetherianartificer.townstead.client.species.RigSkinTone;
 import com.aetherianartificer.townstead.root.GeneCatalogEntry;
 import com.aetherianartificer.townstead.root.RootCatalogEntry;
 import com.aetherianartificer.townstead.root.attachment.AttachmentDef;
@@ -44,14 +45,23 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
         if (entity.isInvisible()) return;
-        List<AttachmentDef> attachments = resolve(entity);
+        List<Expressed> attachments = resolve(entity);
         if (attachments.isEmpty()) return;
 
         AnimationTargetMap<T> bones = AnimationTargetMap.forMcaModel(getParentModel());
-        for (AttachmentDef def : attachments) {
+        for (Expressed expressed : attachments) {
+            AttachmentDef def = expressed.def();
             ModelPart geometry = AttachmentClient.geometry(def.geoSha1());
             ResourceLocation texture = AttachmentClient.texture(def.textureSha1());
             if (geometry == null || texture == null) continue;
+
+            int tint = def.skinTint() ? RigSkinTone.forEntity(entity) & 0xFFFFFF : def.tint();
+            float[] morph = morphScales(entity, expressed);
+            // Morph with named bones scales each about its own pivot (an ear shrinks toward the
+            // head surface it grows from); the geometry is shared across entities, so set and
+            // restore around the draw. Without bones the whole attachment scales about its anchor.
+            boolean morphBones = morph != null && !def.morphBones().isEmpty();
+            if (morphBones) setBoneScale(geometry, def.morphBones(), morph[0], morph[1], morph[2]);
 
             // One attachment can fill several points (a tag matching both ears), so render an
             // instance at each resolved anchor.
@@ -69,11 +79,50 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
                 if (rotation[1] != 0f) pose.mulPose(Axis.YP.rotationDegrees(rotation[1]));
                 if (rotation[0] != 0f) pose.mulPose(Axis.XP.rotationDegrees(rotation[0]));
                 if (def.scale() != 1f) pose.scale(def.scale(), def.scale(), def.scale());
+                if (morph != null && !morphBones) pose.scale(morph[0], morph[1], morph[2]);
 
                 VertexConsumer buffer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
-                renderPart(geometry, pose, buffer, light, def.tint());
+                renderPart(geometry, pose, buffer, light, tint);
                 pose.popPose();
             }
+
+            if (morphBones) setBoneScale(geometry, def.morphBones(), 1f, 1f, 1f);
+        }
+    }
+
+    /**
+     * The per-axis morph scales for this attachment on this entity: the size value
+     * rolled on the allele of the gene that granted it, weighted per axis
+     * ({@code 1 + (value - 1) * axis}). Null when there is nothing to morph.
+     */
+    private static float[] morphScales(LivingEntity entity, Expressed expressed) {
+        float[] axes = expressed.def().morphAxes();
+        if (axes == null) return null;
+        String rolled = RootClientStore.resolveCarriedVariant(entity, expressed.geneId());
+        if (rolled == null || rolled.isEmpty()) return null;
+        float value;
+        try {
+            value = Float.parseFloat(rolled);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (value == 1f) return null;
+        float[] out = new float[3];
+        for (int i = 0; i < 3; i++) out[i] = Math.max(0.05f, 1f + (value - 1f) * axes[i]);
+        return out;
+    }
+
+    private static void setBoneScale(ModelPart root, List<String> boneNames, float sx, float sy, float sz) {
+        for (String name : boneNames) {
+            ModelPart bone;
+            try {
+                bone = root.getChild(name);
+            } catch (RuntimeException e) {
+                continue;
+            }
+            bone.xScale = sx;
+            bone.yScale = sy;
+            bone.zScale = sz;
         }
     }
 
@@ -111,9 +160,12 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
         *///?}
     }
 
+    /** An expressed attachment paired with the gene that granted it (the gene's allele carries the size roll). */
+    private record Expressed(String geneId, AttachmentDef def) {}
+
     /** The attachment defs the entity expresses (per-entity set first, origin grant list as fallback). */
-    private static List<AttachmentDef> resolve(LivingEntity entity) {
-        List<AttachmentDef> out = new ArrayList<>();
+    private static List<Expressed> resolve(LivingEntity entity) {
+        List<Expressed> out = new ArrayList<>();
         Set<String> expressed = RootClientStore.expressedGenes(entity);
         if (!expressed.isEmpty()) {
             for (String geneId : expressed) collect(geneId, out);
@@ -127,10 +179,10 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
         return out;
     }
 
-    private static void collect(String geneId, List<AttachmentDef> out) {
+    private static void collect(String geneId, List<Expressed> out) {
         GeneCatalogEntry gene = RootCatalogClient.gene(geneId);
         if (gene == null || !gene.isAttachment()) return;
         AttachmentDef def = AttachmentClient.def(gene.attachmentId());
-        if (def != null) out.add(def);
+        if (def != null) out.add(new Expressed(geneId, def));
     }
 }

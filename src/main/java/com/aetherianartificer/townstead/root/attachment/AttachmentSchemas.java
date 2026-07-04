@@ -19,6 +19,7 @@ public final class AttachmentSchemas {
 
     public static final NodeSchema ATTACHMENT = NodeSchema.of("townstead:attachment", NodeDomain.DATA)
             .doc("A cosmetic geometry attached to a body (tail, tusk, ears).")
+            .field(of("schema", PhenoType.STRING).doc("Schema tag: townstead:attachment/v1."))
             .field(required("geometry", PhenoType.STRING).doc("Reference to a .geo.json under attachment/geo/."))
             .field(required("texture", PhenoType.STRING).doc("Reference to a .png under attachment/textures/."))
             .field(of("target", PhenoType.OBJECT).doc("{ tag } (every matching point) or { point } (one point)."))
@@ -27,10 +28,17 @@ public final class AttachmentSchemas {
             .field(of("rotation", PhenoType.FLOAT).asList())
             .field(of("scale", PhenoType.FLOAT))
             .field(of("tint", PhenoType.COLOR))
+            .field(of("skin_tint", PhenoType.BOOL)
+                    .doc("Tint by the bearer's resolved skin tone instead of the flat tint (grayscale texture)."))
+            .field(of("morph", PhenoType.OBJECT)
+                    .doc("{ axes, bones }: scale by the size value rolled on the granting gene; "
+                            + "`axes` weights the value per axis, `bones` names the top-level geometry bones "
+                            + "scaled about their own pivots."))
             .build();
 
     public static final NodeSchema ATTACHMENT_POINT = NodeSchema.of("townstead:attachment_point", NodeDomain.DATA)
             .doc("A named anchor on a rig where attachments may sit.")
+            .field(of("schema", PhenoType.STRING).doc("Schema tag: townstead:attachment_point/v1."))
             .field(of("bone", PhenoType.STRING))
             .field(of("offset", PhenoType.FLOAT).asList())
             .field(of("tags", PhenoType.STRING).asList().doc("Tags attachments target (ear, tail_root, ...)."))

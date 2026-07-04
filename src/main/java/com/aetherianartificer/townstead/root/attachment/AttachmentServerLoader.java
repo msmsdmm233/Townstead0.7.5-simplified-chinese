@@ -138,8 +138,25 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
         String bone = GsonHelper.getAsString(json, "bone", "body");
         float scale = GsonHelper.getAsFloat(json, "scale", 1f);
         int tint = parseHex(GsonHelper.getAsString(json, "tint", "#FFFFFF"));
+        boolean skinTint = GsonHelper.getAsBoolean(json, "skin_tint", false);
+        float[] morphAxes = null;
+        List<String> morphBones = List.of();
+        if (json.has("morph") && json.get("morph").isJsonObject()) {
+            JsonObject morph = json.getAsJsonObject("morph");
+            morphAxes = morph.has("axes") ? readVec(morph, "axes") : new float[]{1f, 1f, 1f};
+            morphBones = readStrings(morph, "bones");
+        }
         return new AttachmentDef(id, geoSha, texSha, targetTag, targetPoint, bone,
-                readVec(json, "offset"), readVec(json, "rotation"), scale, tint);
+                readVec(json, "offset"), readVec(json, "rotation"), scale, tint,
+                skinTint, morphAxes, morphBones);
+    }
+
+    private static List<String> readStrings(JsonObject json, String key) {
+        List<String> out = new ArrayList<>();
+        if (json.has(key) && json.get(key).isJsonArray()) {
+            for (var element : json.getAsJsonArray(key)) out.add(element.getAsString());
+        }
+        return out;
     }
 
     private static String emptyToNull(String s) {

@@ -53,6 +53,16 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
     }
 
     /**
+     * A sized attachment: the heritable size roll's range rides in {@code min}/{@code max}
+     * (brackets 1.0, the authored geometry's neutral scale) and {@code amount == 1} flags it,
+     * so the character editor can offer a slider over the range.
+     */
+    public static GeneDisplay sizedAttachment(String attachmentId, float min, float max) {
+        return new GeneDisplay(Kind.ATTACHMENT, Math.min(min, max), Math.max(min, max),
+                attachmentId == null ? "" : attachmentId, 1f);
+    }
+
+    /**
      * Per-part render multipliers for a stocky build (e.g. dwarves): each listed part has the body
      * squash neutralized and is then scaled by its factor (1.0 = proportioned, no resize). The
      * part→factor map packs into {@code targetId} as {@code "head=1.0;arms=1.0;legs=1.0"}; the head/

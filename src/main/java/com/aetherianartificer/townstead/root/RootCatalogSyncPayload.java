@@ -112,6 +112,8 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
             buf.writeUtf(g.nameKey());
             buf.writeUtf(g.descriptionKey());
             buf.writeUtf(g.faceSlot());
+            buf.writeUtf(g.sizeLabel());
+            buf.writeUtf(g.sizeLabelKey());
         }
         buf.writeVarInt(traits.size());
         for (TraitCatalogEntry t : traits) {
@@ -208,10 +210,13 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
             String gNameKey = buf.readUtf();
             String gDescKey = buf.readUtf();
             String gFaceSlot = buf.readUtf();
+            String gSizeLabel = buf.readUtf();
+            String gSizeLabelKey = buf.readUtf();
             genes.add(new GeneCatalogEntry(gid, localize(gNameKey, gname), localize(gDescKey, gdesc),
                     gcat, kind, gmin, gmax,
                     gtarget, gamount, gdom, glocus, gweight, variants,
-                    gNameKey, gDescKey, gFaceSlot));
+                    gNameKey, gDescKey, gFaceSlot,
+                    localize(gSizeLabelKey, gSizeLabel), gSizeLabelKey));
         }
         int k = buf.readVarInt();
         List<TraitCatalogEntry> traits = new ArrayList<>(k);

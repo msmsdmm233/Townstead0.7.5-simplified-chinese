@@ -148,10 +148,11 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // carried face variants from the real target so the preview matches the game, on every page.
         townstead$seedFaceVariants();
 
-        // Data-pack-driven Character layout: when the species declares one, replace MCA's fixed
-        // subpage bar with our scrollable strip and render gene fields ourselves. null = no layout,
-        // so MCA's native Character tab stays exactly as it is (humanoid/MCA-derived species).
-        CharacterEditorResolver.Resolved charLayout = CharacterEditorResolver.resolve(
+        // Data-pack-driven Character layout: when the species declares one (or its origin carries
+        // editable Townstead genes, which synthesizes the default layout — native groups + gene
+        // tabs), replace MCA's fixed subpage bar with our scrollable strip and render gene fields
+        // ourselves. null = nothing of ours to edit, so MCA's native Character tab stays untouched.
+        CharacterEditorResolver.Resolved charLayout = CharacterEditorResolver.resolveOrDefault(
                 com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target)));
         // The scrollable Character tab strip only fits the new 1.21.1 editor (Character subpage hub).
         // On the old editor (separate Body/Head top pages) we keep the per-page cyclers + tone swatch
@@ -260,7 +261,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         for (CharacterEditorResolver.Field f : tab.fields()) {
             if (f.gene() == null) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) tones++;
-            else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) cyclers++;
+            else cyclers++;   // cyclers and sliders take one row each
         }
         int swatch = 64;
         if (tones > 0) {
@@ -274,6 +275,9 @@ public abstract class VillagerEditorRootMixin extends Screen {
                 y += townstead$buildToneField(f.gene(), x, y, w, swatch);
             } else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) {
                 townstead$variantCycler(f.gene(), x, y, w, 20, rowH);
+                y += rowH + 2;
+            } else if (f.kind() == CharacterEditorResolver.Field.Kind.SLIDER) {
+                townstead$sizeSlider(f.gene(), x, y, w, rowH);
                 y += rowH + 2;
             }
         }
@@ -531,8 +535,10 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Unique
     private void townstead$addFaceCyclers() {
         java.util.List<GeneCatalogEntry> genes = townstead$faceGenes();
-        if (genes.isEmpty()) return;
+        java.util.List<GeneCatalogEntry> sized = townstead$sizedAttachmentGenes();
+        if (genes.isEmpty() && sized.isEmpty()) return;
         int rowH = 18;
+        int rows = genes.size() + sized.size();
 
         GeneSliderWidget faceSlider = null;
         String faceKey = Genetics.FACE.getTranslationKey();
@@ -547,7 +553,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
             x = faceSlider.getX();
             y = faceSlider.getY();
             w = faceSlider.getWidth();
-            int delta = genes.size() * (rowH + 1) - faceSlider.getHeight();
+            int delta = rows * (rowH + 1) - faceSlider.getHeight();
             if (delta > 0) {
                 String voice = Genetics.VOICE.getTranslationKey();
                 String tone = Genetics.VOICE_TONE.getTranslationKey();
@@ -561,11 +567,15 @@ public abstract class VillagerEditorRootMixin extends Screen {
             removeWidget(faceSlider);
         } else {
             x = 6;
-            y = this.height / 2 - genes.size() * (rowH + 1) / 2;
+            y = this.height / 2 - rows * (rowH + 1) / 2;
             w = 110;
         }
         for (GeneCatalogEntry gene : genes) {
             townstead$variantCycler(gene, x, y, w, 16, rowH);
+            y += rowH + 1;
+        }
+        for (GeneCatalogEntry gene : sized) {
+            townstead$sizeSlider(gene, x, y, w, rowH);
             y += rowH + 1;
         }
     }
@@ -574,6 +584,54 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Unique
     private String townstead$widgetKey(net.minecraft.client.gui.components.AbstractWidget w) {
         return w.getMessage().getContents() instanceof TranslatableContents tc ? tc.getKey() : null;
+    }
+
+    /**
+     * A size slider for a sized attachment gene (elf ear length, tusk size). The gene's roll range
+     * rides in the catalog {@code min}/{@code max}; the slider position maps onto it, seeds from the
+     * real target's synced roll (midpoint when unknown), previews live on the dummy, and commits
+     * through the same set-variant payload the cyclers use — the numeric payload rides the variant
+     * string and the server clamps it to the gene's range.
+     */
+    @Unique
+    private void townstead$sizeSlider(GeneCatalogEntry gene, int x, int y, int w, int rowH) {
+        String geneId = gene.id();
+        float min = gene.min();
+        float max = gene.max();
+        float span = Math.max(1e-4f, max - min);
+        float value = (min + max) / 2f;
+        String current = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        if (current != null && !current.isEmpty()) {
+            try {
+                value = Float.parseFloat(current);
+            } catch (NumberFormatException ignored) { }
+        }
+        value = Math.max(min, Math.min(max, value));
+        RootClientStore.setCarriedVariant(villager.getId(), geneId,
+                String.format(java.util.Locale.ROOT, "%.3f", value));   // seed the dummy preview
+        String name = gene.sizeLabel().isEmpty() ? gene.name() : gene.sizeLabel();
+        addRenderableWidget(new com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider(
+                x, y, w, rowH, (value - min) / span,
+                v -> Component.literal(name + ": " + Math.round((min + v * span) * 100.0) + "%"),
+                v -> {
+                    String encoded = String.format(java.util.Locale.ROOT, "%.3f", min + (float) v * span);
+                    RootClientStore.setCarriedVariant(villager.getId(), geneId, encoded);   // live preview
+                    townstead$sendSetVariant(townstead$target, geneId, encoded);            // commit
+                }));
+    }
+
+    /** The origin's sized attachment genes (ear length, ...), whose size roll gets an editor slider. */
+    @Unique
+    private java.util.List<GeneCatalogEntry> townstead$sizedAttachmentGenes() {
+        java.util.List<GeneCatalogEntry> out = new ArrayList<>();
+        com.aetherianartificer.townstead.root.RootCatalogEntry origin =
+                com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target));
+        if (origin == null) return out;
+        for (com.aetherianartificer.townstead.root.RootCatalogEntry.Inherited inh : origin.inheritedGenes()) {
+            GeneCatalogEntry g = com.aetherianartificer.townstead.client.root.RootCatalogClient.gene(inh.geneId());
+            if (g != null && g.isSizedAttachment()) out.add(g);
+        }
+        return out;
     }
 
     /** Build a {@code [<] Gene: variant [>]} cycler for one variant gene, seeded from the real target. */

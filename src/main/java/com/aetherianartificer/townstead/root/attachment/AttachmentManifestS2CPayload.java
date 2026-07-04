@@ -57,6 +57,11 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             writeVec(buf, def.rotation());
             buf.writeFloat(def.scale());
             buf.writeInt(def.tint());
+            buf.writeBoolean(def.skinTint());
+            buf.writeBoolean(def.morphAxes() != null);
+            if (def.morphAxes() != null) writeVec(buf, def.morphAxes());
+            buf.writeVarInt(def.morphBones().size());
+            for (String morphBone : def.morphBones()) buf.writeUtf(morphBone);
         }
         buf.writeVarInt(slots.size());
         for (AttachmentPointDef point : slots) {
@@ -92,8 +97,14 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             float[] rotation = readVec(buf);
             float scale = buf.readFloat();
             int tint = buf.readInt();
+            boolean skinTint = buf.readBoolean();
+            float[] morphAxes = buf.readBoolean() ? readVec(buf) : null;
+            int morphBoneCount = buf.readVarInt();
+            List<String> morphBones = new ArrayList<>(morphBoneCount);
+            for (int b = 0; b < morphBoneCount; b++) morphBones.add(buf.readUtf());
             defs.add(new AttachmentDef(id, geo, tex, targetTag.isEmpty() ? null : targetTag,
-                    targetPoint.isEmpty() ? null : targetPoint, bone, offset, rotation, scale, tint));
+                    targetPoint.isEmpty() ? null : targetPoint, bone, offset, rotation, scale, tint,
+                    skinTint, morphAxes, morphBones));
         }
         int slotCount = buf.readVarInt();
         List<AttachmentPointDef> slots = new ArrayList<>(slotCount);

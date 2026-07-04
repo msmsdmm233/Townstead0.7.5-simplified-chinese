@@ -7,6 +7,7 @@ import com.aetherianartificer.townstead.root.gene.GeneRegistry;
 import com.aetherianartificer.townstead.root.gene.GeneVariant;
 import com.aetherianartificer.townstead.root.gene.Genotype;
 import com.aetherianartificer.townstead.root.gene.InheritedGene;
+import com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType;
 import com.aetherianartificer.townstead.root.gene.types.BodyMetricGeneType;
 import com.aetherianartificer.townstead.root.gene.types.LifeCycleGeneType;
 import com.aetherianartificer.townstead.root.gene.types.TraitOccurrenceGeneType;
@@ -124,7 +125,10 @@ public final class Heredity {
             Gene gene = GeneRegistry.byId(ref.geneId());
             if (gene == null || !isDiploid(gene)) continue;
             ResourceLocation locus = locusOf(gene);
-            if (genotype.has(locus)) continue;
+            if (genotype.has(locus)) {
+                healSizedPayloads(genotype, locus, gene, random);
+                continue;
+            }
             if (gene.hasVariants() && life.hasCarriedVariant(gene.id().toString())) {
                 Allele legacy = Allele.of(gene.id(), life.carriedVariant(gene.id().toString()));
                 genotype.set(locus, legacy, legacy);
@@ -252,8 +256,10 @@ public final class Heredity {
      */
     public static void recomputeExpressed(TownsteadVillager.Life life) {
         Genotype genotype = life.genotype();
+        Heritage heritage = life.hasHeritage() ? life.heritage() : null;
         List<String> encodings = new java.util.ArrayList<>();
-        for (Allele allele : expressedAlleles(genotype)) {
+        for (Allele raw : expressedAlleles(genotype)) {
+            Allele allele = scaleByHeritage(raw, heritage);
             encodings.add(allele.encode());
             if (allele.variantId() == null) continue;
             Gene gene = GeneRegistry.byId(allele.geneId());
@@ -303,9 +309,72 @@ public final class Heredity {
         }
         float occurrence = ref.occurrence();
         if (occurrence >= 1f || random.nextFloat() < occurrence) {
+            AttachmentGeneType.Size size = sizeOf(gene);
+            if (size != null) {
+                float value = size.min() + random.nextFloat() * (size.max() - size.min());
+                return Allele.of(gene.id(), fmtValue(value));
+            }
             return Allele.of(gene.id(), null);
         }
         return Allele.WILD;
+    }
+
+    /** The gene's heritable size roll, or null when it carries none. */
+    @Nullable
+    private static AttachmentGeneType.Size sizeOf(@Nullable Gene gene) {
+        return gene != null && gene.instance() instanceof AttachmentGeneType.Instance att ? att.size() : null;
+    }
+
+    /**
+     * Self-heal a pre-feature save: a sized gene's allele rolled before sizes existed carries no
+     * payload (everyone renders the neutral 1.0), so roll one now. Runs on the migrate path, so a
+     * loaded villager picks up its individual size once and keeps it.
+     */
+    private static void healSizedPayloads(Genotype genotype, ResourceLocation locus, Gene gene,
+                                          RandomSource random) {
+        AttachmentGeneType.Size size = sizeOf(gene);
+        if (size == null) return;
+        Allele[] pair = genotype.at(locus);
+        if (pair == null) return;
+        Allele a = healSized(pair[0], gene, size, random);
+        Allele b = healSized(pair[1], gene, size, random);
+        if (a != pair[0] || b != pair[1]) genotype.set(locus, a, b);
+    }
+
+    private static Allele healSized(Allele allele, Gene gene, AttachmentGeneType.Size size, RandomSource random) {
+        if (allele.isWild() || allele.variantId() != null || !gene.id().equals(allele.geneId())) return allele;
+        return Allele.of(gene.id(), fmtValue(size.min() + random.nextFloat() * (size.max() - size.min())));
+    }
+
+    private static String fmtValue(float value) {
+        return String.format(java.util.Locale.ROOT, "%.3f", value);
+    }
+
+    @Nullable
+    private static Float parseValue(@Nullable String payload) {
+        if (payload == null || payload.isEmpty()) return null;
+        try {
+            return Float.parseFloat(payload);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Fold a bearer's heritage into a sized attachment allele: the rolled payload is
+     * multiplied by the gene's heritage factor (share of the coupled ancestry mapped
+     * onto [floor, 1]), so a half-elf expresses smaller elven ears than a full elf.
+     * The genotype keeps the raw roll; only the expressed projection is scaled.
+     * Anything that isn't a heritage-coupled sized allele passes through.
+     */
+    public static Allele scaleByHeritage(Allele allele, @Nullable Heritage heritage) {
+        if (allele.isWild()) return allele;
+        AttachmentGeneType.Size size = sizeOf(GeneRegistry.byId(allele.geneId()));
+        if (size == null || size.heritageAncestry() == null) return allele;
+        Float value = parseValue(allele.variantId());
+        if (value == null) return allele;
+        float fraction = heritage == null ? 1f : heritage.fractionOf(size.heritageAncestry());
+        return Allele.of(allele.geneId(), fmtValue(value * size.heritageFactor(fraction)));
     }
 
     private static GeneVariant rollVariant(Gene gene, RandomSource random) {
@@ -343,6 +412,14 @@ public final class Heredity {
         if (aDominant != bDominant) return aDominant ? a : b;
 
         if (a.geneId().equals(b.geneId())) {
+            // A sized attachment gene is a quantitative trait: two carried copies
+            // express their mean rather than one masking the other, so ear size blends
+            // down the generations instead of snapping between the parents' rolls.
+            if (sizeOf(ga) != null) {
+                Float va = parseValue(a.variantId());
+                Float vb = parseValue(b.variantId());
+                if (va != null && vb != null) return Allele.of(a.geneId(), fmtValue((va + vb) / 2f));
+            }
             int wa = variantWeight(ga, a.variantId());
             int wb = variantWeight(gb, b.variantId());
             if (wa != wb) return wa > wb ? a : b;
