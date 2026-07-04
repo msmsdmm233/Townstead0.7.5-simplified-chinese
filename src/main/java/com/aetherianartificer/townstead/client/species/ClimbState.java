@@ -114,8 +114,14 @@ public final class ClimbState {
                 }
                 s.factor = Math.min(1f, s.factor + STEP);
             } else if (s != null) {
-                s.factor = Math.max(0f, s.factor - DECAY);
-                if (s.factor <= 0f) SURFACES.remove(e.getId());
+                // Jump is an instant release: snap straight back to normal gravity for the local player rather
+                // than the gentle ease-out (which exists only to coast across corner probe gaps mid-climb).
+                if (le == mc.player && mc.player.input.jumping) {
+                    SURFACES.remove(e.getId());
+                } else {
+                    s.factor = Math.max(0f, s.factor - DECAY);
+                    if (s.factor <= 0f) SURFACES.remove(e.getId());
+                }
             }
         }
         SURFACES.keySet().removeIf(id -> mc.level.getEntity(id) == null);

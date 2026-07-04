@@ -26,6 +26,14 @@ public final class RigHitboxes {
     private RigHitboxes() {}
 
     /**
+     * Max collision WIDTH any rig's hitbox is clamped to, so a rig can render large yet still path through a
+     * 1-block doorway. An open door leaf juts ~3px (0.1875) into the opening, leaving ~0.81 clear, and MCA's
+     * village/building navigation assumes a roughly vanilla width; 0.9 could not fit. The on-screen size is a
+     * separate client render scale, so this clamp never changes how big the entity looks.
+     */
+    private static final float DOOR_SAFE_WIDTH = 0.7f;
+
+    /**
      * The dimensions this entity's rig imposes, or null to leave MCA's scale-derived default. Sleeping
      * villagers keep MCA's sleeping box. Non-villagers and rigs without a declared hitbox return null.
      */
@@ -38,7 +46,10 @@ public final class RigHitboxes {
         if (!(entity instanceof LivingEntity living)) return null;
         RigDefinition.Hitbox box = entity.level().isClientSide ? forClient(living) : forServer(living);
         if (box == null) return null;
-        return EntityDimensions.scalable(box.width(), box.height());
+        // Clamp width to stay door-passable (see DOOR_SAFE_WIDTH); height is left as declared (short is fine,
+        // tall just needs headroom). Visual size is unaffected — it is a separate client render scale.
+        float width = Math.min(box.width(), DOOR_SAFE_WIDTH);
+        return EntityDimensions.scalable(width, box.height());
     }
 
     private static RigDefinition.Hitbox forServer(LivingEntity entity) {
