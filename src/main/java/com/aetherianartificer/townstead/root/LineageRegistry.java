@@ -22,7 +22,11 @@ public final class LineageRegistry {
 
     @Nullable
     public static Lineage byId(ResourceLocation id) {
-        return id == null ? null : ENTRIES.get(id);
+        if (id == null) return null;
+        Lineage direct = ENTRIES.get(id);
+        if (direct != null) return direct;
+        ResourceLocation legacy = LegacyNamespace.remap(id);
+        return legacy == null ? null : ENTRIES.get(legacy);
     }
 
     public static List<Lineage> all() {
