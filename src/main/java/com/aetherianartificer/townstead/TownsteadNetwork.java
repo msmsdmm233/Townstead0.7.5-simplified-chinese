@@ -351,6 +351,16 @@ public final class TownsteadNetwork {
                     sendToPlayer(sp, genes);
                     sendToTrackingEntity(tracked, genes);
                 }
+                // The root change re-rolls the villager's personality; push a fresh life sync so the
+                // inspector/editor reflect it immediately instead of waiting for the periodic broadcast.
+                if (tracked instanceof net.conczin.mca.entity.VillagerEntityMCA villager) {
+                    com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync =
+                            com.aetherianartificer.townstead.Townstead.townstead$lifeSync(villager);
+                    if (lifeSync != null) {
+                        sendToPlayer(sp, lifeSync);
+                        sendToTrackingEntity(villager, lifeSync);
+                    }
+                }
             }
         } else {
             // Self-origin change: also re-key by the player's network id so their own

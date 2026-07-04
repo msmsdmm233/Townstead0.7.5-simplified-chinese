@@ -2401,6 +2401,16 @@ public class Townstead {
                         PacketDistributor.sendToPlayer(sp, genes);
                         PacketDistributor.sendToPlayersTrackingEntity(tracked, genes);
                     }
+                    // The root change re-rolls the villager's personality (and life-stage-derived
+                    // fields); push a fresh life sync so the inspector/editor reflect it immediately
+                    // instead of waiting for the next periodic broadcast.
+                    if (tracked instanceof VillagerEntityMCA villager) {
+                        com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync = townstead$lifeSync(villager);
+                        if (lifeSync != null) {
+                            PacketDistributor.sendToPlayer(sp, lifeSync);
+                            PacketDistributor.sendToPlayersTrackingEntity(villager, lifeSync);
+                        }
+                    }
                 }
             } else {
                 // Self-origin change: also re-key by the player's network id so their own

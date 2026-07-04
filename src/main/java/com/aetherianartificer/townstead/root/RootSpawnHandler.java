@@ -258,10 +258,31 @@ public final class RootSpawnHandler {
      */
     public static void assignPersonality(VillagerEntityMCA villager, TownsteadVillager state, ResourceLocation rootId) {
         String ref = PersonalityResolver.roll(rootId, villager.getRandom());
-        if (ref == null) return;
+        if (ref == null) {
+            // The new root declares no personality policy (vanilla MCA). If a previous root had
+            // assigned a custom personality, drop it and re-roll a fresh vanilla one, so a villager
+            // reassigned to a policy-less root doesn't keep a personality from its old root's set
+            // (which the inspector/voice would still show). At spawn the ref is already empty, so
+            // MCA's own freshly-rolled personality is left untouched (vanilla behaviour).
+            if (!state.life().personalityId().isEmpty()) {
+                state.life().setPersonalityId("");
+                villager.getVillagerBrain().setPersonality(randomVanillaPersonality(villager.getRandom()));
+            }
+            return;
+        }
         state.life().setPersonalityId(ref);
         Personality base = PersonalityResolver.baseOf(ref);
         if (base != null) villager.getVillagerBrain().setPersonality(base);
+    }
+
+    /** A random assignable base MCA personality (excludes the {@code UNASSIGNED} sentinel). */
+    private static Personality randomVanillaPersonality(net.minecraft.util.RandomSource random) {
+        Personality[] all = Personality.values();
+        java.util.List<Personality> pick = new ArrayList<>(all.length);
+        for (Personality p : all) {
+            if (p != Personality.UNASSIGNED) pick.add(p);
+        }
+        return pick.isEmpty() ? Personality.UNASSIGNED : pick.get(random.nextInt(pick.size()));
     }
 
     /**
