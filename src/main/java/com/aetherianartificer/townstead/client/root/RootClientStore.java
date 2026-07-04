@@ -28,7 +28,25 @@ public final class RootClientStore {
     private RootClientStore() {}
 
     public static void set(int entityId, String rootId) {
-        BY_ENTITY.put(entityId, rootId == null ? "" : rootId);
+        String normalized = rootId == null ? "" : rootId;
+        String previous = BY_ENTITY.put(entityId, normalized);
+        // The client resolves an entity's dimensions ONCE, at spawn. If the root had not synced yet the rig
+        // hitbox resolved null and the entity cached MCA's default box -- so its name tag floats and its
+        // interaction box is wrong even though the model (which re-resolves every frame) renders correctly.
+        // When the root first arrives (or changes) re-run refreshDimensions so the rig's declared hitbox
+        // finally takes effect. Deferred to the client thread so it is safe to call from the sync handler.
+        if (!normalized.isEmpty() && !normalized.equals(previous)) {
+            refreshEntityDimensions(entityId);
+        }
+    }
+
+    private static void refreshEntityDimensions(int entityId) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        mc.execute(() -> {
+            if (mc.level == null) return;
+            net.minecraft.world.entity.Entity e = mc.level.getEntity(entityId);
+            if (e != null) e.refreshDimensions();
+        });
     }
 
     /** Current origin id for the target, or empty string if unknown. */
