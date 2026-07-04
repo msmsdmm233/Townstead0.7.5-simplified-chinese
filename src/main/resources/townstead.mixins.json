@@ -105,6 +105,7 @@
     "LivingEntityMobTypeMixin",
     "LivingEntityInvertedHealMixin",
     "EntityClimbLookMixin",
+    "EntityClimbPickMixin",
     "LivingEntityClimbTravelMixin",
     "client.EntityRigEyeHeightMixin",
     "client.LivingEntitySwimClimbMixin"

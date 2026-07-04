@@ -269,6 +269,25 @@ public final class ClimbState {
         return cameraOrientation(n, entityYaw).transform(new Vector3f(0f, 0f, -1f));
     }
 
+    /**
+     * The world look direction the local player's REORIENTED crosshair points, as a raycast view vector, or
+     * null when the player is not reoriented onto a surface. Block/entity picking uses the entity's raw
+     * {@code getViewVector} (from yaw/pitch), but while clung the camera is tipped onto the surface by
+     * {@link ClimbView} without changing those fields -- so the pick ray and the crosshair diverge and blocks
+     * land where the un-tipped look points. A mixin swaps in this vector for the local clung player so what you
+     * place/hit follows the crosshair. Client-only; callers guard on {@code level.isClientSide} first.
+     */
+    public static net.minecraft.world.phys.Vec3 reorientedPick(LivingEntity self) {
+        Minecraft mc = Minecraft.getInstance();
+        if (self != mc.player || !reorientedView()) return null;
+        int id = self.getId();
+        if (factor(id) <= 0f) return null;
+        Vector3f n = normal(id);
+        if (n == null) return null;
+        Vector3f f = lookForward(n, self.getYRot());
+        return new net.minecraft.world.phys.Vec3(f.x(), f.y(), f.z());
+    }
+
     private static String fmtVec(Vector3f v) {
         return String.format(java.util.Locale.ROOT, "(%.2f,%.2f,%.2f)", v.x(), v.y(), v.z());
     }

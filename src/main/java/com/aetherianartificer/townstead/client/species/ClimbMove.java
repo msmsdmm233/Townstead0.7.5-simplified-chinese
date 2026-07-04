@@ -30,7 +30,7 @@ public final class ClimbMove {
     private static final double PROBE = 0.18;
     private static final double STICKY_PROBE = 0.42;
     private static final double CORNER_AHEAD = 0.34;
-    private static final boolean DEBUG = true; // flip true to log the clung movement each few ticks (latest.log)
+    private static final boolean DEBUG = false; // flip true to log the clung movement each few ticks (latest.log)
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("townstead/climb");
     private static final int GRACE = 8;       // ticks after release that vanilla climb stays suppressed
 
