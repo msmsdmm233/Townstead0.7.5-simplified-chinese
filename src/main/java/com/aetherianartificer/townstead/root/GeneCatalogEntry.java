@@ -41,25 +41,107 @@ public record GeneCatalogEntry(
         // A sized attachment gene's editor-slider label ("Ear Size") + its translate key; both empty
         // when the gene carries no size or authored no label (the editor uses the gene name then).
         String sizeLabel,
-        String sizeLabelKey
+        String sizeLabelKey,
+        // The gene's heritable size channels (empty when unsized); the editor renders one
+        // slider per channel. A single-channel legacy gene has one entry named "".
+        List<Channel> channels,
+        // The gene's heritable-tint preset colours (0xRRGGBB); non-empty means the tint_r/g/b
+        // channels exist and the editor renders palette swatches + free colour sliders.
+        List<Integer> palette,
+        // A PARTICLE gene's serialized pheno gate (empty = always on), so the editor preview
+        // can honour the same condition the server emitter tests.
+        String conditionJson
 ) {
     public GeneCatalogEntry {
         variants = variants == null ? List.of() : List.copyOf(variants);
         faceSlot = faceSlot == null ? "" : faceSlot;
         sizeLabel = sizeLabel == null ? "" : sizeLabel;
         sizeLabelKey = sizeLabelKey == null ? "" : sizeLabelKey;
+        channels = channels == null ? List.of() : List.copyOf(channels);
+        palette = palette == null ? List.of() : List.copyOf(palette);
+        conditionJson = conditionJson == null ? "" : conditionJson;
+    }
+
+    /** One heritable size channel: name (empty = legacy anonymous), roll range, slider label. */
+    public record Channel(String name, float min, float max, String label, String labelKey) {
+        public Channel {
+            label = label == null ? "" : label;
+            labelKey = labelKey == null ? "" : labelKey;
+        }
     }
 
     /**
      * One option of a VARIANTS gene: its id, resolved label, roll weight, the label's translate key,
-     * a colour tint ({@code 0xRRGGBB}, or {@code -1} when none), and — for a face eyes/mouth variant —
-     * its sprite-strip {@code texture} ({@code ""} when none) and {@code glow} (emissive eyes) flag.
+     * a colour tint ({@code 0xRRGGBB}, or {@code -1} when none), for a face eyes/mouth variant
+     * its sprite-strip {@code texture} ({@code ""} when none) and {@code glow} (emissive eyes) flag,
+     * and — for a variant-swapped attachment gene — the {@code attachment} id(s) this option wears
+     * ({@code ;}-joined for a composite set) plus that option's own size {@code channels} and
+     * heritable-tint {@code palette}.
      */
     public record Variant(String id, String label, int weight, String labelKey, int tint,
-                          String texture, boolean glow) {
+                          String texture, boolean glow, String attachment, List<Channel> channels,
+                          List<Integer> palette) {
         public Variant {
             texture = texture == null ? "" : texture;
+            attachment = attachment == null ? "" : attachment;
+            channels = channels == null ? List.of() : List.copyOf(channels);
+            palette = palette == null ? List.of() : List.copyOf(palette);
         }
+    }
+
+    /** True when this gene puts an attachment on its bearer, directly or via any variant. */
+    public boolean grantsAttachment() {
+        if (isAttachment()) return true;
+        for (Variant variant : variants) {
+            if (!variant.attachment().isEmpty()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * The attachment this gene expresses for a carried variant id: the gene's own for a
+     * plain attachment gene, the matching option's for a variant swap (falling back to
+     * the first option that wears one). Empty when the gene grants no attachment.
+     */
+    public String attachmentFor(String variantId) {
+        if (isAttachment()) return attachmentId();
+        for (Variant variant : variants) {
+            if (variant.id().equals(variantId) && !variant.attachment().isEmpty()) return variant.attachment();
+        }
+        for (Variant variant : variants) {
+            if (!variant.attachment().isEmpty()) return variant.attachment();
+        }
+        return "";
+    }
+
+    /**
+     * Every attachment id this gene expresses for a carried variant: the resolved
+     * {@link #attachmentFor} entry split on {@code ;} (a composite grant wears them all).
+     */
+    public List<String> attachmentsFor(String variantId) {
+        String joined = attachmentFor(variantId);
+        if (joined.isEmpty()) return List.of();
+        List<String> out = new java.util.ArrayList<>();
+        for (String id : joined.split(";")) {
+            if (!id.isEmpty()) out.add(id);
+        }
+        return out;
+    }
+
+    /** The size channels behind a carried variant id (the variant's own, else the gene's). */
+    public List<Channel> channelsFor(String variantId) {
+        for (Variant variant : variants) {
+            if (variant.id().equals(variantId) && !variant.channels().isEmpty()) return variant.channels();
+        }
+        return channels;
+    }
+
+    /** The heritable-tint palette behind a carried variant id (the variant's own, else the gene's). */
+    public List<Integer> paletteFor(String variantId) {
+        for (Variant variant : variants) {
+            if (variant.id().equals(variantId) && !variant.palette().isEmpty()) return variant.palette();
+        }
+        return palette;
     }
 
     /** This gene's face slot is eyes / mouth / eye_color (a custom-face overlay gene). */

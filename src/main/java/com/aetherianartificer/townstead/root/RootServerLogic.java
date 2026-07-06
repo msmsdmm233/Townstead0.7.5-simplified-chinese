@@ -2,10 +2,13 @@ package com.aetherianartificer.townstead.root;
 
 import com.aetherianartificer.townstead.data.DataPackLang;
 import com.aetherianartificer.townstead.root.gene.Allele;
+import com.aetherianartificer.townstead.root.gene.AllelePayload;
 import com.aetherianartificer.townstead.root.gene.Gene;
+import com.aetherianartificer.townstead.root.gene.GeneInstance;
 import com.aetherianartificer.townstead.root.gene.GeneRegistry;
 import com.aetherianartificer.townstead.root.gene.GeneVariant;
 import com.aetherianartificer.townstead.root.gene.Genotype;
+import com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType;
 import com.aetherianartificer.townstead.pheno.power.Power;
 import com.aetherianartificer.townstead.pheno.power.Powers;
 import com.aetherianartificer.townstead.root.ability.GeneAbilityTicker;
@@ -104,10 +107,12 @@ public final class RootServerLogic {
     }
 
     /**
-     * Pin a target's carried variant for one variant gene (the editor's variant picker), or the
-     * size roll of a sized attachment gene (the editor's size slider — {@code variantId} is the
-     * numeric payload, clamped to the gene's range). Sets both genotype alleles to the chosen
-     * value so it expresses, persists, and inherits like a roll, then returns the resolved
+     * Pin a target's carried allele payload for one gene (the editor's variant picker and
+     * size-channel sliders — {@code variantId} is a full {@link AllelePayload} encoding:
+     * a variant id, channel values, or both). The variant part must name a real option;
+     * channel values are clamped to the gene's (or chosen variant's) declared ranges and
+     * missing channels fill with their midpoint. Sets both genotype alleles to the result
+     * so it expresses, persists, and inherits like a roll, then returns the resolved
      * entity id for re-sync, or {@link RootSetC2SPayload#NONE} if invalid.
      */
     public static int setVariant(ServerPlayer sp, int entityId, String geneId, String variantId) {
@@ -115,26 +120,32 @@ public final class RootServerLogic {
         if (gid == null) return RootSetC2SPayload.NONE;
         Gene gene = GeneRegistry.byId(gid);
         if (gene == null) return RootSetC2SPayload.NONE;
-        Allele allele;
-        if (gene.instance() instanceof com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.Instance att
-                && att.size() != null) {
-            float value;
-            try {
-                value = Float.parseFloat(variantId);
-            } catch (NumberFormatException e) {
-                return RootSetC2SPayload.NONE;
-            }
-            value = Math.max(att.size().min(), Math.min(att.size().max(), value));
-            allele = Allele.of(gid, String.format(java.util.Locale.ROOT, "%.3f", value));
-        } else {
-            if (!gene.hasVariants()) return RootSetC2SPayload.NONE;
-            boolean valid = false;
+        AllelePayload incoming = AllelePayload.parse(variantId);
+        GeneInstance chosen = gene.instance();
+        if (gene.hasVariants()) {
+            GeneVariant match = null;
             for (GeneVariant v : gene.variants()) {
-                if (v.id().equals(variantId)) { valid = true; break; }
+                if (v.id().equals(incoming.variant())) { match = v; break; }
             }
-            if (!valid) return RootSetC2SPayload.NONE;
-            allele = Allele.of(gid, variantId);
+            if (match == null) return RootSetC2SPayload.NONE;
+            chosen = match.instance();
+        } else if (!incoming.variant().isEmpty()) {
+            return RootSetC2SPayload.NONE;
         }
+        List<AttachmentGeneType.Channel> channels =
+                chosen instanceof AttachmentGeneType.Instance att ? att.channels() : List.of();
+        if (channels.isEmpty() && !gene.hasVariants()) return RootSetC2SPayload.NONE;
+        java.util.Map<String, Float> canonical = new java.util.LinkedHashMap<>();
+        for (AttachmentGeneType.Channel channel : channels) {
+            Float raw = incoming.channels().get(channel.name());
+            if (raw == null && incoming.channels().size() == 1
+                    && incoming.channels().containsKey(AllelePayload.LEGACY_CHANNEL)) {
+                raw = incoming.channels().get(AllelePayload.LEGACY_CHANNEL);
+            }
+            float value = raw == null ? (channel.min() + channel.max()) / 2f : raw;
+            canonical.put(channel.name(), Math.max(channel.min(), Math.min(channel.max(), value)));
+        }
+        Allele allele = Allele.of(gid, AllelePayload.encode(incoming.variant(), canonical));
         ResourceLocation locus = Heredity.locusOf(gene);
 
         if (entityId == RootSetC2SPayload.SELF) {

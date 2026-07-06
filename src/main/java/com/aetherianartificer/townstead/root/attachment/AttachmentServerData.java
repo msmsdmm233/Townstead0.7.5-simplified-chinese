@@ -13,6 +13,7 @@ public final class AttachmentServerData {
 
     public static final int KIND_GEO = 0;
     public static final int KIND_TEXTURE = 1;
+    public static final int KIND_ANIMATION = 2;
 
     public record Blob(byte[] bytes, int kind) {}
 
@@ -25,16 +26,34 @@ public final class AttachmentServerData {
     // Named datapack geometry: logical id ("ns:geo/...") -> SHA-1 of the .geo.json, so a custom-geometry
     // rig model ships over the same blob sync (twin of namedTextures).
     private static volatile Map<String, String> namedGeo = Map.of();
+    // The authored JSON of each definition (by id), kept so the live-adjust command can dump a
+    // file-ready def (the synced view replaces geometry/texture refs with hashes).
+    private static volatile Map<String, com.google.gson.JsonObject> sources = Map.of();
 
     private AttachmentServerData() {}
 
     public static void set(List<AttachmentDef> defs, List<AttachmentPointDef> slotDefs, Map<String, Blob> blobStore,
-                           Map<String, String> textureIds, Map<String, String> geoIds) {
+                           Map<String, String> textureIds, Map<String, String> geoIds,
+                           Map<String, com.google.gson.JsonObject> sourceJson) {
         definitions = List.copyOf(defs);
         slots = List.copyOf(slotDefs);
         blobs = Map.copyOf(blobStore);
         namedTextures = Map.copyOf(textureIds);
         namedGeo = Map.copyOf(geoIds);
+        sources = Map.copyOf(sourceJson);
+    }
+
+    /** Swap one definition in place (the live-adjust command); lasts until the next data reload. */
+    public static void replaceDefinition(AttachmentDef def) {
+        java.util.List<AttachmentDef> updated = new java.util.ArrayList<>(definitions);
+        updated.removeIf(d -> d.id().equals(def.id()));
+        updated.add(def);
+        definitions = List.copyOf(updated);
+    }
+
+    /** The authored JSON a definition was loaded from, or null (used by the dump command). */
+    public static com.google.gson.JsonObject sourceJson(String id) {
+        return sources.get(id);
     }
 
     public static List<AttachmentDef> definitions() {

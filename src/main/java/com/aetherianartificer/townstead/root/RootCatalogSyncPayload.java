@@ -108,12 +108,18 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
                 buf.writeInt(v.tint());
                 buf.writeUtf(v.texture());
                 buf.writeBoolean(v.glow());
+                buf.writeUtf(v.attachment());
+                writeChannels(buf, v.channels());
+                writePalette(buf, v.palette());
             }
             buf.writeUtf(g.nameKey());
             buf.writeUtf(g.descriptionKey());
             buf.writeUtf(g.faceSlot());
             buf.writeUtf(g.sizeLabel());
             buf.writeUtf(g.sizeLabelKey());
+            writeChannels(buf, g.channels());
+            writePalette(buf, g.palette());
+            buf.writeUtf(g.conditionJson());
         }
         buf.writeVarInt(traits.size());
         for (TraitCatalogEntry t : traits) {
@@ -204,19 +210,25 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
                 int vtint = buf.readInt();
                 String vtexture = buf.readUtf();
                 boolean vglow = buf.readBoolean();
+                String vattachment = buf.readUtf();
+                List<GeneCatalogEntry.Channel> vchannels = readChannels(buf);
+                List<Integer> vpalette = readPalette(buf);
                 variants.add(new GeneCatalogEntry.Variant(vid, localize(vlabelKey, vlabel), vweight, vlabelKey,
-                        vtint, vtexture, vglow));
+                        vtint, vtexture, vglow, vattachment, vchannels, vpalette));
             }
             String gNameKey = buf.readUtf();
             String gDescKey = buf.readUtf();
             String gFaceSlot = buf.readUtf();
             String gSizeLabel = buf.readUtf();
             String gSizeLabelKey = buf.readUtf();
+            List<GeneCatalogEntry.Channel> gChannels = readChannels(buf);
+            List<Integer> gPalette = readPalette(buf);
+            String gCondition = buf.readUtf();
             genes.add(new GeneCatalogEntry(gid, localize(gNameKey, gname), localize(gDescKey, gdesc),
                     gcat, kind, gmin, gmax,
                     gtarget, gamount, gdom, glocus, gweight, variants,
                     gNameKey, gDescKey, gFaceSlot,
-                    localize(gSizeLabelKey, gSizeLabel), gSizeLabelKey));
+                    localize(gSizeLabelKey, gSizeLabel), gSizeLabelKey, gChannels, gPalette, gCondition));
         }
         int k = buf.readVarInt();
         List<TraitCatalogEntry> traits = new ArrayList<>(k);
@@ -229,6 +241,43 @@ public record RootCatalogSyncPayload(List<RootCatalogEntry> entries, List<GeneCa
         List<RigDefinition> rigs = new ArrayList<>(rn);
         for (int i = 0; i < rn; i++) rigs.add(readRig(buf));
         return new RootCatalogSyncPayload(entries, genes, traits, rigs);
+    }
+
+    private static void writeChannels(FriendlyByteBuf buf, List<GeneCatalogEntry.Channel> channels) {
+        buf.writeVarInt(channels.size());
+        for (GeneCatalogEntry.Channel channel : channels) {
+            buf.writeUtf(channel.name());
+            buf.writeFloat(channel.min());
+            buf.writeFloat(channel.max());
+            buf.writeUtf(channel.label());
+            buf.writeUtf(channel.labelKey());
+        }
+    }
+
+    private static void writePalette(FriendlyByteBuf buf, List<Integer> palette) {
+        buf.writeVarInt(palette.size());
+        for (int color : palette) buf.writeInt(color);
+    }
+
+    private static List<Integer> readPalette(FriendlyByteBuf buf) {
+        int count = buf.readVarInt();
+        List<Integer> palette = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) palette.add(buf.readInt());
+        return palette;
+    }
+
+    private static List<GeneCatalogEntry.Channel> readChannels(FriendlyByteBuf buf) {
+        int count = buf.readVarInt();
+        List<GeneCatalogEntry.Channel> channels = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            String name = buf.readUtf();
+            float min = buf.readFloat();
+            float max = buf.readFloat();
+            String label = buf.readUtf();
+            String labelKey = buf.readUtf();
+            channels.add(new GeneCatalogEntry.Channel(name, min, max, localize(labelKey, label), labelKey));
+        }
+        return channels;
     }
 
     /** Serialize a rig definition: model source, texture, bone map, and armor spec. */

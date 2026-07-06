@@ -1,0 +1,7 @@
+{
+  "schema": "townstead:attachment_point/v1",
+  "bone": "head",
+  "offset": [0, -4, -4],
+  "mirror": false,
+  "tags": ["snout"]
+}

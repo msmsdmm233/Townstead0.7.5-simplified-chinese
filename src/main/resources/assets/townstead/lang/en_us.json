@@ -1,6 +1,9 @@
 {
   "gui.villager_editor.page.origins": "Roots",
   "gui.destiny.origins": "Roots",
+  "townstead.editor.tint_red": "Red",
+  "townstead.editor.tint_green": "Green",
+  "townstead.editor.tint_blue": "Blue",
   "townstead.origin.search": "Search roots...",
   "townstead.origin.apply": "Apply",
   "townstead.origin.tab_origin": "Root",

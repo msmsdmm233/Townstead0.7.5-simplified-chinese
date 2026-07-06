@@ -40,8 +40,10 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArgs;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -80,6 +82,22 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Unique private String townstead$baseRootId = "";
     @Unique private boolean townstead$primed;
     @Unique private int townstead$target;
+    // Per-gene widget refreshers: the randomize dice and the palette swatches change a
+    // whole payload at once, so the gene's cycler label and sliders re-read it in place
+    // (rebuilding the page would seed from the not-yet-resynced real target instead).
+    @Unique private final Map<String, List<java.util.function.Consumer<
+            com.aetherianartificer.townstead.root.gene.AllelePayload>>> townstead$refreshers = new LinkedHashMap<>();
+    // While a gene tab is being built, its controls land in this scroll viewport instead
+    // of the screen, so a control-heavy race can wheel through them. Null elsewhere
+    // (body/head-page controls stay screen-level).
+    @Unique private com.aetherianartificer.townstead.client.gui.character.ControlColumn townstead$column;
+
+    /** Adds an editor control to the active scroll column, or straight to the screen. */
+    @Unique
+    private void townstead$addControl(net.minecraft.client.gui.components.AbstractWidget widget) {
+        if (townstead$column != null) townstead$column.add(widget);
+        else addRenderableWidget(widget);
+    }
 
     private VillagerEditorRootMixin() {
         super(null);
@@ -103,7 +121,24 @@ public abstract class VillagerEditorRootMixin extends Screen {
                                                   CallbackInfo ci) {
         int x = this.width / 2 - 175;
         int y = this.height / 2;
-        PreviewParticles.render(context, villager, x, y - 75, x + 175, y + 75);
+        PreviewParticles.render(context, villager, townstead$previewSubject(), x, y - 75, x + 175, y + 75);
+    }
+
+    /**
+     * The entity the preview REPRESENTS, for condition-gated preview effects: the player
+     * on a self-edit, the real (synced) villager otherwise — the throwaway dummy has no
+     * mood or needs to test against. Null when the target can't be resolved.
+     */
+    @Unique
+    private net.minecraft.world.entity.LivingEntity townstead$previewSubject() {
+        if (!townstead$primed) return null;
+        if (townstead$target == RootSetC2SPayload.SELF) return Minecraft.getInstance().player;
+        net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
+        if (level != null
+                && level.getEntity(townstead$target) instanceof net.minecraft.world.entity.LivingEntity living) {
+            return living;
+        }
+        return null;
     }
 
     // Leaving any page (or rebuilding one) drops an un-applied preview first, so a
@@ -143,6 +178,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // un-applied preview at HEAD first, so this never clobbers a live preview.
         RootClientStore.set(villager.getId(), townstead$baseRootId);
         townstead$previewDirty = false;
+        townstead$refreshers.clear();   // the page's widgets are rebuilt below
         // The editor dummy is a separate entity with no synced face alleles, so without this it
         // renders a different random face (eyes/mouth/colour) than the real villager. Seed the dummy's
         // carried face variants from the real target so the preview matches the game, on every page.
@@ -257,30 +293,79 @@ public abstract class VillagerEditorRootMixin extends Screen {
         int rowH = 20;
         int yStart = this.height / 2 + TOWNSTEAD_STRIP_Y + 24;
         // Fit the column above the Done button: shrink any tone swatch(es) when a tab is field-heavy.
-        int tones = 0, cyclers = 0;
+        int tones = 0, rows = 0;
         for (CharacterEditorResolver.Field f : tab.fields()) {
             if (f.gene() == null) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) tones++;
-            else cyclers++;   // cyclers and sliders take one row each
+            else rows += townstead$fieldRows(f);   // a cycler row plus one row per size channel
         }
         int swatch = 64;
         if (tones > 0) {
-            int free = (this.height / 2 + 92) - yStart - cyclers * (rowH + 2) - tones * (rowH + 4);
+            int free = (this.height / 2 + 92) - yStart - rows * (rowH + 2) - tones * (rowH + 4);
             swatch = Math.max(36, Math.min(64, free / tones));
         }
+        // All field controls live in a scroll viewport spanning strip-bottom to the Done
+        // row, so a tab with more controls than fit (style + channels + colour) wheels.
+        com.aetherianartificer.townstead.client.gui.character.ControlColumn column =
+                new com.aetherianartificer.townstead.client.gui.character.ControlColumn(
+                        x, yStart, w + 6, (this.height / 2 + 92) - yStart);
+        addRenderableWidget(column);
+        townstead$column = column;
         int y = yStart;
         for (CharacterEditorResolver.Field f : tab.fields()) {
             if (f.gene() == null) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) {
                 y += townstead$buildToneField(f.gene(), x, y, w, swatch);
             } else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) {
-                townstead$variantCycler(f.gene(), x, y, w, 20, rowH);
+                // Each gene group opens with a header row (name + randomize dice), so the
+                // cycler shows just the style and the sliders can use short channel labels.
+                y += townstead$geneHeader(f.gene(), x, y, w);
+                townstead$variantCycler(f.gene(), x, y, w, 20, rowH, false);
                 y += rowH + 2;
+                y += townstead$channelSliders(f.gene(), x, y, w, rowH, 2);
             } else if (f.kind() == CharacterEditorResolver.Field.Kind.SLIDER) {
-                townstead$sizeSlider(f.gene(), x, y, w, rowH);
-                y += rowH + 2;
+                y += townstead$geneHeader(f.gene(), x, y, w);
+                y += townstead$channelSliders(f.gene(), x, y, w, rowH, 2);
             }
         }
+        townstead$column = null;
+    }
+
+    /** A gene group's section header: its display name, with the randomize dice at the right. */
+    @Unique
+    private int townstead$geneHeader(GeneCatalogEntry gene, int x, int y, int w) {
+        int h = 14;
+        var header = new net.minecraft.client.gui.components.StringWidget(x + 2, y, w - h - 4, h,
+                Component.literal(gene.name()), Minecraft.getInstance().font);
+        townstead$addControl(header.alignLeft());
+        if (gene.grantsAttachment()) townstead$diceButton(gene, x + w - h, y, h);
+        return h + 2;
+    }
+
+    /** Rows a non-tone field occupies: the header, the cycler (if variants), one per channel/tint row. */
+    @Unique
+    private int townstead$fieldRows(CharacterEditorResolver.Field f) {
+        GeneCatalogEntry gene = f.gene();
+        String carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                RootClientStore.carriedVariants(townstead$target).get(gene.id())).variant();
+        int channels = townstead$channelRows(gene, carried);
+        return 1 + (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER ? 1 + channels : Math.max(1, channels));
+    }
+
+    /** Rows a gene's channels render as: one per size channel, plus the tint swatches + R/G/B rows. */
+    @Unique
+    private int townstead$channelRows(GeneCatalogEntry gene, String carried) {
+        int rows = 0;
+        boolean tint = false;
+        for (GeneCatalogEntry.Channel channel : gene.channelsFor(carried)) {
+            if (com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.isTintChannel(channel.name())) {
+                tint = true;
+            } else {
+                rows++;
+            }
+        }
+        if (tint) rows += 3 + (gene.paletteFor(carried).isEmpty() ? 0 : 1);
+        return rows;
     }
 
     /**
@@ -328,12 +413,12 @@ public abstract class VillagerEditorRootMixin extends Screen {
             ((ColorPickerWidgetAccessor) swatch).townstead$setTexture(RootSkinPickerTexture.forPaletteHue(v.tint()));
             townstead$sendSetVariant(townstead$target, geneId, v.id());
         };
-        addRenderableWidget(new ButtonWidget(x, y, arrowW, rowH, Component.literal("<"), b -> cycle.accept(-1)));
+        townstead$addControl(new ButtonWidget(x, y, arrowW, rowH, Component.literal("<"), b -> cycle.accept(-1)));
         mid[0] = new ButtonWidget(x + arrowW, y, midW, rowH,
                 Component.literal(name + ": " + opts.get(start).label()), b -> { });
-        addRenderableWidget(mid[0]);
-        addRenderableWidget(new ButtonWidget(x + arrowW + midW, y, arrowW, rowH, Component.literal(">"), b -> cycle.accept(1)));
-        addRenderableWidget(swatch);
+        townstead$addControl(mid[0]);
+        townstead$addControl(new ButtonWidget(x + arrowW + midW, y, arrowW, rowH, Component.literal(">"), b -> cycle.accept(1)));
+        townstead$addControl(swatch);
         return rowH + 2 + size + 2;
         //?} else {
         /*townstead$variantCycler(gene, x, y, w, 20, 20);
@@ -538,7 +623,12 @@ public abstract class VillagerEditorRootMixin extends Screen {
         java.util.List<GeneCatalogEntry> sized = townstead$sizedAttachmentGenes();
         if (genes.isEmpty() && sized.isEmpty()) return;
         int rowH = 18;
-        int rows = genes.size() + sized.size();
+        int rows = genes.size();
+        for (GeneCatalogEntry gene : sized) {
+            String carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                    RootClientStore.carriedVariants(townstead$target).get(gene.id())).variant();
+            rows += 1 + townstead$channelRows(gene, carried);   // header row + controls
+        }
 
         GeneSliderWidget faceSlider = null;
         String faceKey = Genetics.FACE.getTranslationKey();
@@ -575,8 +665,8 @@ public abstract class VillagerEditorRootMixin extends Screen {
             y += rowH + 1;
         }
         for (GeneCatalogEntry gene : sized) {
-            townstead$sizeSlider(gene, x, y, w, rowH);
-            y += rowH + 1;
+            y += townstead$geneHeader(gene, x, y, w);
+            y += townstead$channelSliders(gene, x, y, w, rowH, 1);
         }
     }
 
@@ -587,40 +677,358 @@ public abstract class VillagerEditorRootMixin extends Screen {
     }
 
     /**
-     * A size slider for a sized attachment gene (elf ear length, tusk size). The gene's roll range
-     * rides in the catalog {@code min}/{@code max}; the slider position maps onto it, seeds from the
-     * real target's synced roll (midpoint when unknown), previews live on the dummy, and commits
-     * through the same set-variant payload the cyclers use — the numeric payload rides the variant
-     * string and the server clamps it to the gene's range.
+     * One slider per size channel of a sized attachment gene (ear length + ear droop, ...).
+     * Each channel maps its own catalog range onto the slider, seeds from the real target's
+     * synced roll (midpoint when unknown), previews live on the dummy, and commits the FULL
+     * re-encoded allele payload (variant + every channel) through the same set-variant
+     * payload the cyclers use — the server clamps each channel to its declared range.
+     * Returns the vertical space consumed ({@code channels × (rowH + spacing)}).
      */
     @Unique
-    private void townstead$sizeSlider(GeneCatalogEntry gene, int x, int y, int w, int rowH) {
+    private int townstead$channelSliders(GeneCatalogEntry gene, int x, int y, int w, int rowH, int spacing) {
         String geneId = gene.id();
-        float min = gene.min();
-        float max = gene.max();
-        float span = Math.max(1e-4f, max - min);
-        float value = (min + max) / 2f;
-        String current = RootClientStore.carriedVariants(townstead$target).get(geneId);
-        if (current != null && !current.isEmpty()) {
-            try {
-                value = Float.parseFloat(current);
-            } catch (NumberFormatException ignored) { }
+        com.aetherianartificer.townstead.root.gene.AllelePayload carried =
+                com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                        RootClientStore.carriedVariants(townstead$target).get(geneId));
+        java.util.List<GeneCatalogEntry.Channel> channels = gene.channelsFor(carried.variant());
+        int used = 0;
+        boolean tint = false;
+        for (GeneCatalogEntry.Channel channel : channels) {
+            if (com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.isTintChannel(channel.name())) {
+                tint = true;   // the three components render as one colour control below
+                continue;
+            }
+            townstead$channelSlider(gene, channel, x, y + used, w, rowH);
+            used += rowH + spacing;
         }
-        value = Math.max(min, Math.min(max, value));
-        RootClientStore.setCarriedVariant(villager.getId(), geneId,
-                String.format(java.util.Locale.ROOT, "%.3f", value));   // seed the dummy preview
-        String name = gene.sizeLabel().isEmpty() ? gene.name() : gene.sizeLabel();
-        addRenderableWidget(new com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider(
+        if (tint) used += townstead$tintControls(gene, carried.variant(), x, y + used, w, rowH, spacing);
+        return used;
+    }
+
+    @Unique
+    private void townstead$channelSlider(GeneCatalogEntry gene, GeneCatalogEntry.Channel channel,
+                                         int x, int y, int w, int rowH) {
+        String geneId = gene.id();
+        float min = channel.min();
+        float max = channel.max();
+        float span = Math.max(1e-4f, max - min);
+        com.aetherianartificer.townstead.root.gene.AllelePayload carried =
+                com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                        RootClientStore.carriedVariants(townstead$target).get(geneId));
+        float value = Math.max(min, Math.min(max, carried.channel(channel.name(), (min + max) / 2f)));
+        // Seed the dummy preview with the full payload so the render layer sees this channel.
+        RootClientStore.setCarriedVariant(villager.getId(), geneId, townstead$withChannel(
+                RootClientStore.carriedVariants(villager.getId()).get(geneId) != null
+                        ? RootClientStore.carriedVariants(villager.getId()).get(geneId)
+                        : RootClientStore.carriedVariants(townstead$target).get(geneId),
+                channel.name(), value));
+        String name = !channel.label().isEmpty() ? channel.label()
+                : (gene.sizeLabel().isEmpty() ? gene.name() : gene.sizeLabel());
+        com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider slider =
+                new com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider(
                 x, y, w, rowH, (value - min) / span,
                 v -> Component.literal(name + ": " + Math.round((min + v * span) * 100.0) + "%"),
                 v -> {
-                    String encoded = String.format(java.util.Locale.ROOT, "%.3f", min + (float) v * span);
+                    // Re-encode against the dummy's latest payload so the variant picked in the
+                    // cycler and the other channels' sliders survive this channel's change.
+                    String encoded = townstead$withChannel(
+                            RootClientStore.carriedVariants(villager.getId()).get(geneId),
+                            channel.name(), min + (float) v * span);
                     RootClientStore.setCarriedVariant(villager.getId(), geneId, encoded);   // live preview
                     townstead$sendSetVariant(townstead$target, geneId, encoded);            // commit
-                }));
+                    townstead$focusGene(gene);                                              // zoom the preview in
+                });
+        townstead$addControl(slider);
+        townstead$onRefresh(geneId, payload -> slider.setNormalizedValue(
+                (Math.max(min, Math.min(max, payload.channel(channel.name(), (min + max) / 2f))) - min) / span));
     }
 
-    /** The origin's sized attachment genes (ear length, ...), whose size roll gets an editor slider. */
+    /**
+     * One colour control for a heritable-tint gene: a row of palette swatches (each sets
+     * the whole colour) above free red/green/blue sliders, all reading and writing the
+     * reserved {@code tint_r}/{@code tint_g}/{@code tint_b} channels of the same payload
+     * the size sliders share. Returns the vertical space consumed.
+     */
+    @Unique
+    private int townstead$tintControls(GeneCatalogEntry gene, String variantId,
+                                       int x, int y, int w, int rowH, int spacing) {
+        String geneId = gene.id();
+        java.util.List<Integer> palette = gene.paletteFor(variantId);
+        int used = 0;
+        if (!palette.isEmpty()) {
+            int bw = Math.max(14, w / palette.size());
+            for (int i = 0; i < palette.size() && x + i * bw < x + w; i++) {
+                final int color = palette.get(i);
+                int bx = x + i * bw;
+                townstead$addControl(new com.aetherianartificer.townstead.client.gui.character.SwatchButton(
+                        bx, y, Math.min(bw, x + w - bx), rowH, color,
+                        () -> townstead$setTint(gene, color)));
+            }
+            used += rowH + spacing;
+        }
+        // Free colour choice: MCA's HSV gradient bars where its editor ships them
+        // (hue rainbow + live saturation/brightness gradients), plain R/G/B rows on
+        // the old editor.
+        //? if neoforge {
+        used += townstead$hsvRows(gene, x, y + used, w, rowH, spacing);
+        //?} else {
+        /*String[] channels = {
+                com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R,
+                com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_G,
+                com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_B};
+        String[] labels = {
+                Component.translatable("townstead.editor.tint_red").getString(),
+                Component.translatable("townstead.editor.tint_green").getString(),
+                Component.translatable("townstead.editor.tint_blue").getString()};
+        for (int i = 0; i < 3; i++) {
+            townstead$tintSlider(gene, channels[i], labels[i], x, y + used, w, rowH);
+            used += rowH + spacing;
+        }
+        *///?}
+        return used;
+    }
+
+    /**
+     * The three HSV bars, reusing MCA's own colour-picker widgets: a hue bar over its
+     * shipped rainbow texture, and saturation/brightness bars whose gradients re-derive
+     * from the current hue every frame. The shared {@code hsv} array is the source of
+     * truth while dragging (an RGB round-trip would collapse the hue on greys); swatch
+     * clicks and the dice re-seed it through the gene's refreshers.
+     */
+    //? if neoforge {
+    @Unique
+    private int townstead$hsvRows(GeneCatalogEntry gene, int x, int y, int w, int rowH, int spacing) {
+        String geneId = gene.id();
+        var carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                RootClientStore.carriedVariants(townstead$target).get(geneId));
+        double[] seed = net.conczin.mca.client.resources.ClientUtils.RGB2HSV(
+                townstead$clamp01(carried.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R, 1f)),
+                townstead$clamp01(carried.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_G, 1f)),
+                townstead$clamp01(carried.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_B, 1f)));
+        double[] hsv = {seed[0], seed[1], seed[2]};
+        Runnable commit = () -> {
+            double[] rgb = net.conczin.mca.client.resources.ClientUtils.HSV2RGB(hsv[0], hsv[1], hsv[2]);
+            townstead$writeTint(gene, (float) rgb[0], (float) rgb[1], (float) rgb[2], false);
+        };
+        // The MCA picker's 16px arrow handle centers on the value, overhanging the bar
+        // by 8px at either extreme — inset the bars so the handle never leaves the
+        // scroll viewport's scissor (MCA's own editor insets its bars the same way).
+        int barX = x + 10;
+        int barW = w - 20;
+        HorizontalColorPickerWidget hue = new HorizontalColorPickerWidget(barX, y, barW, rowH, hsv[0] / 360.0,
+                ResourceLocation.fromNamespaceAndPath("mca", "textures/colormap/hue.png"),
+                (vx, vy) -> { hsv[0] = vx * 360.0; commit.run(); });
+        net.conczin.mca.client.gui.widget.HorizontalGradientWidget saturation =
+                new net.conczin.mca.client.gui.widget.HorizontalGradientWidget(
+                        barX, y + rowH + spacing, barW, rowH, hsv[1],
+                        () -> townstead$rgba(hsv[0], 0.0, 1.0),
+                        () -> townstead$rgba(hsv[0], 1.0, 1.0),
+                        (vx, vy) -> { hsv[1] = vx; commit.run(); });
+        net.conczin.mca.client.gui.widget.HorizontalGradientWidget brightness =
+                new net.conczin.mca.client.gui.widget.HorizontalGradientWidget(
+                        barX, y + 2 * (rowH + spacing), barW, rowH, hsv[2],
+                        () -> townstead$rgba(hsv[0], hsv[1], 0.0),
+                        () -> townstead$rgba(hsv[0], hsv[1], 1.0),
+                        (vx, vy) -> { hsv[2] = vx; commit.run(); });
+        townstead$addControl(hue);
+        townstead$addControl(saturation);
+        townstead$addControl(brightness);
+        townstead$onRefresh(geneId, payload -> {
+            double[] fresh = net.conczin.mca.client.resources.ClientUtils.RGB2HSV(
+                    townstead$clamp01(payload.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R, 1f)),
+                    townstead$clamp01(payload.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_G, 1f)),
+                    townstead$clamp01(payload.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_B, 1f)));
+            hsv[0] = fresh[0];
+            hsv[1] = fresh[1];
+            hsv[2] = fresh[2];
+            hue.setValueX(hsv[0] / 360.0);
+            saturation.setValueX(hsv[1]);
+            brightness.setValueX(hsv[2]);
+        });
+        return 3 * (rowH + spacing);
+    }
+
+    @Unique
+    private static float[] townstead$rgba(double h, double s, double v) {
+        double[] rgb = net.conczin.mca.client.resources.ClientUtils.HSV2RGB(h, s, v);
+        return new float[]{(float) rgb[0], (float) rgb[1], (float) rgb[2], 1f};
+    }
+    //?}
+
+    @Unique
+    private static float townstead$clamp01(float value) {
+        return Math.max(0f, Math.min(1f, value));
+    }
+
+    @Unique
+    private void townstead$tintSlider(GeneCatalogEntry gene, String channelName, String label,
+                                      int x, int y, int w, int rowH) {
+        String geneId = gene.id();
+        com.aetherianartificer.townstead.root.gene.AllelePayload carried =
+                com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                        RootClientStore.carriedVariants(townstead$target).get(geneId));
+        float value = Math.max(0f, Math.min(1f, carried.channel(channelName, 1f)));
+        RootClientStore.setCarriedVariant(villager.getId(), geneId, townstead$withChannel(
+                RootClientStore.carriedVariants(villager.getId()).get(geneId) != null
+                        ? RootClientStore.carriedVariants(villager.getId()).get(geneId)
+                        : RootClientStore.carriedVariants(townstead$target).get(geneId),
+                channelName, value));
+        com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider slider =
+                new com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider(
+                x, y, w, rowH, value,
+                v -> Component.literal(label + ": " + Math.round(v * 255.0)),
+                v -> {
+                    String encoded = townstead$withChannel(
+                            RootClientStore.carriedVariants(villager.getId()).get(geneId),
+                            channelName, (float) v);
+                    RootClientStore.setCarriedVariant(villager.getId(), geneId, encoded);
+                    townstead$sendSetVariant(townstead$target, geneId, encoded);
+                    townstead$focusGene(gene);
+                });
+        townstead$addControl(slider);
+        townstead$onRefresh(geneId, payload -> slider.setNormalizedValue(
+                Math.max(0f, Math.min(1f, payload.channel(channelName, 1f)))));
+    }
+
+    /** Swatch click: write all three tint components of the gene's payload at once. */
+    @Unique
+    private void townstead$setTint(GeneCatalogEntry gene, int color) {
+        townstead$writeTint(gene, ((color >> 16) & 0xFF) / 255f,
+                ((color >> 8) & 0xFF) / 255f, (color & 0xFF) / 255f, true);
+    }
+
+    /**
+     * Writes the three tint components of the gene's payload: preview + commit, and
+     * (for swatch/dice paths) refresh the gene's widgets. The HSV bars pass
+     * {@code refresh = false} — they own the colour state while dragging.
+     */
+    @Unique
+    private void townstead$writeTint(GeneCatalogEntry gene, float r, float g, float b, boolean refresh) {
+        String geneId = gene.id();
+        String raw = RootClientStore.carriedVariants(villager.getId()).get(geneId);
+        if (raw == null) raw = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        var payload = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(raw);
+        java.util.Map<String, Float> channels = new LinkedHashMap<>(payload.channels());
+        channels.put(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R,
+                townstead$clamp01(r));
+        channels.put(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_G,
+                townstead$clamp01(g));
+        channels.put(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_B,
+                townstead$clamp01(b));
+        String encoded = com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                payload.variant(), channels);
+        RootClientStore.setCarriedVariant(villager.getId(), geneId, encoded);
+        townstead$sendSetVariant(townstead$target, geneId, encoded);
+        if (refresh) townstead$runRefresh(geneId, encoded);
+        townstead$focusGene(gene);
+    }
+
+    /** A small dice button that re-rolls the gene: variant by weight, channels in range, colour from the palette. */
+    @Unique
+    private void townstead$diceButton(GeneCatalogEntry gene, int x, int y, int size) {
+        townstead$addControl(new ButtonWidget(x, y, size, size, Component.literal("↻"),
+                b -> townstead$randomize(gene)));
+    }
+
+    @Unique
+    private void townstead$randomize(GeneCatalogEntry gene) {
+        var random = villager.getRandom();
+        String geneId = gene.id();
+        String variantId = "";
+        if (gene.isVariants() && !gene.variants().isEmpty()) {
+            int total = 0;
+            for (GeneCatalogEntry.Variant v : gene.variants()) total += Math.max(0, v.weight());
+            int roll = total <= 0 ? 0 : random.nextInt(total);
+            variantId = gene.variants().get(0).id();
+            for (GeneCatalogEntry.Variant v : gene.variants()) {
+                roll -= Math.max(0, v.weight());
+                if (roll < 0) { variantId = v.id(); break; }
+            }
+        }
+        java.util.List<Integer> palette = gene.paletteFor(variantId);
+        java.util.Map<String, Float> values = new LinkedHashMap<>();
+        int tint = -1;
+        for (GeneCatalogEntry.Channel channel : gene.channelsFor(variantId)) {
+            if (com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.isTintChannel(channel.name())) {
+                if (tint < 0) tint = palette.isEmpty() ? 0xFFFFFF : palette.get(random.nextInt(palette.size()));
+                int shift = com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R
+                        .equals(channel.name()) ? 16
+                        : com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_G
+                        .equals(channel.name()) ? 8 : 0;
+                values.put(channel.name(), ((tint >> shift) & 0xFF) / 255f);
+            } else {
+                values.put(channel.name(),
+                        channel.min() + random.nextFloat() * (channel.max() - channel.min()));
+            }
+        }
+        String encoded = com.aetherianartificer.townstead.root.gene.AllelePayload.encode(variantId, values);
+        RootClientStore.setCarriedVariant(villager.getId(), geneId, encoded);
+        townstead$sendSetVariant(townstead$target, geneId, encoded);
+        townstead$runRefresh(geneId, encoded);
+        townstead$focusGene(gene);
+    }
+
+    @Unique
+    private void townstead$onRefresh(String geneId,
+                                     java.util.function.Consumer<com.aetherianartificer.townstead.root.gene.AllelePayload> consumer) {
+        townstead$refreshers.computeIfAbsent(geneId, k -> new ArrayList<>()).add(consumer);
+    }
+
+    @Unique
+    private void townstead$runRefresh(String geneId, String encoded) {
+        List<java.util.function.Consumer<com.aetherianartificer.townstead.root.gene.AllelePayload>> list =
+                townstead$refreshers.get(geneId);
+        if (list == null) return;
+        var payload = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(encoded);
+        for (var consumer : list) consumer.accept(payload);
+    }
+
+    /**
+     * Aim the preview camera at the body region the gene's attachment sits on, so the
+     * user sees what they're dragging. Head-area tags zoom high, back/tail tags zoom
+     * low-center; anything unresolved gets a gentle whole-figure zoom. The render-side
+     * consumer is 1.21.1-only ({@code townstead$zoomPreview}); elsewhere this is inert.
+     */
+    @Unique
+    private void townstead$focusGene(GeneCatalogEntry gene) {
+        String carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                RootClientStore.carriedVariants(villager.getId()).get(gene.id())).variant();
+        java.util.List<String> ids = gene.attachmentsFor(carried);
+        com.aetherianartificer.townstead.root.attachment.AttachmentDef def = ids.isEmpty() ? null
+                : com.aetherianartificer.townstead.client.attachment.AttachmentClient.def(ids.get(0));
+        float height = 0.5f;
+        float zoom = 1.5f;
+        if (def != null) {
+            String tag = def.targetTag() == null ? "" : def.targetTag();
+            String point = def.targetPoint() == null ? "" : def.targetPoint();
+            String region = !tag.isEmpty() ? tag : (!point.isEmpty() ? point : def.bone());
+            if (region.contains("ear") || region.contains("horn") || region.contains("brow")
+                    || region.contains("snout") || region.contains("crown") || region.contains("head")) {
+                height = 0.78f;
+                zoom = 2.0f;
+            } else if (region.contains("tail") || region.contains("back") || region.contains("wing")
+                    || region.contains("body")) {
+                height = 0.45f;
+                zoom = 1.7f;
+            }
+        }
+        com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.focus(height, zoom);
+    }
+
+    /** {@code raw} with one channel value set (a LONE legacy anonymous roll upgrades to the named channel). */
+    @Unique
+    private static String townstead$withChannel(String raw, String channelName, float value) {
+        var payload = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(raw);
+        java.util.Map<String, Float> channels = new java.util.LinkedHashMap<>(payload.channels());
+        if (!channelName.isEmpty() && channels.size() == 1
+                && channels.containsKey(com.aetherianartificer.townstead.root.gene.AllelePayload.LEGACY_CHANNEL)) {
+            channels.remove(com.aetherianartificer.townstead.root.gene.AllelePayload.LEGACY_CHANNEL);
+        }
+        channels.put(channelName, value);
+        return com.aetherianartificer.townstead.root.gene.AllelePayload.encode(payload.variant(), channels);
+    }
+
+    /** The origin's sized attachment genes (ear length, ...), whose size channels get editor sliders. */
     @Unique
     private java.util.List<GeneCatalogEntry> townstead$sizedAttachmentGenes() {
         java.util.List<GeneCatalogEntry> out = new ArrayList<>();
@@ -629,39 +1037,63 @@ public abstract class VillagerEditorRootMixin extends Screen {
         if (origin == null) return out;
         for (com.aetherianartificer.townstead.root.RootCatalogEntry.Inherited inh : origin.inheritedGenes()) {
             GeneCatalogEntry g = com.aetherianartificer.townstead.client.root.RootCatalogClient.gene(inh.geneId());
-            if (g != null && g.isSizedAttachment()) out.add(g);
+            if (g != null && !g.isVariants() && !g.channels().isEmpty()) out.add(g);
         }
         return out;
     }
 
-    /** Build a {@code [<] Gene: variant [>]} cycler for one variant gene, seeded from the real target. */
     @Unique
     private void townstead$variantCycler(GeneCatalogEntry gene, int x, int y, int w, int arrowW, int rowH) {
+        townstead$variantCycler(gene, x, y, w, arrowW, rowH, true);
+    }
+
+    /**
+     * Build a {@code [<] Gene: variant [>]} cycler for one variant gene, seeded from the real
+     * target ({@code showGeneName} = false drops the name prefix when a section header already
+     * carries it). A variant-swapped attachment gene keeps its channel rolls across cycling (the
+     * payload re-encodes variant + channels; the server clamps them to the new option's ranges).
+     */
+    @Unique
+    private void townstead$variantCycler(GeneCatalogEntry gene, int x, int y, int w, int arrowW, int rowH,
+                                         boolean showGeneName) {
         List<GeneCatalogEntry.Variant> opts = gene.variants();
         String geneId = gene.id();
-        String current = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        var carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                RootClientStore.carriedVariants(townstead$target).get(geneId));
         int start = 0;
         for (int i = 0; i < opts.size(); i++) {
-            if (opts.get(i).id().equals(current)) { start = i; break; }
+            if (opts.get(i).id().equals(carried.variant())) { start = i; break; }
         }
-        RootClientStore.setCarriedVariant(villager.getId(), geneId, opts.get(start).id());
+        RootClientStore.setCarriedVariant(villager.getId(), geneId,
+                com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                        opts.get(start).id(), carried.channels()));
         int[] idx = { start };
         int midW = Math.max(20, w - arrowW * 2);
-        String name = gene.name();
+        String prefix = showGeneName ? gene.name() + ": " : "";
         ButtonWidget[] mid = new ButtonWidget[1];
         IntConsumer cycle = delta -> {
             idx[0] = Math.floorMod(idx[0] + delta, opts.size());
             GeneCatalogEntry.Variant v = opts.get(idx[0]);
-            mid[0].setMessage(Component.literal(name + ": " + v.label()));
-            RootClientStore.setCarriedVariant(villager.getId(), geneId, v.id());   // live preview
-            townstead$sendSetVariant(townstead$target, geneId, v.id());              // commit
+            mid[0].setMessage(Component.literal(prefix + v.label()));
+            String encoded = com.aetherianartificer.townstead.root.gene.AllelePayload.encode(v.id(),
+                    com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
+                            RootClientStore.carriedVariants(villager.getId()).get(geneId)).channels());
+            RootClientStore.setCarriedVariant(villager.getId(), geneId, encoded);   // live preview
+            townstead$sendSetVariant(townstead$target, geneId, encoded);              // commit
+            if (gene.grantsAttachment()) townstead$focusGene(gene);
         };
-        addRenderableWidget(new ButtonWidget(x, y, arrowW, rowH, Component.literal("<"), b -> cycle.accept(-1)));
+        townstead$addControl(new ButtonWidget(x, y, arrowW, rowH, Component.literal("<"), b -> cycle.accept(-1)));
         mid[0] = new ButtonWidget(x + arrowW, y, midW, rowH,
-                Component.literal(name + ": " + opts.get(start).label()), b -> { });
-        addRenderableWidget(mid[0]);
-        addRenderableWidget(new ButtonWidget(x + arrowW + midW, y, arrowW, rowH,
+                Component.literal(prefix + opts.get(start).label()), b -> { });
+        townstead$addControl(mid[0]);
+        townstead$addControl(new ButtonWidget(x + arrowW + midW, y, arrowW, rowH,
                 Component.literal(">"), b -> cycle.accept(1)));
+        townstead$onRefresh(geneId, payload -> {
+            for (int i = 0; i < opts.size(); i++) {
+                if (opts.get(i).id().equals(payload.variant())) { idx[0] = i; break; }
+            }
+            mid[0].setMessage(Component.literal(prefix + opts.get(idx[0]).label()));
+        });
     }
 
     @Unique
@@ -808,7 +1240,29 @@ public abstract class VillagerEditorRootMixin extends Screen {
         super.removed();
         RootClientStore.remove(villager.getId());
         PreviewParticles.clear();
+        com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.clear();
     }
+
+    // Camera auto-zoom: scale + re-center MCA's preview render toward the body region
+    // being edited (EditorPreviewFocus eases in while dragging, back out after). The
+    // name-only INVOKE target matches the single 1.21.1 renderEntityInInventory; the
+    // old-editor MCA (1.20.1) has no renderPreviewEntity, so require = 0 skips it there.
+    //? if neoforge {
+    @ModifyArgs(method = "renderPreviewEntity", remap = false, require = 0,
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/screens/inventory/InventoryScreen;renderEntityInInventory"))
+    private void townstead$zoomPreview(Args args) {
+        float zoom = com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.zoomNow();
+        float height = com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.heightNow();
+        if (Math.abs(zoom - 1f) < 0.01f && Math.abs(height - 0.5f) < 0.01f) return;
+        if (args.size() != 8) return;
+        if (!(args.get(7) instanceof net.minecraft.world.entity.LivingEntity entity)) return;
+        if (!(args.get(3) instanceof Float scale)) return;
+        if (!(args.get(4) instanceof org.joml.Vector3f)) return;
+        args.set(3, scale * zoom);
+        args.set(4, new org.joml.Vector3f(0f, entity.getBbHeight() * height, 0f));
+    }
+    //?}
 
     @Unique
     private void townstead$sendRootSet(int target, String rootId) {

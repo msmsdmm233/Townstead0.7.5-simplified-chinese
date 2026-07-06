@@ -13,7 +13,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * Lerps a senior villager's hair colour toward grey by a sigmoid of how far
  * they are through the senior stage (data syncs from {@link com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload}).
- * Pass-through for everyone else.
+ * Pass-through for everyone else. Also records the final colour into
+ * {@link com.aetherianartificer.townstead.client.species.RigHairColor} — the
+ * one place both versions resolve hair — so hair-tinted attachments can match.
  *
  * <p>The return type of MCA's {@code HairLayer.getColor} differs by version:
  * {@code int} ARGB on 1.21.1, {@code float[]} on 1.20.1. {@code remap=false}
@@ -25,18 +27,33 @@ public abstract class HairLayerSeniorMixin<T extends LivingEntity, M extends Hum
     //? if neoforge {
     @Inject(method = "getColor", remap = false, at = @At("RETURN"), cancellable = true, require = 1)
     private void townstead$desaturateHair(T entity, float partialTick, CallbackInfoReturnable<Integer> cir) {
-        if (!(entity instanceof VillagerEntityMCA villager)) return;
-        float factor = SeniorHairDesat.lerpFactor(villager);
-        if (factor <= 0f) return;
-        cir.setReturnValue(SeniorHairDesat.applyArgb(cir.getReturnValue(), factor));
+        int argb = cir.getReturnValue();
+        if (entity instanceof VillagerEntityMCA villager) {
+            float factor = SeniorHairDesat.lerpFactor(villager);
+            if (factor > 0f) {
+                argb = SeniorHairDesat.applyArgb(argb, factor);
+                cir.setReturnValue(argb);
+            }
+        }
+        com.aetherianartificer.townstead.client.species.RigHairColor.put(entity.getId(), argb & 0xFFFFFF);
     }
     //?} else {
     /*@Inject(method = "getColor", remap = false, at = @At("RETURN"), cancellable = true, require = 1)
     private void townstead$desaturateHair(T entity, float partialTick, CallbackInfoReturnable<float[]> cir) {
-        if (!(entity instanceof VillagerEntityMCA villager)) return;
-        float factor = SeniorHairDesat.lerpFactor(villager);
-        if (factor <= 0f) return;
-        cir.setReturnValue(SeniorHairDesat.applyFloats(cir.getReturnValue(), factor));
+        float[] color = cir.getReturnValue();
+        if (entity instanceof VillagerEntityMCA villager) {
+            float factor = SeniorHairDesat.lerpFactor(villager);
+            if (factor > 0f) {
+                color = SeniorHairDesat.applyFloats(color, factor);
+                cir.setReturnValue(color);
+            }
+        }
+        if (color != null && color.length >= 3) {
+            int rgb = ((int) (Math.min(1f, Math.max(0f, color[0])) * 255f) << 16)
+                    | ((int) (Math.min(1f, Math.max(0f, color[1])) * 255f) << 8)
+                    | (int) (Math.min(1f, Math.max(0f, color[2])) * 255f);
+            com.aetherianartificer.townstead.client.species.RigHairColor.put(entity.getId(), rgb);
+        }
     }
     *///?}
 }

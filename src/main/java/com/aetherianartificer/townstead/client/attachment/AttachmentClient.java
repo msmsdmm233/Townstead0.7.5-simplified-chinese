@@ -32,7 +32,14 @@ public final class AttachmentClient {
     private static final Map<String, AttachmentDef> DEFS = new ConcurrentHashMap<>();
     private static final Map<String, AttachmentPointDef> SLOTS = new ConcurrentHashMap<>();
     private static final Map<String, ModelPart> GEO = new ConcurrentHashMap<>();
+    // The attachment-model bake of the same blobs (full cube spec: per-face UV, mirror, cube
+    // rotation). GEO keeps the vanilla ModelPart bake for the named-geo rig path.
+    private static final Map<String, com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo>
+            ATTACHMENT_GEO = new ConcurrentHashMap<>();
     private static final Map<String, ResourceLocation> TEXTURES = new ConcurrentHashMap<>();
+    // Parsed .animation.json blobs: SHA-1 -> clip name -> clip.
+    private static final Map<String, Map<String, com.aetherianartificer.townstead.root.attachment.AttachmentAnimation.Clip>>
+            ANIMATIONS = new ConcurrentHashMap<>();
     private static final Map<String, Buffer> BUFFERS = new ConcurrentHashMap<>();
     // Named datapack textures: logical id ("ns:textures/...") -> SHA-1, so rig/face textures resolve
     // to a synced DynamicTexture without a resource pack.
@@ -62,6 +69,9 @@ public final class AttachmentClient {
         SLOTS.clear();
         NAMED.clear();
         NAMED_GEO.clear();
+        AttachmentPoses.onManifest();
+        AttachmentPhysics.onManifest();
+        AttachmentAnimations.onManifest();
         for (AttachmentDef def : defs) DEFS.put(def.id(), def);
         for (AttachmentPointDef slot : slots) SLOTS.put(slot.id(), slot);
         NAMED.putAll(namedTextures);
@@ -71,6 +81,15 @@ public final class AttachmentClient {
         for (AttachmentDef def : defs) {
             needed.putIfAbsent(def.geoSha1(), AttachmentServerData.KIND_GEO);
             needed.putIfAbsent(def.textureSha1(), AttachmentServerData.KIND_TEXTURE);
+            for (AttachmentDef.StageOverride stage : def.stages().values()) {
+                if (stage.geoSha1() != null) needed.putIfAbsent(stage.geoSha1(), AttachmentServerData.KIND_GEO);
+            }
+            for (AttachmentDef.AnimationEntry anim : def.animations()) {
+                needed.putIfAbsent(anim.animSha(), AttachmentServerData.KIND_ANIMATION);
+            }
+            if (!def.emissiveSha1().isEmpty()) {
+                needed.putIfAbsent(def.emissiveSha1(), AttachmentServerData.KIND_TEXTURE);
+            }
         }
         for (String sha1 : namedTextures.values()) {
             needed.putIfAbsent(sha1, AttachmentServerData.KIND_TEXTURE);
@@ -81,7 +100,7 @@ public final class AttachmentClient {
 
         List<String> request = new ArrayList<>();
         needed.forEach((sha1, kind) -> {
-            if (GEO.containsKey(sha1) || TEXTURES.containsKey(sha1)) return;
+            if (GEO.containsKey(sha1) || TEXTURES.containsKey(sha1) || ANIMATIONS.containsKey(sha1)) return;
             byte[] cached = AttachmentCache.read(sha1);
             if (cached != null) materialize(sha1, kind, cached);
             else request.add(sha1);
@@ -90,7 +109,7 @@ public final class AttachmentClient {
     }
 
     public static void onChunk(String sha1, int index, int total, int kind, byte[] data) {
-        if (GEO.containsKey(sha1) || TEXTURES.containsKey(sha1)) return;
+        if (GEO.containsKey(sha1) || TEXTURES.containsKey(sha1) || ANIMATIONS.containsKey(sha1)) return;
         Buffer buffer = BUFFERS.computeIfAbsent(sha1, k -> new Buffer(total, kind));
         if (index < 0 || index >= buffer.parts.length || buffer.parts[index] != null) return;
         buffer.parts[index] = data;
@@ -116,6 +135,14 @@ public final class AttachmentClient {
                 var json = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
                 ModelPart part = BedrockGeometryLoader.parse(json);
                 if (part != null) GEO.put(sha1, part);
+                var geo = com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeoLoader.parse(json);
+                if (geo != null) ATTACHMENT_GEO.put(sha1, geo);
+            } else if (kind == AttachmentServerData.KIND_ANIMATION) {
+                var json = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
+                List<String> warnings = new ArrayList<>();
+                var clips = com.aetherianartificer.townstead.root.attachment.AttachmentAnimation.parse(json, warnings);
+                for (String warning : warnings) Townstead.LOGGER.warn("Attachment animation {}: {}", sha1, warning);
+                ANIMATIONS.put(sha1, clips);
             } else {
                 NativeImage image = NativeImage.read(new ByteArrayInputStream(bytes));
                 ResourceLocation id = ResourceLocation.tryParse(Townstead.MOD_ID + ":attachment/" + sha1);
@@ -135,21 +162,149 @@ public final class AttachmentClient {
         return SLOTS.get(id);
     }
 
-    /** Every synced point carrying {@code tag} (so one attachment can fill several, e.g. both ears). */
-    public static List<AttachmentPointDef> pointsWithTag(String tag) {
-        List<AttachmentPointDef> out = new ArrayList<>();
-        for (AttachmentPointDef point : SLOTS.values()) {
-            if (point.tags().contains(tag)) out.add(point);
-        }
-        return out;
-    }
-
     public static ModelPart geometry(String sha1) {
         return GEO.get(sha1);
     }
 
+    /** The attachment-model bake (per-face UV, mirror, named bones) of a synced geo blob. */
+    public static com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo attachmentGeometry(String sha1) {
+        return ATTACHMENT_GEO.get(sha1);
+    }
+
+    // Mirrored re-bakes for mirror attachment points, lazy per blob (content-addressed, so never stale).
+    private static final Map<String, com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo>
+            MIRRORED_GEO = new ConcurrentHashMap<>();
+
+    /** The mirrored bake of a synced geo blob, or null while the base hasn't materialized. */
+    public static com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo mirroredGeometry(String sha1) {
+        var base = ATTACHMENT_GEO.get(sha1);
+        if (base == null) return null;
+        return MIRRORED_GEO.computeIfAbsent(sha1, k -> base.mirrored());
+    }
+
+    // Segmented (and segmented+mirrored) re-bakes for physics chains with `segments`:
+    // the geometry JSON is re-parsed with the named bone sliced into chained sub-bones.
+    // Keyed by blob + slicing spec, so defs sharing a blob with different chains coexist.
+    private static final Map<String, com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo>
+            SEGMENTED_GEO = new ConcurrentHashMap<>();
+    private static final Map<String, com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo>
+            SEGMENTED_MIRRORED_GEO = new ConcurrentHashMap<>();
+
+    /**
+     * The bake the render layer should draw for this definition: segmented when any
+     * physics chain asks for it, mirrored when the anchor is a mirror point, plain
+     * otherwise. Null while the blob hasn't materialized.
+     */
+    public static com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo geometryFor(
+            AttachmentDef def, String sha1, boolean mirror) {
+        String spec = segmentSpec(def);
+        if (spec.isEmpty()) return mirror ? mirroredGeometry(sha1) : attachmentGeometry(sha1);
+        String key = sha1 + "|" + spec;
+        var segmented = SEGMENTED_GEO.get(key);
+        if (segmented == null) {
+            if (ATTACHMENT_GEO.get(sha1) == null) return null;   // blob not materialized yet
+            byte[] bytes = AttachmentCache.read(sha1);
+            if (bytes == null) return mirror ? mirroredGeometry(sha1) : attachmentGeometry(sha1);
+            try {
+                var json = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
+                for (AttachmentDef.PhysicsChain chain : def.physics()) {
+                    if (chain.segments() > 1 && chain.bones().size() == 1) {
+                        json = com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeoSegmenter
+                                .segment(json, chain.bones().get(0), chain.segments(), chain.axis());
+                    }
+                }
+                segmented = com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeoLoader.parse(json);
+            } catch (Exception e) {
+                Townstead.LOGGER.error("Failed to bake segmented geometry for {}", def.id(), e);
+            }
+            if (segmented == null) return mirror ? mirroredGeometry(sha1) : attachmentGeometry(sha1);
+            SEGMENTED_GEO.put(key, segmented);
+        }
+        if (!mirror) return segmented;
+        var base = segmented;
+        return SEGMENTED_MIRRORED_GEO.computeIfAbsent(key, k -> base.mirrored());
+    }
+
+    /** The def's slicing spec ("bone:count:axis;..."), empty when no chain segments. */
+    private static String segmentSpec(AttachmentDef def) {
+        StringBuilder spec = null;
+        for (AttachmentDef.PhysicsChain chain : def.physics()) {
+            if (chain.segments() > 1 && chain.bones().size() == 1) {
+                if (spec == null) spec = new StringBuilder();
+                else spec.append(';');
+                spec.append(chain.bones().get(0)).append(':').append(chain.segments())
+                        .append(':').append(chain.axis());
+            }
+        }
+        return spec == null ? "" : spec.toString();
+    }
+
+    /** Every synced attachment point (rig filtering happens at the render layer). */
+    public static List<AttachmentPointDef> allPoints() {
+        return new ArrayList<>(SLOTS.values());
+    }
+
     public static ResourceLocation texture(String sha1) {
         return TEXTURES.get(sha1);
+    }
+
+    // Derived textures baked with a SkinBlend-packed tint (screen/overlay/color modes and
+    // faded tints, which a flat vertex multiply can't express), keyed sha1 + packed tint.
+    // Keys are deterministic, so a cache clear only costs a re-bake, never a texture leak.
+    private static final Map<String, ResourceLocation> BLENDED = new ConcurrentHashMap<>();
+
+    /**
+     * The texture blob re-baked through {@link com.aetherianartificer.townstead.client.skin.SkinBlend}
+     * with a packed tint (render-thread, lazy, cached). Falls back to the plain texture when
+     * the blob bytes aren't cached yet.
+     */
+    public static ResourceLocation blendedTexture(String sha1, int packed) {
+        String key = sha1 + "#" + Integer.toHexString(packed);
+        ResourceLocation cached = BLENDED.get(key);
+        if (cached != null) return cached;
+        byte[] bytes = AttachmentCache.read(sha1);
+        if (bytes == null) return TEXTURES.get(sha1);
+        try {
+            NativeImage image = NativeImage.read(new ByteArrayInputStream(bytes));
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    int abgr = image.getPixelRGBA(x, y);
+                    int rgb = ((abgr & 0xFF) << 16) | (abgr & 0xFF00) | ((abgr >> 16) & 0xFF);
+                    int out = com.aetherianartificer.townstead.client.skin.SkinBlend.blend(rgb, packed);
+                    image.setPixelRGBA(x, y, (abgr & 0xFF000000)
+                            | ((out & 0xFF) << 16) | (out & 0xFF00) | ((out >> 16) & 0xFF));
+                }
+            }
+            if (BLENDED.size() > 512) BLENDED.clear();
+            ResourceLocation id = ResourceLocation.tryParse(
+                    Townstead.MOD_ID + ":attachment/" + sha1 + "/t" + Integer.toHexString(packed));
+            Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
+            BLENDED.put(key, id);
+            return id;
+        } catch (Exception e) {
+            Townstead.LOGGER.error("Failed to bake blended attachment texture {}", sha1, e);
+            BLENDED.put(key, TEXTURES.getOrDefault(sha1, ResourceLocation.tryParse(
+                    Townstead.MOD_ID + ":attachment/" + sha1)));
+            return TEXTURES.get(sha1);
+        }
+    }
+
+    /**
+     * A clip from a synced {@code .animation.json} blob: the named clip, the file's
+     * only clip when {@code name} is empty, or a clip whose Blockbench-prefixed name
+     * ends in {@code .<name>}. Null while the blob hasn't materialized or nothing matches.
+     */
+    public static com.aetherianartificer.townstead.root.attachment.AttachmentAnimation.Clip animationClip(
+            String sha1, String name) {
+        var clips = ANIMATIONS.get(sha1);
+        if (clips == null || clips.isEmpty()) return null;
+        if (name.isEmpty()) return clips.values().iterator().next();
+        var exact = clips.get(name);
+        if (exact != null) return exact;
+        for (var entry : clips.entrySet()) {
+            if (entry.getKey().endsWith("." + name)) return entry.getValue();
+        }
+        return null;
     }
 
     /**

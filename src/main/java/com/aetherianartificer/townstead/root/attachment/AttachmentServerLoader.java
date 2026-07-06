@@ -46,6 +46,7 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
         List<AttachmentDef> defs = new ArrayList<>();
         List<AttachmentPointDef> slots = new ArrayList<>();
         Map<String, AttachmentServerData.Blob> blobs = new LinkedHashMap<>();
+        Map<String, JsonObject> sources = new LinkedHashMap<>();
         Diagnostics diagnostics = new Diagnostics();
 
         manager.listResources(DIR, rl -> isTopLevelJson(rl.getPath())).forEach((file, resource) -> {
@@ -55,7 +56,10 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
             PhenoValidator.validateData(file, json, AttachmentSchemas.ATTACHMENT, diagnostics);
             try {
                 AttachmentDef def = parseDef(manager, file.getNamespace(), id, json, blobs);
-                if (def != null) defs.add(def);
+                if (def != null) {
+                    defs.add(def);
+                    sources.put(id, json);
+                }
             } catch (Exception e) {
                 Townstead.LOGGER.error("Failed to load attachment {}", id, e);
             }
@@ -67,7 +71,10 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
             if (id == null || json == null) return;
             PhenoValidator.validateData(file, json, AttachmentSchemas.ATTACHMENT_POINT, diagnostics);
             slots.add(new AttachmentPointDef(id, GsonHelper.getAsString(json, "bone", "body"),
-                    readVec(json, "offset"), readTags(json)));
+                    readVec(json, "offset"), readTags(json),
+                    readVec(json, "rotation"),
+                    GsonHelper.getAsBoolean(json, "mirror", false),
+                    GsonHelper.getAsString(json, "rig", "")));
         });
 
         // Named datapack textures ("data/<ns>/textures/**.png"): rig + face textures shipped to the
@@ -102,13 +109,21 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
             }
         });
 
-        AttachmentServerData.set(defs, slots, blobs, namedTextures, namedGeo);
+        AttachmentServerData.set(defs, slots, blobs, namedTextures, namedGeo, sources);
         PhenoDiagnostics.replace("attachment", diagnostics.all());
         int errors = diagnostics.count(Severity.ERROR);
         Townstead.LOGGER.info("Loaded {} attachment definitions, {} points, {} blobs ({} diagnostic{})",
                 defs.size(), slots.size(), blobs.size(), diagnostics.all().size(),
                 diagnostics.all().size() == 1 ? "" : "s");
         if (errors > 0) Townstead.LOGGER.warn("attachment: {} error diagnostic(s); run /pheno validate for detail", errors);
+        // Health checks that only need the attachment data itself (gene cross-checks join a registry
+        // that may not have reloaded yet; those run in /townstead attachment doctor instead).
+        List<String> health = AttachmentDoctor.selfChecks();
+        for (String problem : health) Townstead.LOGGER.warn("attachment: {}", problem);
+        if (!health.isEmpty()) {
+            Townstead.LOGGER.warn("attachment: {} problem(s) above; run /townstead attachment doctor for the full report",
+                    health.size());
+        }
     }
 
     private static AttachmentDef parseDef(ResourceManager manager, String ns, String id, JsonObject json,
@@ -137,18 +152,252 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
         }
         String bone = GsonHelper.getAsString(json, "bone", "body");
         float scale = GsonHelper.getAsFloat(json, "scale", 1f);
-        int tint = parseHex(GsonHelper.getAsString(json, "tint", "#FFFFFF"));
-        boolean skinTint = GsonHelper.getAsBoolean(json, "skin_tint", false);
-        float[] morphAxes = null;
-        List<String> morphBones = List.of();
-        if (json.has("morph") && json.get("morph").isJsonObject()) {
-            JsonObject morph = json.getAsJsonObject("morph");
-            morphAxes = morph.has("axes") ? readVec(morph, "axes") : new float[]{1f, 1f, 1f};
-            morphBones = readStrings(morph, "bones");
+        // "tint" is a hex colour or a bearer-resolved source; "skin_tint": true is the legacy alias.
+        String tintRaw = GsonHelper.getAsString(json, "tint", "#FFFFFF");
+        int tintSource = switch (tintRaw) {
+            case "skin" -> AttachmentDef.TINT_SKIN;
+            case "hair" -> AttachmentDef.TINT_HAIR;
+            case "eyes" -> AttachmentDef.TINT_EYES;
+            case "gene" -> AttachmentDef.TINT_GENE;
+            default -> AttachmentDef.TINT_FLAT;
+        };
+        int tint = tintSource == AttachmentDef.TINT_FLAT ? parseHex(tintRaw) : 0xFFFFFF;
+        if (GsonHelper.getAsBoolean(json, "skin_tint", false)) tintSource = AttachmentDef.TINT_SKIN;
+        int tintBlend = switch (GsonHelper.getAsString(json, "tint_blend", "multiply")) {
+            case "screen" -> 1;
+            case "overlay" -> 2;
+            case "color" -> 3;
+            default -> 0;
+        };
+        float tintStrength = Math.max(0f, Math.min(1f, GsonHelper.getAsFloat(json, "tint_strength", 1f)));
+        boolean translucent = GsonHelper.getAsString(json, "render", "cutout").equals("translucent");
+        String emissiveSha = "";
+        String emissiveRef = GsonHelper.getAsString(json, "emissive", "");
+        if (!emissiveRef.isEmpty()) {
+            ResourceLocation emissiveFile = resolve(ns, emissiveRef, "textures", ".png");
+            byte[] emissive = emissiveFile == null ? null : readBytes(manager, emissiveFile, MAX_TEXTURE_BYTES);
+            if (emissive == null) {
+                Townstead.LOGGER.warn("Attachment {} emissive texture '{}' not found; layer skipped", id, emissiveRef);
+            } else {
+                emissiveSha = sha1(emissive);
+                blobs.put(emissiveSha, new AttachmentServerData.Blob(emissive, AttachmentServerData.KIND_TEXTURE));
+            }
+        }
+        List<AttachmentDef.MorphChannel> morph = parseMorph(json);
+        List<AttachmentDef.VisibilityRule> visibility = parseVisibility(json);
+        Map<String, AttachmentDef.StageOverride> stages = new LinkedHashMap<>();
+        if (json.has("stages") && json.get("stages").isJsonObject()) {
+            for (var entry : json.getAsJsonObject("stages").entrySet()) {
+                if (!entry.getValue().isJsonObject()) continue;
+                JsonObject stage = entry.getValue().getAsJsonObject();
+                String stageGeoSha = null;
+                String geoRef = GsonHelper.getAsString(stage, "geometry", "");
+                if (!geoRef.isEmpty()) {
+                    ResourceLocation stageGeoFile = resolve(ns, geoRef, "geo", ".geo.json");
+                    byte[] stageGeo = stageGeoFile == null ? null : readBytes(manager, stageGeoFile, MAX_GEO_BYTES);
+                    if (stageGeo == null) {
+                        Townstead.LOGGER.warn("Attachment {} stage '{}' geometry '{}' not found; stage keeps the base model",
+                                id, entry.getKey(), geoRef);
+                    } else {
+                        stageGeoSha = sha1(stageGeo);
+                        blobs.put(stageGeoSha, new AttachmentServerData.Blob(stageGeo, AttachmentServerData.KIND_GEO));
+                    }
+                }
+                stages.put(entry.getKey(), new AttachmentDef.StageOverride(
+                        GsonHelper.getAsFloat(stage, "scale", 1f), readVec(stage, "offset"), stageGeoSha));
+            }
         }
         return new AttachmentDef(id, geoSha, texSha, targetTag, targetPoint, bone,
                 readVec(json, "offset"), readVec(json, "rotation"), scale, tint,
-                skinTint, morphAxes, morphBones);
+                tintSource, tintBlend, tintStrength, emissiveSha, translucent,
+                readStrings(json, "hides_under"),
+                morph, visibility, stages, parsePoses(json), parsePhysics(json),
+                parseAnimations(manager, ns, id, json, blobs));
+    }
+
+    /**
+     * The {@code morph} block: the legacy single-channel shorthand ({@code axes} +
+     * {@code bones} at the top level = one anonymous channel), or named
+     * {@code channels}, each with {@code bones} plus {@code axes} (scale) and/or
+     * {@code rotate} (degrees per unit of the channel value).
+     */
+    private static List<AttachmentDef.MorphChannel> parseMorph(JsonObject json) {
+        if (!json.has("morph") || !json.get("morph").isJsonObject()) return List.of();
+        JsonObject morph = json.getAsJsonObject("morph");
+        List<AttachmentDef.MorphChannel> out = new ArrayList<>();
+        if (morph.has("channels") && morph.get("channels").isJsonObject()) {
+            for (var entry : morph.getAsJsonObject("channels").entrySet()) {
+                if (!entry.getValue().isJsonObject()) continue;
+                JsonObject channel = entry.getValue().getAsJsonObject();
+                float[] axes = channel.has("axes") ? readVec(channel, "axes") : null;
+                float[] rotate = channel.has("rotate") ? readVec(channel, "rotate") : null;
+                if (axes == null && rotate == null) axes = new float[]{1f, 1f, 1f};
+                out.add(new AttachmentDef.MorphChannel(entry.getKey(),
+                        readStrings(channel, "bones"), axes, rotate));
+            }
+        } else {
+            out.add(new AttachmentDef.MorphChannel("", readStrings(morph, "bones"),
+                    morph.has("axes") ? readVec(morph, "axes") : new float[]{1f, 1f, 1f}, null));
+        }
+        return out;
+    }
+
+    /** The {@code visibility} list: bones gated on a size channel's value (below/above bounds). */
+    private static List<AttachmentDef.VisibilityRule> parseVisibility(JsonObject json) {
+        if (!json.has("visibility") || !json.get("visibility").isJsonArray()) return List.of();
+        List<AttachmentDef.VisibilityRule> out = new ArrayList<>();
+        for (var element : json.getAsJsonArray("visibility")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject rule = element.getAsJsonObject();
+            List<String> ruleBones = readStrings(rule, "bones");
+            if (ruleBones.isEmpty()) continue;
+            out.add(new AttachmentDef.VisibilityRule(ruleBones,
+                    GsonHelper.getAsString(rule, "channel", ""),
+                    GsonHelper.getAsFloat(rule, "below", Float.NaN),
+                    GsonHelper.getAsFloat(rule, "above", Float.NaN)));
+        }
+        return out;
+    }
+
+    /**
+     * The {@code animations} object: every key except {@code when}/{@code random_idle}
+     * is a named state entry; {@code when} entries carry a pheno {@code if}; {@code
+     * random_idle} entries are the weighted idle pool. Each references a Blockbench
+     * {@code attachment/animations/<file>.animation.json} as {@code "<file>"} or
+     * {@code "<file>#<clip>"}; the file loads as a synced blob.
+     */
+    private static List<AttachmentDef.AnimationEntry> parseAnimations(ResourceManager manager, String ns,
+                                                                      String id, JsonObject json,
+                                                                      Map<String, AttachmentServerData.Blob> blobs) {
+        if (!json.has("animations") || !json.get("animations").isJsonObject()) return List.of();
+        List<AttachmentDef.AnimationEntry> out = new ArrayList<>();
+        JsonObject animations = json.getAsJsonObject("animations");
+        for (var entry : animations.entrySet()) {
+            if (entry.getKey().equals("when") || entry.getKey().equals("random_idle")) continue;
+            if (!entry.getValue().isJsonObject()) continue;
+            addAnimation(manager, ns, id, entry.getValue().getAsJsonObject(),
+                    entry.getKey(), "", false, blobs, out);
+        }
+        if (animations.has("when") && animations.get("when").isJsonArray()) {
+            for (var element : animations.getAsJsonArray("when")) {
+                if (!element.isJsonObject()) continue;
+                JsonObject when = element.getAsJsonObject();
+                if (!when.has("if") || !when.get("if").isJsonObject()) continue;
+                addAnimation(manager, ns, id, when, "",
+                        when.getAsJsonObject("if").toString(), false, blobs, out);
+            }
+        }
+        if (animations.has("random_idle") && animations.get("random_idle").isJsonArray()) {
+            for (var element : animations.getAsJsonArray("random_idle")) {
+                if (!element.isJsonObject()) continue;
+                addAnimation(manager, ns, id, element.getAsJsonObject(), "", "", true, blobs, out);
+            }
+        }
+        return out;
+    }
+
+    private static void addAnimation(ResourceManager manager, String ns, String id, JsonObject entry,
+                                     String state, String conditionJson, boolean idle,
+                                     Map<String, AttachmentServerData.Blob> blobs,
+                                     List<AttachmentDef.AnimationEntry> out) {
+        String ref = GsonHelper.getAsString(entry, "animation", "");
+        if (ref.isEmpty()) {
+            Townstead.LOGGER.warn("Attachment {} animation entry missing an 'animation' reference", id);
+            return;
+        }
+        int hash = ref.indexOf('#');
+        String file = hash < 0 ? ref : ref.substring(0, hash);
+        String clip = hash < 0 ? "" : ref.substring(hash + 1);
+        ResourceLocation animFile = resolve(ns, file, "animations", ".animation.json");
+        byte[] bytes = animFile == null ? null : readBytes(manager, animFile, MAX_GEO_BYTES);
+        if (bytes == null) {
+            Townstead.LOGGER.warn("Attachment {} animation '{}' not found; entry skipped", id, ref);
+            return;
+        }
+        try {
+            String sha = sha1(bytes);
+            blobs.put(sha, new AttachmentServerData.Blob(bytes, AttachmentServerData.KIND_ANIMATION));
+            out.add(new AttachmentDef.AnimationEntry(state, conditionJson, sha, clip,
+                    GsonHelper.getAsFloat(entry, "transition", 3f),
+                    GsonHelper.getAsFloat(entry, "weight", 1f),
+                    GsonHelper.getAsInt(entry, "cooldown", 200), idle));
+        } catch (Exception e) {
+            Townstead.LOGGER.error("Failed to hash attachment animation {}", animFile, e);
+        }
+    }
+
+    /** The {@code physics.chains} list: root-to-tip bone runs with spring parameters. */
+    private static List<AttachmentDef.PhysicsChain> parsePhysics(JsonObject json) {
+        if (!json.has("physics") || !json.get("physics").isJsonObject()) return List.of();
+        JsonObject physics = json.getAsJsonObject("physics");
+        if (!physics.has("chains") || !physics.get("chains").isJsonArray()) return List.of();
+        List<AttachmentDef.PhysicsChain> out = new ArrayList<>();
+        for (var element : physics.getAsJsonArray("chains")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject chain = element.getAsJsonObject();
+            List<String> chainBones = readStrings(chain, "bones");
+            if (chainBones.isEmpty()) continue;
+            float[] response = {1f, 1f, 1f, 1f};
+            if (chain.has("response") && chain.get("response").isJsonObject()) {
+                JsonObject r = chain.getAsJsonObject("response");
+                response[0] = GsonHelper.getAsFloat(r, "vertical", 1f);
+                response[1] = GsonHelper.getAsFloat(r, "forward", 1f);
+                response[2] = GsonHelper.getAsFloat(r, "lateral", 1f);
+                response[3] = GsonHelper.getAsFloat(r, "turn", 1f);
+            }
+            out.add(new AttachmentDef.PhysicsChain(chainBones,
+                    GsonHelper.getAsFloat(chain, "stiffness", 0.4f),
+                    GsonHelper.getAsFloat(chain, "damping", 0.8f),
+                    GsonHelper.getAsFloat(chain, "gravity", 0.3f),
+                    GsonHelper.getAsFloat(chain, "max_angle", 60f),
+                    GsonHelper.getAsFloat(chain, "sway", 0f),
+                    GsonHelper.getAsFloat(chain, "follow", 0.55f),
+                    GsonHelper.getAsFloat(chain, "droop_angle", 40f),
+                    GsonHelper.getAsFloat(chain, "sway_speed", 1f),
+                    GsonHelper.getAsFloat(chain, "snap", 1f),
+                    response,
+                    GsonHelper.getAsInt(chain, "segments", 0),
+                    GsonHelper.getAsString(chain, "axis", "auto")));
+        }
+        return out;
+    }
+
+    /**
+     * The {@code poses} object: every key except {@code when} is a named state entry
+     * ({@code sleeping}, {@code sprinting}, ...); {@code when} is a list of
+     * condition-gated entries whose {@code if} object ships to the client verbatim
+     * and is evaluated there through the pheno condition registry.
+     */
+    private static List<AttachmentDef.PoseEntry> parsePoses(JsonObject json) {
+        if (!json.has("poses") || !json.get("poses").isJsonObject()) return List.of();
+        List<AttachmentDef.PoseEntry> out = new ArrayList<>();
+        JsonObject poses = json.getAsJsonObject("poses");
+        for (var entry : poses.entrySet()) {
+            if (entry.getKey().equals("when") || !entry.getValue().isJsonObject()) continue;
+            out.add(poseEntry(entry.getKey(), "", entry.getValue().getAsJsonObject()));
+        }
+        if (poses.has("when") && poses.get("when").isJsonArray()) {
+            for (var element : poses.getAsJsonArray("when")) {
+                if (!element.isJsonObject()) continue;
+                JsonObject when = element.getAsJsonObject();
+                if (!when.has("if") || !when.get("if").isJsonObject()) continue;
+                out.add(poseEntry("", when.getAsJsonObject("if").toString(), when));
+            }
+        }
+        return out;
+    }
+
+    private static AttachmentDef.PoseEntry poseEntry(String state, String conditionJson, JsonObject entry) {
+        float[] rotation = entry.has("rotation") ? readVec(entry, "rotation") : null;
+        Map<String, float[]> bones = new LinkedHashMap<>();
+        if (entry.has("bones") && entry.get("bones").isJsonObject()) {
+            for (var bone : entry.getAsJsonObject("bones").entrySet()) {
+                if (!bone.getValue().isJsonObject()) continue;
+                bones.put(bone.getKey(), readVec(bone.getValue().getAsJsonObject(), "rotation"));
+            }
+        }
+        return new AttachmentDef.PoseEntry(state, conditionJson, rotation, bones,
+                GsonHelper.getAsFloat(entry, "transition", 4f));
     }
 
     private static List<String> readStrings(JsonObject json, String key) {

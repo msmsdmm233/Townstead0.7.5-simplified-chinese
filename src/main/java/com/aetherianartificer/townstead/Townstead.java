@@ -566,6 +566,13 @@ public class Townstead {
                                 e.getDispatcher(), e.getBuildContext()));
         NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.AttachmentDoctorCommand.register(
+                                e.getDispatcher(), e.getBuildContext()));
+        NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.GeneGrantCommand.register(e.getDispatcher()));
+        NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.root.port.OriginsPortCommand.register(
                                 e.getDispatcher(), e.getBuildContext()));
         NeoForge.EVENT_BUS.addListener(
@@ -860,6 +867,13 @@ public class Townstead {
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.commands.MemoryDiagnosticsCommands.register(
                                 e.getDispatcher(), e.getBuildContext()));
+        MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.AttachmentDoctorCommand.register(
+                                e.getDispatcher(), e.getBuildContext()));
+        MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.GeneGrantCommand.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.root.port.OriginsPortCommand.register(
@@ -1254,28 +1268,41 @@ public class Townstead {
                         "pheno:air_supply", ctx -> ctx.entity().getAirSupply()),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
                         "pheno:fall_distance", ctx -> ctx.entity().fallDistance),
+                // Villager need values read the authoritative state on the server and the synced
+                // client stores on the client, so these conditions also gate client-evaluated
+                // surfaces (attachment state poses) without touching server-only state.
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
                         "pheno:hunger", ctx -> {
                             if (ctx.entity() instanceof net.minecraft.world.entity.player.Player p) {
                                 return p.getFoodData().getFoodLevel();
                             }
                             if (ctx.entity() instanceof VillagerEntityMCA villager) {
-                                return TownsteadVillagers.get(villager).needs().hunger();
+                                return ctx.level().isClientSide
+                                        ? com.aetherianartificer.townstead.hunger.HungerClientStore.get(villager.getId())
+                                        : TownsteadVillagers.get(villager).needs().hunger();
                             }
                             return Double.NaN;
                         }),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
-                        "pheno:thirst", ctx -> ctx.entity() instanceof VillagerEntityMCA villager
-                                ? TownsteadVillagers.get(villager).needs().thirst()
-                                : ctx.entity() instanceof net.minecraft.world.entity.player.Player player
-                                        && ThirstBridgeResolver.get() != null
-                                                ? ThirstBridgeResolver.get().playerThirst(player)
-                                                : Double.NaN),
+                        "pheno:thirst", ctx -> {
+                            if (ctx.entity() instanceof VillagerEntityMCA villager) {
+                                return ctx.level().isClientSide
+                                        ? com.aetherianartificer.townstead.thirst.ThirstClientStore.getThirst(villager.getId())
+                                        : TownsteadVillagers.get(villager).needs().thirst();
+                            }
+                            return ctx.entity() instanceof net.minecraft.world.entity.player.Player player
+                                    && ThirstBridgeResolver.get() != null
+                                            ? ThirstBridgeResolver.get().playerThirst(player)
+                                            : Double.NaN;
+                        }),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
-                        "pheno:energy", ctx -> ctx.entity() instanceof VillagerEntityMCA villager
-                                ? com.aetherianartificer.townstead.fatigue.FatigueData.toEnergy(
-                                        TownsteadVillagers.get(villager).needs().fatigue())
-                                : Double.NaN),
+                        "pheno:energy", ctx -> {
+                            if (!(ctx.entity() instanceof VillagerEntityMCA villager)) return Double.NaN;
+                            int fatigue = ctx.level().isClientSide
+                                    ? com.aetherianartificer.townstead.fatigue.FatigueClientStore.getFatigue(villager.getId())
+                                    : TownsteadVillagers.get(villager).needs().fatigue();
+                            return com.aetherianartificer.townstead.fatigue.FatigueData.toEnergy(fatigue);
+                        }),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
                         "pheno:saturation_level", ctx -> ctx.entity() instanceof net.minecraft.world.entity.player.Player p ? p.getFoodData().getSaturationLevel() : Double.NaN),
                 new com.aetherianartificer.townstead.pheno.condition.types.NumericConditionType(
@@ -1335,6 +1362,8 @@ public class Townstead {
                 new com.aetherianartificer.townstead.pheno.condition.types.BlockInRadiusConditionType());
         com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
                 new com.aetherianartificer.townstead.pheno.condition.types.OnCooldownConditionType());
+        com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
+                new com.aetherianartificer.townstead.pheno.condition.types.MoodConditionType());
         com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(
                 new com.aetherianartificer.townstead.root.condition.types.CompareResourceConditionType());
         com.aetherianartificer.townstead.pheno.condition.ConditionTypes.register(

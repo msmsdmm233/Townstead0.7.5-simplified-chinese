@@ -40,7 +40,9 @@ public final class CharacterEditorResolver {
         public enum Kind { NATIVE, CYCLER, TONE, SLIDER }
         static Field nativeGroup(String g) { return new Field(Kind.NATIVE, g, null); }
         static Field gene(GeneCatalogEntry g) {
-            if (g.isSizedAttachment()) return new Field(Kind.SLIDER, null, g);
+            // A variant gene is a cycler even when its options carry size channels (the
+            // builder appends the channel sliders under it); a channel-only gene is sliders.
+            if (!g.isVariants() && !g.channels().isEmpty()) return new Field(Kind.SLIDER, null, g);
             // A palette skin-tone gene (tinted variants, no face slot) gets the draggable swatch;
             // face/other variant genes are plain cyclers.
             boolean tone = g.faceSlot().isEmpty() && hasTintedVariant(g);
@@ -149,7 +151,7 @@ public final class CharacterEditorResolver {
 
     private static boolean isEditable(GeneCatalogEntry g) {
         if (g == null) return false;
-        return (g.isVariants() && !g.variants().isEmpty()) || g.isSizedAttachment();
+        return (g.isVariants() && !g.variants().isEmpty()) || !g.channels().isEmpty();
     }
 
     private static String tabPageId(String id) {
