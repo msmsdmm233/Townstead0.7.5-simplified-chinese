@@ -46,9 +46,10 @@ public final class AbilityToggles {
     }
 
     /**
-     * Send the player their live on-set so the controlling client can predict
-     * toggle-driven movement abilities. Carries only currently-expressed toggle
-     * genes that are on, keyed by the player's network id; player-only.
+     * Sync the player's live on-set, keyed by network id: to the player themself
+     * (so the controlling client can predict toggle-driven movement abilities) AND
+     * to everyone tracking them (so toggle-gated visuals — deployed wings — render
+     * on other clients too). Carries only currently-expressed toggle genes that are on.
      */
     public static void syncTo(ServerPlayer player) {
         List<String> on = new ArrayList<>();
@@ -61,9 +62,10 @@ public final class AbilityToggles {
         }
         AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(player.getId(), on);
         //? if neoforge {
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, payload);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(player, payload);
         //?} else {
         /*com.aetherianartificer.townstead.TownsteadNetwork.sendToPlayer(player, payload);
+        com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(player, payload);
         *///?}
     }
 }

@@ -179,10 +179,11 @@ public abstract class VillagerEditorRootMixin extends Screen {
         RootClientStore.set(villager.getId(), townstead$baseRootId);
         townstead$previewDirty = false;
         townstead$refreshers.clear();   // the page's widgets are rebuilt below
-        // The editor dummy is a separate entity with no synced face alleles, so without this it
-        // renders a different random face (eyes/mouth/colour) than the real villager. Seed the dummy's
-        // carried face variants from the real target so the preview matches the game, on every page.
-        townstead$seedFaceVariants();
+        // The editor dummy is a separate entity with no synced alleles, so without this it
+        // renders a different random face than the real villager and falls back to each
+        // attachment gene's default style (a Braided or Clean-shaven dwarf previews Full).
+        // Seed every carried variant from the real target so the preview matches the game.
+        townstead$seedCarriedVariants();
 
         // Data-pack-driven Character layout: when the species declares one (or its origin carries
         // editable Townstead genes, which synthesizes the default layout — native groups + gene
@@ -295,7 +296,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // Fit the column above the Done button: shrink any tone swatch(es) when a tab is field-heavy.
         int tones = 0, rows = 0;
         for (CharacterEditorResolver.Field f : tab.fields()) {
-            if (f.gene() == null) continue;
+            if (f.gene() == null || townstead$geneGatedOff(f.gene())) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) tones++;
             else rows += townstead$fieldRows(f);   // a cycler row plus one row per size channel
         }
@@ -313,7 +314,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         townstead$column = column;
         int y = yStart;
         for (CharacterEditorResolver.Field f : tab.fields()) {
-            if (f.gene() == null) continue;
+            if (f.gene() == null || townstead$geneGatedOff(f.gene())) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) {
                 y += townstead$buildToneField(f.gene(), x, y, w, swatch);
             } else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) {
@@ -347,7 +348,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
     private int townstead$fieldRows(CharacterEditorResolver.Field f) {
         GeneCatalogEntry gene = f.gene();
         String carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                RootClientStore.carriedVariants(townstead$target).get(gene.id())).variant();
+                townstead$carriedRaw(gene.id())).variant();
         int channels = townstead$channelRows(gene, carried);
         return 1 + (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER ? 1 + channels : Math.max(1, channels));
     }
@@ -381,7 +382,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         for (GeneCatalogEntry.Variant v : gene.variants()) if (v.tint() >= 0) opts.add(v);
         if (opts.isEmpty()) { townstead$variantCycler(gene, x, y, w, 20, 20); return 22; }
         String geneId = gene.id();
-        String current = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        String current = townstead$carriedRaw(geneId);
         int start = 0;
         for (int i = 0; i < opts.size(); i++) if (opts.get(i).id().equals(current)) { start = i; break; }
         RootClientStore.setCarriedVariant(villager.getId(), geneId, opts.get(start).id());
@@ -392,9 +393,13 @@ public abstract class VillagerEditorRootMixin extends Screen {
         int swatchY = y + rowH + 2;
 
         Genetics genetics = villager.getGenetics();
+        // The swatch texture comes from the same pipeline that paints this entity's skin
+        // (townstead$skinFieldTexture), so the field is 1:1 with the rendered tone. The
+        // carried variant was seeded above, so the resolve sees the current option.
+        ResourceLocation startTex = townstead$skinFieldTexture();
         ColorPickerWidget swatch = new ColorPickerWidget(swatchX, swatchY, size, size,
                 genetics.getGene(Genetics.HEMOGLOBIN), genetics.getGene(Genetics.MELANIN),
-                RootSkinPickerTexture.forPaletteHue(opts.get(start).tint()),
+                startTex != null ? startTex : RootSkinPickerTexture.forPaletteHue(opts.get(start).tint()),
                 (vx, vy) -> {
                     // Palette tone comes from melanin/hemoglobin via RigSkinTone, not skinDye, so we
                     // just drive those two genes (and skip clearSkinDye, which isn't in the 7.7.7 jar).
@@ -410,7 +415,9 @@ public abstract class VillagerEditorRootMixin extends Screen {
             GeneCatalogEntry.Variant v = opts.get(idx[0]);
             mid[0].setMessage(Component.literal(name + ": " + v.label()));
             RootClientStore.setCarriedVariant(villager.getId(), geneId, v.id());
-            ((ColorPickerWidgetAccessor) swatch).townstead$setTexture(RootSkinPickerTexture.forPaletteHue(v.tint()));
+            ResourceLocation cycleTex = townstead$skinFieldTexture();
+            ((ColorPickerWidgetAccessor) swatch).townstead$setTexture(
+                    cycleTex != null ? cycleTex : RootSkinPickerTexture.forPaletteHue(v.tint()));
             townstead$sendSetVariant(townstead$target, geneId, v.id());
         };
         townstead$addControl(new ButtonWidget(x, y, arrowW, rowH, Component.literal("<"), b -> cycle.accept(-1)));
@@ -474,20 +481,29 @@ public abstract class VillagerEditorRootMixin extends Screen {
         townstead$previewDirty = false;
     }
 
+    /**
+     * The WYSIWYG texture for the skin-picker square: MCA's colormap run through the SAME
+     * pipeline that paints this entity's skin — the skin-layer blend (packed tint) for a
+     * default MCA body, the palette-hue luma shading only for a custom-rig species whose
+     * texture RigSkinTone shades. Picking a spot on the square then yields exactly that
+     * colour on the model. Null when the entity has no Townstead skin treatment at all.
+     */
+    @Unique
+    private ResourceLocation townstead$skinFieldTexture() {
+        int hue = RigSkinTone.paletteHue(villager);
+        if (hue >= 0 && RigModels.isAlternate(RigModels.rigBaseFor(villager))) {
+            return RootSkinPickerTexture.forPaletteHue(hue);
+        }
+        java.util.OptionalInt tint = SkinTintRegistry.resolve(villager);
+        if (tint.isPresent()) return RootSkinPickerTexture.forTint(tint.getAsInt());
+        return hue >= 0 ? RootSkinPickerTexture.forPaletteHue(hue) : null;
+    }
+
     /** Repaint MCA's Body skin-picker square (the one using villager_skin.png) to this origin's tinted skin. */
     @Unique
     private void townstead$recolorSkinPicker() {
-        ResourceLocation tex;
-        // A palette species (skin_tone with tinted variants) previews its tone hue shaded across the
-        // gradient; everything else uses the single-tint origin shift. Same path as the fantasy races.
-        int hue = RigSkinTone.paletteHue(villager);
-        if (hue >= 0) {
-            tex = RootSkinPickerTexture.forPaletteHue(hue);
-        } else {
-            java.util.OptionalInt tint = SkinTintRegistry.resolve(villager);
-            if (tint.isEmpty()) return;
-            tex = RootSkinPickerTexture.forTint(tint.getAsInt());
-        }
+        ResourceLocation tex = townstead$skinFieldTexture();
+        if (tex == null) return;
         for (GuiEventListener child : children()) {
             // The Body page has two 2-D pickers (skin + hair) and 1-D HSV sliders (a subclass);
             // the skin one is the non-subclass ColorPickerWidget still bound to villager_skin.png.
@@ -525,7 +541,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         String geneId = palette.id();
         // Start from the REAL target's carried variant (synced by start-tracking); the editor dummy
         // has no synced allele, so seed it to match the picker, the model, and the swatch on open.
-        String current = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        String current = townstead$carriedRaw(geneId);
         int start = 0;
         for (int i = 0; i < opts.size(); i++) {
             if (opts.get(i).id().equals(current)) { start = i; break; }
@@ -581,16 +597,47 @@ public abstract class VillagerEditorRootMixin extends Screen {
     }
 
     /**
-     * Seed the editor dummy's carried face variants from the REAL target, so the previewed face
-     * (eyes/mouth/colour) matches what the villager actually shows in-game rather than a fresh per-dummy
-     * roll. Runs on every page since the face renders on all of them.
+     * Seed the editor dummy's carried variants from the REAL target, so the preview
+     * (face choices, attachment styles, channel rolls, colours) matches what the
+     * villager actually shows in-game rather than a fresh per-dummy roll or each
+     * gene's fallback style. Resolution goes through the real ENTITY, exactly like
+     * the world renderer: the live sync when present, the entity's persisted snapshot
+     * otherwise — the raw synced map alone is often empty for a long-loaded villager.
+     * Runs on every page since the model renders on all of them.
      */
     @Unique
-    private void townstead$seedFaceVariants() {
-        java.util.Map<String, String> real = RootClientStore.carriedVariants(townstead$target);
-        for (GeneCatalogEntry g : townstead$faceGenes()) {
-            String v = real.get(g.id());
-            if (v != null && !v.isEmpty()) RootClientStore.setCarriedVariant(villager.getId(), g.id(), v);
+    private void townstead$seedCarriedVariants() {
+        // Synced layer first (covers players and freshly-changed villagers).
+        RootClientStore.carriedVariants(townstead$target).forEach((geneId, payload) -> {
+            if (payload != null && !payload.isEmpty()) {
+                RootClientStore.setCarriedVariant(villager.getId(), geneId, payload);
+            }
+        });
+        // Entity-resolved layer: every gene the target could carry, through the same
+        // path the world render uses (synced by the REAL entity id, snapshot fallback).
+        // For a self-edit the target is the SELF sentinel, not an entity id, so resolve
+        // to the player — otherwise the dummy stays unseeded and every editor open
+        // falls back to a fresh random pick per gene (the grey-skin-square roulette).
+        net.minecraft.world.entity.LivingEntity real = townstead$previewSubject();
+        if (real == null) return;
+        RootClientStore.carriedVariants(real.getId()).forEach((geneId, payload) -> {
+            if (payload != null && !payload.isEmpty()) {
+                RootClientStore.setCarriedVariant(villager.getId(), geneId, payload);
+            }
+        });
+        java.util.Set<String> geneIds = new java.util.LinkedHashSet<>(RootClientStore.expressedGenes(real));
+        com.aetherianartificer.townstead.root.RootCatalogEntry origin =
+                com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.resolve(real));
+        if (origin != null) {
+            for (com.aetherianartificer.townstead.root.RootCatalogEntry.Inherited inherited : origin.inheritedGenes()) {
+                geneIds.add(inherited.geneId());
+            }
+        }
+        for (String geneId : geneIds) {
+            String payload = RootClientStore.resolveCarriedVariant(real, geneId);
+            if (!payload.isEmpty()) {
+                RootClientStore.setCarriedVariant(villager.getId(), geneId, payload);
+            }
         }
     }
 
@@ -626,7 +673,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         int rows = genes.size();
         for (GeneCatalogEntry gene : sized) {
             String carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                    RootClientStore.carriedVariants(townstead$target).get(gene.id())).variant();
+                    townstead$carriedRaw(gene.id())).variant();
             rows += 1 + townstead$channelRows(gene, carried);   // header row + controls
         }
 
@@ -689,7 +736,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         String geneId = gene.id();
         com.aetherianartificer.townstead.root.gene.AllelePayload carried =
                 com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                        RootClientStore.carriedVariants(townstead$target).get(geneId));
+                        townstead$carriedRaw(geneId));
         java.util.List<GeneCatalogEntry.Channel> channels = gene.channelsFor(carried.variant());
         int used = 0;
         boolean tint = false;
@@ -714,13 +761,13 @@ public abstract class VillagerEditorRootMixin extends Screen {
         float span = Math.max(1e-4f, max - min);
         com.aetherianartificer.townstead.root.gene.AllelePayload carried =
                 com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                        RootClientStore.carriedVariants(townstead$target).get(geneId));
+                        townstead$carriedRaw(geneId));
         float value = Math.max(min, Math.min(max, carried.channel(channel.name(), (min + max) / 2f)));
         // Seed the dummy preview with the full payload so the render layer sees this channel.
         RootClientStore.setCarriedVariant(villager.getId(), geneId, townstead$withChannel(
                 RootClientStore.carriedVariants(villager.getId()).get(geneId) != null
                         ? RootClientStore.carriedVariants(villager.getId()).get(geneId)
-                        : RootClientStore.carriedVariants(townstead$target).get(geneId),
+                        : townstead$carriedRaw(geneId),
                 channel.name(), value));
         String name = !channel.label().isEmpty() ? channel.label()
                 : (gene.sizeLabel().isEmpty() ? gene.name() : gene.sizeLabel());
@@ -800,7 +847,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
     private int townstead$hsvRows(GeneCatalogEntry gene, int x, int y, int w, int rowH, int spacing) {
         String geneId = gene.id();
         var carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                RootClientStore.carriedVariants(townstead$target).get(geneId));
+                townstead$carriedRaw(geneId));
         double[] seed = net.conczin.mca.client.resources.ClientUtils.RGB2HSV(
                 townstead$clamp01(carried.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R, 1f)),
                 townstead$clamp01(carried.channel(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_G, 1f)),
@@ -866,12 +913,12 @@ public abstract class VillagerEditorRootMixin extends Screen {
         String geneId = gene.id();
         com.aetherianartificer.townstead.root.gene.AllelePayload carried =
                 com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                        RootClientStore.carriedVariants(townstead$target).get(geneId));
+                        townstead$carriedRaw(geneId));
         float value = Math.max(0f, Math.min(1f, carried.channel(channelName, 1f)));
         RootClientStore.setCarriedVariant(villager.getId(), geneId, townstead$withChannel(
                 RootClientStore.carriedVariants(villager.getId()).get(geneId) != null
                         ? RootClientStore.carriedVariants(villager.getId()).get(geneId)
-                        : RootClientStore.carriedVariants(townstead$target).get(geneId),
+                        : townstead$carriedRaw(geneId),
                 channelName, value));
         com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider slider =
                 new com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider(
@@ -906,7 +953,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
     private void townstead$writeTint(GeneCatalogEntry gene, float r, float g, float b, boolean refresh) {
         String geneId = gene.id();
         String raw = RootClientStore.carriedVariants(villager.getId()).get(geneId);
-        if (raw == null) raw = RootClientStore.carriedVariants(townstead$target).get(geneId);
+        if (raw == null) raw = townstead$carriedRaw(geneId);
         var payload = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(raw);
         java.util.Map<String, Float> channels = new LinkedHashMap<>(payload.channels());
         channels.put(com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.TINT_R,
@@ -1037,14 +1084,61 @@ public abstract class VillagerEditorRootMixin extends Screen {
         if (origin == null) return out;
         for (com.aetherianartificer.townstead.root.RootCatalogEntry.Inherited inh : origin.inheritedGenes()) {
             GeneCatalogEntry g = com.aetherianartificer.townstead.client.root.RootCatalogClient.gene(inh.geneId());
-            if (g != null && !g.isVariants() && !g.channels().isEmpty()) out.add(g);
+            if (g != null && !g.isVariants() && !g.channels().isEmpty()
+                    && !townstead$geneGatedOff(g)) out.add(g);
         }
         return out;
+    }
+
+    /**
+     * True when every attachment this gene could wear is {@code when}-gated off for the
+     * preview dummy (a beard on a woman, braids on a man): the control would edit
+     * something invisible on this character, so the editor hides the whole group. The
+     * dummy carries the editor's pending gender, so toggling gender re-decides this on
+     * the next page build. Missing defs or any ungated/active def keep the control.
+     */
+    @Unique
+    private boolean townstead$geneGatedOff(GeneCatalogEntry gene) {
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        if (gene.isAttachment()) ids.addAll(gene.attachmentsFor(""));
+        for (GeneCatalogEntry.Variant variant : gene.variants()) {
+            for (String id : variant.attachment().split(";")) {
+                if (!id.isEmpty()) ids.add(id);
+            }
+        }
+        if (ids.isEmpty()) return false;
+        for (String id : ids) {
+            com.aetherianartificer.townstead.root.attachment.AttachmentDef def =
+                    com.aetherianartificer.townstead.client.attachment.AttachmentClient.def(id);
+            if (def == null || def.whenJson().isEmpty()) return false;
+            if (com.aetherianartificer.townstead.client.attachment.AttachmentPoses.defActive(villager, def)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Unique
     private void townstead$variantCycler(GeneCatalogEntry gene, int x, int y, int w, int arrowW, int rowH) {
         townstead$variantCycler(gene, x, y, w, arrowW, rowH, true);
+    }
+
+    /**
+     * The best-known carried payload for a gene when a control seeds: the dummy first
+     * ({@code townstead$seedCarriedVariants} resolved it through the real entity, and live
+     * edits land there), the raw target sync next, the entity-resolved snapshot path last.
+     * The raw target map alone is often empty (SELF sentinel, long-loaded villagers), which
+     * used to reset every cycler and slider to its first option on each tab build.
+     */
+    @Unique
+    private String townstead$carriedRaw(String geneId) {
+        String raw = RootClientStore.carriedVariants(villager.getId()).get(geneId);
+        if (raw == null || raw.isEmpty()) raw = townstead$carriedRaw(geneId);
+        if (raw == null || raw.isEmpty()) {
+            net.minecraft.world.entity.LivingEntity real = townstead$previewSubject();
+            if (real != null) raw = RootClientStore.resolveCarriedVariant(real, geneId);
+        }
+        return raw == null || raw.isEmpty() ? null : raw;
     }
 
     /**
@@ -1059,7 +1153,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         List<GeneCatalogEntry.Variant> opts = gene.variants();
         String geneId = gene.id();
         var carried = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(
-                RootClientStore.carriedVariants(townstead$target).get(geneId));
+                townstead$carriedRaw(geneId));
         int start = 0;
         for (int i = 0; i < opts.size(); i++) {
             if (opts.get(i).id().equals(carried.variant())) { start = i; break; }

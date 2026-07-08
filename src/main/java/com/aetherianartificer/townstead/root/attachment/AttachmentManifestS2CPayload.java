@@ -64,6 +64,7 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             buf.writeBoolean(def.translucent());
             buf.writeVarInt(def.hidesUnder().size());
             for (String slot : def.hidesUnder()) buf.writeUtf(slot);
+            buf.writeUtf(def.whenJson());
             buf.writeVarInt(def.morph().size());
             for (AttachmentDef.MorphChannel channel : def.morph()) {
                 buf.writeUtf(channel.channel());
@@ -176,6 +177,7 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             int hideCount = buf.readVarInt();
             List<String> hidesUnder = new ArrayList<>(hideCount);
             for (int h = 0; h < hideCount; h++) hidesUnder.add(buf.readUtf());
+            String whenJson = buf.readUtf();
             int morphCount = buf.readVarInt();
             List<AttachmentDef.MorphChannel> morph = new ArrayList<>(morphCount);
             for (int c = 0; c < morphCount; c++) {
@@ -260,7 +262,7 @@ public record AttachmentManifestS2CPayload(List<AttachmentDef> defs, List<Attach
             }
             defs.add(new AttachmentDef(id, geo, tex, targetTag.isEmpty() ? null : targetTag,
                     targetPoint.isEmpty() ? null : targetPoint, bone, offset, rotation, scale, tint,
-                    tintSource, tintBlend, tintStrength, emissiveSha, translucent, hidesUnder,
+                    tintSource, tintBlend, tintStrength, emissiveSha, translucent, hidesUnder, whenJson,
                     morph, visibility, stages, poses, physics, animations));
         }
         int slotCount = buf.readVarInt();

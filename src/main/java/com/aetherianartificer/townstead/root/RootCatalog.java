@@ -200,10 +200,11 @@ public final class RootCatalog {
         return -1;
     }
 
-    /** The face sprite-strip texture a variant carries (eyes/mouth), or {@code ""}. */
+    /** The texture a variant carries (face sprite strip, or a skin-overlay style), or {@code ""}. */
     private static String variantTexture(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
         if (instance instanceof com.aetherianartificer.townstead.root.gene.types.EyesGeneType.Instance e) return e.texture();
         if (instance instanceof com.aetherianartificer.townstead.root.gene.types.MouthGeneType.Instance m) return m.texture();
+        if (instance instanceof com.aetherianartificer.townstead.root.gene.types.SkinOverlayGeneType.Instance s) return s.texture();
         return "";
     }
 

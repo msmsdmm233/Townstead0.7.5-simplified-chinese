@@ -66,6 +66,12 @@ public final class TownsteadKeybinds {
             }
         }
 
+        // Gene-glide start: vanilla LocalPlayer only sends START_FALL_FLYING when the chest
+        // slot holds an actual elytra — it never consults tryToStartFallFlying on the client —
+        // so an elytra_flight bearer must send the command packet themself. The server
+        // validates through PlayerElytraGeneMixin. Latched so one press sends one packet.
+        townstead$tryGeneGlide(mc);
+
         // Observe (do not consume) the vanilla keys so press triggers can react without stealing the
         // key from movement. Edge-detected: a packet only on the press, not while held.
         boolean active = mc.player != null && mc.screen == null;
@@ -75,6 +81,30 @@ public final class TownsteadKeybinds {
             if (down && !PRESS_PREV[i]) sendKeyPress(PRESS_KEYS[i]);
             PRESS_PREV[i] = down;
         }
+    }
+
+    private static boolean GLIDE_PREV_DOWN = false;
+
+    private static void townstead$tryGeneGlide(Minecraft mc) {
+        var player = mc.player;
+        if (player == null) { GLIDE_PREV_DOWN = false; return; }
+        boolean down = mc.screen == null && mc.options.keyJump.isDown();
+        boolean freshPress = down && !GLIDE_PREV_DOWN;
+        GLIDE_PREV_DOWN = down;
+        // Deliberately stricter than vanilla's held-key check: a permanent glider would
+        // deploy at the apex of every held-jump hop, so deploying takes the classic
+        // double-tap — a fresh jump press while already airborne and falling.
+        if (!freshPress) return;
+        if (player.onGround() || player.isFallFlying() || player.isInWater()
+                || player.getAbilities().flying || player.getDeltaMovement().y >= 0.0) {
+            return;
+        }
+        if (!com.aetherianartificer.townstead.client.root.ClientAbilities.isActive(
+                player, com.aetherianartificer.townstead.root.ability.Ability.ELYTRA_FLIGHT)) {
+            return;
+        }
+        player.connection.send(new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(
+                player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
     }
 
     /** Vanilla keys observable by a {@code press} trigger; those with their own server signal stay out. */

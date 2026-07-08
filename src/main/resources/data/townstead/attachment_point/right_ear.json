@@ -1,7 +1,7 @@
 {
   "schema": "townstead:attachment_point/v1",
   "bone": "head",
-  "offset": [-4, -4, 0],
+  "offset": [-4, -3, -1.5],
   "mirror": true,
   "tags": ["ear"]
 }

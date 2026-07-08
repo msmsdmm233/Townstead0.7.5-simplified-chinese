@@ -48,6 +48,10 @@ public final class AttachmentSchemas {
                     .doc("Armor slots (helmet/chestplate/leggings/boots) that hide the attachment "
                             + "entirely while worn. For a softer reaction author a wearing_<slot> pose "
                             + "instead (ears fold beneath a helm)."))
+            .field(of("when", PhenoType.OBJECT)
+                    .doc("Optional pheno condition gating the whole attachment: renders only while it "
+                            + "holds for the bearer, evaluated client-side like pose conditions "
+                            + "(a beard only masculine villagers wear). Omit = always."))
             .field(of("morph", PhenoType.OBJECT)
                     .doc("Size-value morphs from the granting gene's rolls. Shorthand { axes, bones } reads "
                             + "the single anonymous channel; { channels: { <name>: { bones, axes, rotate } } } "

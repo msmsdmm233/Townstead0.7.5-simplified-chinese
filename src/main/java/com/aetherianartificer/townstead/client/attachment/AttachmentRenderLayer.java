@@ -57,6 +57,7 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
         for (Expressed expressed : attachments) {
             AttachmentDef def = expressed.def();
             if (hiddenByEquipment(entity, def)) continue;
+            if (!AttachmentPoses.defActive(entity, def)) continue;
             // A life-stage override can swap the model, add an offset, and scale (baby ears).
             AttachmentDef.StageOverride stage = def.stages().get(stageKey);
             String activeSha = def.geoSha1();
@@ -117,9 +118,14 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
                         (base[1] + def.offset()[1] + stageOffset[1]) / 16f,
                         (base[2] + def.offset()[2] + stageOffset[2]) / 16f);
                 rotateZyx(pose, anchor.rotation());
-                rotateZyx(pose, def.rotation());
-                // Eased state pose: the whole-attachment turn mirrors on mirror anchors so a
-                // symmetric pair folds symmetrically.
+                // Def rotation and eased state poses mirror on mirror anchors so a symmetric
+                // pair sweeps and folds symmetrically.
+                if (anchor.mirror()) {
+                    float[] r = def.rotation();
+                    rotateZyx(pose, new float[]{r[0], -r[1], -r[2]});
+                } else {
+                    rotateZyx(pose, def.rotation());
+                }
                 if (poseSample != null) {
                     float[] r = poseSample.rotation();
                     if (anchor.mirror()) rotateZyx(pose, new float[]{r[0], -r[1], -r[2]});
@@ -214,7 +220,11 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
      */
     private static int resolveTint(LivingEntity entity, AttachmentDef def, AllelePayload payload) {
         return switch (def.tintSource()) {
-            case AttachmentDef.TINT_SKIN -> RigSkinTone.forEntity(entity) & 0xFFFFFF;
+            // Prefer the skin colour the face was actually drawn with this frame
+            // (melanin gradient + origin tint, captured at MCA's SkinLayer); the
+            // resolved tint is the fallback until the skin has rendered once.
+            case AttachmentDef.TINT_SKIN -> com.aetherianartificer.townstead.client.species.RigSkinColor.get(
+                    entity.getId(), RigSkinTone.forEntity(entity) & 0xFFFFFF);
             case AttachmentDef.TINT_HAIR ->
                     com.aetherianartificer.townstead.client.species.RigHairColor.get(entity.getId(), def.tint());
             case AttachmentDef.TINT_EYES -> {

@@ -37,6 +37,14 @@ import java.util.Map;
  *
  * <p>JSON: {@code { "type":"pheno:proportions", "category":"Appearance",
  * "size":{"min":0.0,"max":0.2}, "width":{"min":0.5,"max":0.7}, "head":1.0, "arms":1.0, "legs":1.0 }}.
+ * A part value may also be a 3-element array {@code [x, y, z]} for per-axis stylizing — thick
+ * arms that aren't longer ({@code [1.25, 1.0, 1.25]}), a barrel torso that's deep but not tall
+ * ({@code [1.15, 1.0, 1.4]}). A plain number applies to all three axes.
+ * A part value may also be {@code {"lean": ..., "stout": ...}} (each a number or axis array):
+ * the individual's rolled MCA <b>width</b> gene picks their spot between the two, mapped through
+ * the gene's own width range when it declares one — so a race rolls lean and heavyset members
+ * from one gene, the build inherits through MCA's width blending, and the editor's width slider
+ * moves it live. {@code lean} defaults to proportioned (1.0) when omitted.
  * All body metrics in the bundle share one auto-locus, so a lineage's proportions gene replaces its
  * ancestry's whole build at once.</p>
  */
@@ -46,10 +54,12 @@ public final class ProportionsGeneType implements GeneType {
 
     private static final ResourceLocation LOCUS = ResourceLocation.tryParse("pheno:proportions");
 
-    public record Instance(Map<String, GeneRange> bodyMetrics, Map<String, Float> partScales)
+    public record Instance(Map<String, GeneRange> bodyMetrics, Map<String, float[]> partScales)
             implements GeneInstance {
         @Override public String typeKey() { return KEY; }
-        @Override public GeneDisplay display() { return GeneDisplay.proportions(partScales); }
+        @Override public GeneDisplay display() {
+            return GeneDisplay.proportions(partScales, bodyMetrics.get("width"));
+        }
     }
 
     @Override
@@ -58,7 +68,7 @@ public final class ProportionsGeneType implements GeneType {
     @Override
     public GeneInstance parse(JsonObject json) {
         Map<String, GeneRange> metrics = new LinkedHashMap<>();
-        Map<String, Float> parts = new LinkedHashMap<>();
+        Map<String, float[]> parts = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
             String raw = entry.getKey();
             JsonElement value = entry.getValue();
@@ -68,13 +78,38 @@ public final class ProportionsGeneType implements GeneType {
                 float min = GsonHelper.getAsFloat(range, "min", 0f);
                 float max = GsonHelper.getAsFloat(range, "max", 1f);
                 metrics.put(target, new GeneRange(min, max));
-            } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+            } else if (value.isJsonObject() && value.getAsJsonObject().has("stout")) {
+                // Rolled bulk: the individual's width gene lerps between the two forms.
+                JsonObject bulk = value.getAsJsonObject();
+                float[] lean = readAxes(bulk.get("lean"));
+                float[] stout = readAxes(bulk.get("stout"));
+                if (lean == null) lean = new float[]{1f, 1f, 1f};
+                if (stout != null) {
+                    parts.put(raw, new float[]{lean[0], lean[1], lean[2], stout[0], stout[1], stout[2]});
+                }
+            } else {
                 // Free-form, shape-specific part key (see class doc) — not validated against a vocabulary.
-                parts.put(raw, value.getAsFloat());
+                float[] axes = readAxes(value);
+                if (axes != null) parts.put(raw, axes);
             }
         }
         if (metrics.isEmpty() && parts.isEmpty()) return null;
         return new Instance(Map.copyOf(metrics), Map.copyOf(parts));
+    }
+
+    /** A number ({@code f} on all axes) or 3-element array as {@code {x, y, z}}; null otherwise. */
+    private static float[] readAxes(JsonElement value) {
+        if (value == null) return null;
+        if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+            float f = value.getAsFloat();
+            return new float[]{f, f, f};
+        }
+        if (value.isJsonArray() && value.getAsJsonArray().size() == 3) {
+            var array = value.getAsJsonArray();
+            return new float[]{array.get(0).getAsFloat(), array.get(1).getAsFloat(),
+                    array.get(2).getAsFloat()};
+        }
+        return null;
     }
 
     @Override

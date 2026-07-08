@@ -125,6 +125,11 @@ public final class AttachmentGeneType implements GeneType {
 
     @Override
     public GeneInstance parse(JsonObject json) {
+        // An explicit `"none": true` variant grants nothing — the beardless option of a
+        // beard-style gene. It still inherits and cycles like any other variant.
+        if (GsonHelper.getAsBoolean(json, "none", false)) {
+            return new Instance(List.of(), List.of(), List.of());
+        }
         List<String> attachments = new ArrayList<>();
         String single = GsonHelper.getAsString(json, "attachment", "");
         if (!single.isBlank()) attachments.add(single);

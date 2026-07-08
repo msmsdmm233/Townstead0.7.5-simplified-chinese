@@ -94,6 +94,19 @@ public final class AttachmentDoctor {
                             + String.join(", ", AttachmentDef.EQUIPMENT_SLOTS) + ")");
                 }
             }
+            if (!def.whenJson().isEmpty()) {
+                boolean parses;
+                try {
+                    parses = com.aetherianartificer.townstead.pheno.condition.Conditions
+                            .parse(JsonParser.parseString(def.whenJson())) != null;
+                } catch (Exception e) {
+                    parses = false;
+                }
+                if (!parses) {
+                    out.add(def.id() + ": when condition does not parse (the attachment renders "
+                            + "unconditionally): " + def.whenJson());
+                }
+            }
             if (def.targetTag() != null && !allTags.contains(def.targetTag())) {
                 out.add(def.id() + ": target tag '" + def.targetTag() + "' matches no attachment point");
             }

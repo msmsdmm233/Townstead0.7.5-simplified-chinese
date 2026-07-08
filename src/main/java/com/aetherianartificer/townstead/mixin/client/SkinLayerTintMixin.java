@@ -34,6 +34,10 @@ public abstract class SkinLayerTintMixin<T extends LivingEntity, M extends Human
             int blended = SkinBlend.blend(base & 0xFFFFFF, tint.getAsInt());
             cir.setReturnValue((base & 0xFF000000) | blended);
         }
+        // The FINAL rendered skin multiplier (tinted or vanilla): captured so
+        // skin-tinted attachments match the face exactly, not approximately.
+        com.aetherianartificer.townstead.client.species.RigSkinColor.put(
+                entity.getId(), cir.getReturnValue() & 0xFFFFFF);
     }
     //?} else {
     /*@Inject(method = "getColor", remap = false, at = @At("RETURN"), cancellable = true, require = 1)
@@ -52,6 +56,13 @@ public abstract class SkinLayerTintMixin<T extends LivingEntity, M extends Human
                     base.length > 3 ? base[3] : 1.0f
             });
         }
+        // The FINAL rendered skin multiplier (tinted or vanilla): captured so
+        // skin-tinted attachments match the face exactly, not approximately.
+        float[] out = cir.getReturnValue();
+        com.aetherianartificer.townstead.client.species.RigSkinColor.put(entity.getId(),
+                (Math.round(Math.max(0f, Math.min(1f, out[0])) * 255f) << 16)
+                        | (Math.round(Math.max(0f, Math.min(1f, out[1])) * 255f) << 8)
+                        | Math.round(Math.max(0f, Math.min(1f, out[2])) * 255f));
     }
     *///?}
 }

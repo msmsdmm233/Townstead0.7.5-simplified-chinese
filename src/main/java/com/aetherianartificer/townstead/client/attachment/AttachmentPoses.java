@@ -41,6 +41,10 @@ public final class AttachmentPoses {
     // `adjust` re-broadcasts and reloads re-parse.
     private static final Map<String, List<Condition>> CONDITIONS = new ConcurrentHashMap<>();
 
+    // Parsed whole-attachment gates per def id (Optional.empty = no gate or unparseable
+    // = always render, mirroring the server-side condition fallbacks).
+    private static final Map<String, java.util.Optional<Condition>> GATES = new ConcurrentHashMap<>();
+
     // Smoothing state per entity id; render-thread only.
     private static final Map<Integer, EntityState> STATES = new HashMap<>();
     private static final long EVICT_AFTER_MS = 10_000;
@@ -50,7 +54,25 @@ public final class AttachmentPoses {
 
     public static void onManifest() {
         CONDITIONS.clear();
+        GATES.clear();
         STATES.clear();
+    }
+
+    /**
+     * Whether the definition's whole-attachment {@code when} gate holds for this bearer
+     * (a beard only masculine villagers wear). No gate or an unparseable one renders.
+     */
+    public static boolean defActive(LivingEntity entity, AttachmentDef def) {
+        if (def.whenJson().isEmpty()) return true;
+        var gate = GATES.computeIfAbsent(def.id(), k -> {
+            try {
+                return java.util.Optional.ofNullable(
+                        Conditions.parse(JsonParser.parseString(def.whenJson())));
+            } catch (Exception e) {
+                return java.util.Optional.empty();
+            }
+        });
+        return gate.map(condition -> condition.test(new ConditionContext(entity))).orElse(true);
     }
 
     /** The eased pose for this entity+attachment right now, or null when at rest. */
@@ -128,6 +150,7 @@ public final class AttachmentPoses {
             case "sprinting" -> entity.isSprinting();
             case "sneaking" -> entity.isCrouching();
             case "swimming" -> entity.isSwimming();
+            case "gliding" -> entity.isFallFlying();
             case "moving" -> entity.walkAnimation.speed() > 0.1f;
             case "hurt" -> entity.hurtTime > 0;
             case "attacking" -> entity.swinging || (entity instanceof Mob mob && mob.isAggressive());

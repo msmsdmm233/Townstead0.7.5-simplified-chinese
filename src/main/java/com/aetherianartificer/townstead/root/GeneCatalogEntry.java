@@ -100,13 +100,15 @@ public record GeneCatalogEntry(
 
     /**
      * The attachment this gene expresses for a carried variant id: the gene's own for a
-     * plain attachment gene, the matching option's for a variant swap (falling back to
-     * the first option that wears one). Empty when the gene grants no attachment.
+     * plain attachment gene, the matching option's for a variant swap. A matched variant
+     * that wears nothing (a "none" option) is honoured as nothing; only an UNMATCHED
+     * carried id falls back to the first option that wears one. Empty when the gene
+     * grants no attachment.
      */
     public String attachmentFor(String variantId) {
         if (isAttachment()) return attachmentId();
         for (Variant variant : variants) {
-            if (variant.id().equals(variantId) && !variant.attachment().isEmpty()) return variant.attachment();
+            if (variant.id().equals(variantId)) return variant.attachment();
         }
         for (Variant variant : variants) {
             if (!variant.attachment().isEmpty()) return variant.attachment();
@@ -176,24 +178,67 @@ public record GeneCatalogEntry(
     }
 
     /**
-     * Render multiplier for a model-part group ({@code "head"}/{@code "arms"}/{@code "legs"}/{@code "body"})
-     * from a PROPORTIONS gene, parsed from {@code targetId} {@code "head=1.0;arms=1.0;..."}.
-     * Returns {@link Float#NaN} when the part isn't listed (that part keeps MCA's normal squash).
+     * Per-axis render multipliers {@code {x, y, z}} for a model-part group ({@code "head"}/
+     * {@code "arms"}/{@code "legs"}/{@code "body"}) from a PROPORTIONS gene, parsed from
+     * {@code targetId} {@code "head=1.1,1.1,1.1;body=1.15,1.0,1.4"} (a bare number applies to
+     * all axes). A {@code "lean:stout"} entry lerps by {@code bulk} (0 = lean, 1 = stout — the
+     * bearer's width roll mapped through {@link #proportionBulkRange}). Returns {@code null}
+     * when the part isn't listed (it keeps MCA's normal squash).
      */
-    public float proportionScale(String part) {
-        if (targetId == null || targetId.isEmpty()) return Float.NaN;
+    public float[] proportionScale(String part, float bulk) {
+        if (targetId == null || targetId.isEmpty()) return null;
         for (String entry : targetId.split(";")) {
             int eq = entry.indexOf('=');
             if (eq <= 0) continue;
             if (entry.substring(0, eq).equals(part)) {
-                try {
-                    return Float.parseFloat(entry.substring(eq + 1).trim());
-                } catch (NumberFormatException e) {
-                    return Float.NaN;
-                }
+                int colon = entry.indexOf(':', eq);
+                float[] lean = parseAxes(entry.substring(eq + 1, colon > 0 ? colon : entry.length()));
+                if (lean == null) return null;
+                if (colon < 0) return lean;
+                float[] stout = parseAxes(entry.substring(colon + 1));
+                if (stout == null) return lean;
+                float t = Math.max(0f, Math.min(1f, bulk));
+                return new float[]{lean[0] + (stout[0] - lean[0]) * t,
+                        lean[1] + (stout[1] - lean[1]) * t,
+                        lean[2] + (stout[2] - lean[2]) * t};
             }
         }
-        return Float.NaN;
+        return null;
+    }
+
+    /** The gene's width range {@code {min, max}} for the lean↔stout lerp, or {@code null}. */
+    public float[] proportionBulkRange() {
+        if (targetId == null || targetId.isEmpty()) return null;
+        for (String entry : targetId.split(";")) {
+            if (entry.startsWith("@width=")) {
+                return parsePair(entry.substring("@width=".length()));
+            }
+        }
+        return null;
+    }
+
+    private static float[] parseAxes(String csv) {
+        try {
+            String[] parts = csv.trim().split(",");
+            if (parts.length == 3) {
+                return new float[]{Float.parseFloat(parts[0].trim()),
+                        Float.parseFloat(parts[1].trim()), Float.parseFloat(parts[2].trim())};
+            }
+            float f = Float.parseFloat(parts[0].trim());
+            return new float[]{f, f, f};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static float[] parsePair(String csv) {
+        try {
+            String[] parts = csv.trim().split(",");
+            if (parts.length != 2) return null;
+            return new float[]{Float.parseFloat(parts[0].trim()), Float.parseFloat(parts[1].trim())};
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /** For ATTACHMENT genes, the attachment id (rides in {@code targetId}). */
@@ -277,6 +322,25 @@ public record GeneCatalogEntry(
     /** True when this gene emits ambient particles (emitter params ride in {@code targetId}). */
     public boolean isParticle() {
         return displayKind == GeneDisplay.Kind.PARTICLE.ordinal();
+    }
+
+    /** True when this gene paints a skin-overlay layer ({@code "texture;tint"} rides in {@code targetId}). */
+    public boolean isSkinOverlay() {
+        return displayKind == GeneDisplay.Kind.SKIN_OVERLAY.ordinal();
+    }
+
+    /** A SKIN_OVERLAY gene's texture id (a data-pack texture reference); empty otherwise. */
+    public String skinOverlayTexture() {
+        if (!isSkinOverlay() || targetId == null) return "";
+        int semi = targetId.indexOf(';');
+        return semi < 0 ? targetId : targetId.substring(0, semi);
+    }
+
+    /** A SKIN_OVERLAY gene's tint spec: {@code ""} (untinted), a hex colour, {@code skin}, or {@code hair}. */
+    public String skinOverlayTint() {
+        if (!isSkinOverlay() || targetId == null) return "";
+        int semi = targetId.indexOf(';');
+        return semi < 0 ? "" : targetId.substring(semi + 1);
     }
 
     /** PARTICLE emitter params, parsed from {@code targetId} {@code "particleId;count;spread;speed;yOffset"}. */

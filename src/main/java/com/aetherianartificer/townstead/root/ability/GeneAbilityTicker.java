@@ -376,7 +376,12 @@ public final class GeneAbilityTicker {
                 if (entity.isUnderWater()) entity.addEffect(hidden(MobEffects.WATER_BREATHING));
             }
             case SLOW_FALL -> {
-                if (!entity.onGround() && entity.getDeltaMovement().y < 0) entity.addEffect(hidden(MobEffects.SLOW_FALLING));
+                // Stands down during a glide: Slow Falling clamps the dive speed elytra
+                // physics steers with, turning the glide into an unsteerable drift.
+                if (entity.isFallFlying()) removeHidden(entity, MobEffects.SLOW_FALLING);
+                else if (!entity.onGround() && entity.getDeltaMovement().y < 0) {
+                    entity.addEffect(hidden(MobEffects.SLOW_FALLING));
+                }
             }
             case LAVA_VISION -> {
                 if (entity.isInLava()) entity.addEffect(hidden(MobEffects.NIGHT_VISION));

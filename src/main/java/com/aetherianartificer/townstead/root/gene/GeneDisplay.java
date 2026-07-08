@@ -19,7 +19,7 @@ package com.aetherianartificer.townstead.root.gene;
  */
 public record GeneDisplay(Kind kind, float min, float max, String targetId, float amount) {
 
-    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY }
+    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY, SKIN_OVERLAY }
 
     public static final GeneDisplay PRESENCE = new GeneDisplay(Kind.BOOLEAN, 0f, 1f, "", 0f);
 
@@ -64,19 +64,33 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
 
     /**
      * Per-part render multipliers for a stocky build (e.g. dwarves): each listed part has the body
-     * squash neutralized and is then scaled by its factor (1.0 = proportioned, no resize). The
-     * part→factor map packs into {@code targetId} as {@code "head=1.0;arms=1.0;legs=1.0"}; the head/
-     * limb render mixin and catalog unpack it. The gene's body-metric ranges (size/width) ride the
-     * server side (MCA floats), not this descriptor.
+     * squash neutralized and is then scaled by its per-axis factors (1.0 = proportioned, no resize).
+     * The part→factors map packs into {@code targetId} as {@code "head=1.1,1.1,1.1;body=1.15,1.0,1.4"};
+     * a 6-element entry packs as {@code "body=lx,ly,lz:sx,sy,sz"} (lean:stout, lerped by the bearer's
+     * rolled width gene), and {@code "@width=min,max"} carries the gene's width range so the lerp
+     * spans the race's actual roll. The head/limb render mixin and catalog unpack it. The gene's
+     * body-metric ranges (size/width) ride the server side (MCA floats), not this descriptor.
      */
-    public static GeneDisplay proportions(java.util.Map<String, Float> partScales) {
+    public static GeneDisplay proportions(java.util.Map<String, float[]> partScales,
+                                          com.aetherianartificer.townstead.root.GeneRange widthRange) {
         StringBuilder packed = new StringBuilder();
+        boolean lerped = false;
         if (partScales != null) {
-            for (java.util.Map.Entry<String, Float> e : partScales.entrySet()) {
+            for (java.util.Map.Entry<String, float[]> e : partScales.entrySet()) {
                 if (packed.length() > 0) packed.append(';');
+                float[] f = e.getValue();
                 packed.append(e.getKey()).append('=')
-                        .append(String.format(java.util.Locale.ROOT, "%.4f", e.getValue()));
+                        .append(String.format(java.util.Locale.ROOT, "%.4f,%.4f,%.4f", f[0], f[1], f[2]));
+                if (f.length >= 6) {
+                    packed.append(String.format(java.util.Locale.ROOT, ":%.4f,%.4f,%.4f", f[3], f[4], f[5]));
+                    lerped = true;
+                }
             }
+        }
+        if (lerped && widthRange != null) {
+            if (packed.length() > 0) packed.append(';');
+            packed.append(String.format(java.util.Locale.ROOT, "@width=%.4f,%.4f",
+                    widthRange.min(), widthRange.max()));
         }
         return new GeneDisplay(Kind.PROPORTIONS, 0f, 1f, packed.toString(), 0f);
     }
@@ -121,6 +135,17 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
         String packed = (particle == null ? "" : particle.toString()) + ";" + count + ";"
                 + fmt(spread) + ";" + fmt(speed) + ";" + fmt(yOffset);
         return new GeneDisplay(Kind.PARTICLE, 0f, 1f, packed, 0f);
+    }
+
+    /**
+     * A skin-overlay layer (a player-format texture drawn between MCA's skin and face
+     * layers: orcish features, freckles, scars, war paint). Packs into {@code targetId}
+     * as {@code "texture;tint"} where {@code tint} is {@code ""} (untinted), a hex
+     * colour, {@code skin}, or {@code hair}. A presence chip in the list.
+     */
+    public static GeneDisplay skinOverlay(String texture, String tint) {
+        return new GeneDisplay(Kind.SKIN_OVERLAY, 0f, 1f,
+                (texture == null ? "" : texture) + ";" + (tint == null ? "" : tint), 0f);
     }
 
     /**

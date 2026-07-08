@@ -130,6 +130,10 @@ public final class McaAnimationBridge {
             return;
         }
 
+        // Skip gliders: fall-flight poses the whole body horizontal in setupRotations,
+        // and walk/idle transforms layered on top bend the model in the wrong space.
+        if (entity.isFallFlying()) return;
+
         McaAnimationParameters parameters = McaAnimationParameters.from(
                 entity,
                 model,

@@ -1,7 +1,7 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.root.ability.Abilities;
 import com.aetherianartificer.townstead.root.ability.Ability;
+import com.aetherianartificer.townstead.root.ability.MovementAbilities;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,8 +11,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * Lets an {@code elytra_flight} race start gliding without wearing an elytra: when
  * {@code tryToStartFallFlying} would fail, allow it (and start the glide) if the
- * player is airborne and the ability is active. The {@code LivingEntityElytraKeepMixin}
- * keeps the glide going. Parity: same hook on both branches (SRG name on Forge).
+ * player is airborne and the ability is active. Must run on BOTH sides: the client
+ * only sends the start-fall-flying command packet when its local call succeeds, so a
+ * server-only hook is never asked (side-aware via {@link MovementAbilities}). The
+ * {@code LivingEntityElytraKeepMixin} keeps the glide going. Parity: same hook on
+ * both branches (SRG name on Forge).
  */
 @Mixin(net.minecraft.world.entity.player.Player.class)
 public abstract class PlayerElytraGeneMixin {
@@ -30,9 +33,8 @@ public abstract class PlayerElytraGeneMixin {
     *///?}
     private void townstead$elytraGene(CallbackInfoReturnable<Boolean> cir) {
         net.minecraft.world.entity.player.Player self = (net.minecraft.world.entity.player.Player) (Object) this;
-        if (self.level().isClientSide) return;
         if (self.onGround() || self.isFallFlying() || self.isInWater()) return;
-        if (!Abilities.isActive(self, Ability.ELYTRA_FLIGHT)) return;
+        if (!MovementAbilities.isActive(self, Ability.ELYTRA_FLIGHT)) return;
         //? if neoforge {
         this.startFallFlying();
         //?} else {

@@ -128,15 +128,19 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
 
     private static AttachmentDef parseDef(ResourceManager manager, String ns, String id, JsonObject json,
                                           Map<String, AttachmentServerData.Blob> blobs) throws Exception {
-        ResourceLocation geoFile = resolve(ns, GsonHelper.getAsString(json, "geometry", ""), "geo", ".geo.json");
+        String geometryRef = GsonHelper.getAsString(json, "geometry", "");
         ResourceLocation texFile = resolve(ns, GsonHelper.getAsString(json, "texture", ""), "textures", ".png");
-        if (geoFile == null || texFile == null) {
+        if (geometryRef.isEmpty() || texFile == null) {
             Townstead.LOGGER.warn("Attachment {} missing geometry/texture reference", id);
             return null;
         }
-        byte[] geo = readBytes(manager, geoFile, Integer.MAX_VALUE);
+        byte[] geo = geometryBytes(manager, ns, geometryRef);
         byte[] tex = readBytes(manager, texFile, MAX_TEXTURE_BYTES);
-        if (geo == null || tex == null) return null;
+        if (geo == null) {
+            Townstead.LOGGER.warn("Attachment {} geometry '{}' not found (.geo.json or .bbmodel)", id, geometryRef);
+            return null;
+        }
+        if (tex == null) return null;
 
         String geoSha = sha1(geo);
         String texSha = sha1(tex);
@@ -193,8 +197,7 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
                 String stageGeoSha = null;
                 String geoRef = GsonHelper.getAsString(stage, "geometry", "");
                 if (!geoRef.isEmpty()) {
-                    ResourceLocation stageGeoFile = resolve(ns, geoRef, "geo", ".geo.json");
-                    byte[] stageGeo = stageGeoFile == null ? null : readBytes(manager, stageGeoFile, MAX_GEO_BYTES);
+                    byte[] stageGeo = geometryBytes(manager, ns, geoRef);
                     if (stageGeo == null) {
                         Townstead.LOGGER.warn("Attachment {} stage '{}' geometry '{}' not found; stage keeps the base model",
                                 id, entry.getKey(), geoRef);
@@ -207,10 +210,12 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
                         GsonHelper.getAsFloat(stage, "scale", 1f), readVec(stage, "offset"), stageGeoSha));
             }
         }
+        String whenJson = json.has("when") && json.get("when").isJsonObject()
+                ? json.getAsJsonObject("when").toString() : "";
         return new AttachmentDef(id, geoSha, texSha, targetTag, targetPoint, bone,
                 readVec(json, "offset"), readVec(json, "rotation"), scale, tint,
                 tintSource, tintBlend, tintStrength, emissiveSha, translucent,
-                readStrings(json, "hides_under"),
+                readStrings(json, "hides_under"), whenJson,
                 morph, visibility, stages, parsePoses(json), parsePhysics(json),
                 parseAnimations(manager, ns, id, json, blobs));
     }
@@ -309,7 +314,16 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
         String file = hash < 0 ? ref : ref.substring(0, hash);
         String clip = hash < 0 ? "" : ref.substring(hash + 1);
         ResourceLocation animFile = resolve(ns, file, "animations", ".animation.json");
-        byte[] bytes = animFile == null ? null : readBytes(manager, animFile, MAX_GEO_BYTES);
+        byte[] bytes = animFile == null || manager.getResource(animFile).isEmpty()
+                ? null : readBytes(manager, animFile, MAX_GEO_BYTES);
+        if (bytes == null) {
+            // A bbmodel's embedded animations serve the same reference.
+            ResourceLocation bbFile = resolve(ns, file, "bbmodel", ".bbmodel");
+            if (bbFile != null && manager.getResource(bbFile).isPresent()) {
+                byte[] bb = readBytes(manager, bbFile, Integer.MAX_VALUE);
+                if (bb != null) bytes = BbmodelConverter.animations(bb, baseName(file));
+            }
+        }
         if (bytes == null) {
             Townstead.LOGGER.warn("Attachment {} animation '{}' not found; entry skipped", id, ref);
             return;
@@ -410,6 +424,35 @@ public final class AttachmentServerLoader implements ResourceManagerReloadListen
 
     private static String emptyToNull(String s) {
         return s == null || s.isEmpty() ? null : s;
+    }
+
+    /**
+     * Geometry bytes for a reference: {@code attachment/geo/<name>.geo.json} verbatim, else
+     * {@code attachment/bbmodel/<name>.bbmodel} converted through {@link BbmodelConverter}.
+     * A {@code "<name>#<pose>"} reference bakes the named embedded animation as a static
+     * pose over the bbmodel's rest pose (ignored for plain geo files).
+     */
+    private static byte[] geometryBytes(ResourceManager manager, String ns, String ref) {
+        int hash = ref.indexOf('#');
+        String name = hash < 0 ? ref : ref.substring(0, hash);
+        String pose = hash < 0 ? "" : ref.substring(hash + 1);
+        ResourceLocation geoFile = resolve(ns, name, "geo", ".geo.json");
+        if (geoFile != null && manager.getResource(geoFile).isPresent()) {
+            return readBytes(manager, geoFile, Integer.MAX_VALUE);
+        }
+        ResourceLocation bbFile = resolve(ns, name, "bbmodel", ".bbmodel");
+        if (bbFile != null && manager.getResource(bbFile).isPresent()) {
+            byte[] bb = readBytes(manager, bbFile, Integer.MAX_VALUE);
+            if (bb != null) return BbmodelConverter.geometry(bb, baseName(name), pose);
+        }
+        return null;
+    }
+
+    private static String baseName(String ref) {
+        int colon = ref.indexOf(':');
+        String name = colon < 0 ? ref : ref.substring(colon + 1);
+        int slash = name.lastIndexOf('/');
+        return slash < 0 ? name : name.substring(slash + 1);
     }
 
     private static ResourceLocation resolve(String defNs, String ref, String subdir, String suffix) {

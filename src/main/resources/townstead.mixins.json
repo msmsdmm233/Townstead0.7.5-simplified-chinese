@@ -81,6 +81,8 @@
     "client.PlayerEntityExtendedModelAnimationMixin",
     "client.VillagerEntityBaseModelMcaAnimationMixin",
     "client.VillagerHeadProportionMixin",
+    "client.VillagerGlidePoseMixin",
+    "client.PlayerGlidePoseMixin",
     "client.VillagerEntityModelMcaCopyWearMixin",
     "client.VillagerLayerBendMixin",
     "client.SkinLayerTintMixin",

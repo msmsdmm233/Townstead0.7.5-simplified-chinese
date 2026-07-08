@@ -77,6 +77,9 @@ public final class AttachmentDoctorCommand {
                 .then(Commands.literal("dump")
                         .then(Commands.argument("id", StringArgumentType.string()).suggests(IDS)
                                 .executes(c -> dump(c.getSource(), StringArgumentType.getString(c, "id")))))
+                .then(Commands.literal("dump-geo")
+                        .then(Commands.argument("id", StringArgumentType.string()).suggests(IDS)
+                                .executes(c -> dumpGeo(c.getSource(), StringArgumentType.getString(c, "id")))))
                 .then(Commands.literal("adjust")
                         .then(Commands.argument("id", StringArgumentType.string()).suggests(IDS)
                                 .then(Commands.literal("offset").then(vec3(AttachmentDoctorCommand::adjustOffset)))
@@ -94,6 +97,32 @@ public final class AttachmentDoctorCommand {
                                                 .then(Commands.argument("param", StringArgumentType.word()).suggests(PARAMS)
                                                         .then(Commands.argument("value", FloatArgumentType.floatArg())
                                                                 .executes(AttachmentDoctorCommand::adjustPhysics)))))))));
+    }
+
+    /** Writes the def's live geometry blob (post-conversion, as the client renders it) for offline diffing. */
+    private static int dumpGeo(CommandSourceStack source, String id) {
+        AttachmentDef def = find(id);
+        if (def == null) {
+            source.sendFailure(Component.literal("No attachment '" + id + "' is loaded."));
+            return 0;
+        }
+        AttachmentServerData.Blob blob = AttachmentServerData.blob(def.geoSha1());
+        if (blob == null) {
+            source.sendFailure(Component.literal("No geometry blob for " + id));
+            return 0;
+        }
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get("townstead-dump",
+                    id.replace(':', '_').replace('/', '_') + ".geo.json");
+            java.nio.file.Files.createDirectories(path.getParent());
+            java.nio.file.Files.write(path, blob.bytes());
+            String where = path.toAbsolutePath().toString();
+            source.sendSuccess(() -> Component.literal("Wrote " + where), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Dump failed: " + e));
+            return 0;
+        }
     }
 
     private interface VecAdjust {
@@ -173,7 +202,7 @@ public final class AttachmentDoctorCommand {
         }
         AttachmentDef updated = new AttachmentDef(current.id(), current.geoSha1(), current.textureSha1(),
                 current.targetTag(), current.targetPoint(), current.bone(), current.offset(), current.rotation(),
-                current.scale(), current.tint(), current.tintSource(), current.tintBlend(), current.tintStrength(), current.emissiveSha1(), current.translucent(), current.hidesUnder(), current.morph(), current.visibility(),
+                current.scale(), current.tint(), current.tintSource(), current.tintBlend(), current.tintStrength(), current.emissiveSha1(), current.translucent(), current.hidesUnder(), current.whenJson(), current.morph(), current.visibility(),
                 current.stages(), current.poses(), chains, current.animations());
         AttachmentServerData.replaceDefinition(updated);
         c.getSource().getServer().getPlayerList().getPlayers().forEach(AttachmentSync::sendManifest);
@@ -256,22 +285,22 @@ public final class AttachmentDoctorCommand {
 
     private static AttachmentDef withScale(AttachmentDef d, float scale) {
         return new AttachmentDef(d.id(), d.geoSha1(), d.textureSha1(), d.targetTag(), d.targetPoint(), d.bone(),
-                d.offset(), d.rotation(), scale, d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
+                d.offset(), d.rotation(), scale, d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.whenJson(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
     }
 
     private static AttachmentDef withBone(AttachmentDef d, String bone) {
         return new AttachmentDef(d.id(), d.geoSha1(), d.textureSha1(), d.targetTag(), d.targetPoint(), bone,
-                d.offset(), d.rotation(), d.scale(), d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
+                d.offset(), d.rotation(), d.scale(), d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.whenJson(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
     }
 
     private static AttachmentDef adjustOffset(AttachmentDef d, float x, float y, float z) {
         return new AttachmentDef(d.id(), d.geoSha1(), d.textureSha1(), d.targetTag(), d.targetPoint(), d.bone(),
-                new float[]{x, y, z}, d.rotation(), d.scale(), d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
+                new float[]{x, y, z}, d.rotation(), d.scale(), d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.whenJson(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
     }
 
     private static AttachmentDef adjustRotation(AttachmentDef d, float x, float y, float z) {
         return new AttachmentDef(d.id(), d.geoSha1(), d.textureSha1(), d.targetTag(), d.targetPoint(), d.bone(),
-                d.offset(), new float[]{x, y, z}, d.scale(), d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
+                d.offset(), new float[]{x, y, z}, d.scale(), d.tint(), d.tintSource(), d.tintBlend(), d.tintStrength(), d.emissiveSha1(), d.translucent(), d.hidesUnder(), d.whenJson(), d.morph(), d.visibility(), d.stages(), d.poses(), d.physics(), d.animations());
     }
 
     /** The chains as file-ready {@code physics} JSON, so dump round-trips live tuning. */

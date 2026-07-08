@@ -40,5 +40,33 @@ public abstract class VillagerAttachmentLayerMixin<T extends Mob & VillagerLike<
         townstead$attachmentLayerAdded = true;
         this.addLayer(new AttachmentRenderLayer<>(this));
         this.addLayer(new WornItemLayer<>(this));
+        townstead$insertSkinOverlayLayer();
+    }
+
+    /**
+     * Inserts the {@link com.aetherianartificer.townstead.client.species.SkinOverlayLayer}
+     * into MCA's layer stack directly BEFORE its FaceLayer, so overlays paint on the skin
+     * but under the eyes, clothing, and hair. The layer gets its own body shell dilated
+     * 0.005, between MCA's skin (0) and face (0.01) shells, so nothing z-fights.
+     */
+    @Unique
+    private void townstead$insertSkinOverlayLayer() {
+        VillagerEntityModelMCA<T> overlayModel = new VillagerEntityModelMCA<>(
+                net.minecraft.client.model.geom.builders.LayerDefinition.create(
+                        VillagerEntityModelMCA.bodyData(
+                                new net.minecraft.client.model.geom.builders.CubeDeformation(0.005f)),
+                        64, 64).bakeRoot());
+        var layer = new com.aetherianartificer.townstead.client.species.SkinOverlayLayer<>(this, overlayModel);
+        for (int i = 0; i < this.layers.size(); i++) {
+            if (this.layers.get(i) instanceof net.conczin.mca.client.render.layer.FaceLayer) {
+                this.layers.add(i, layer);
+                com.aetherianartificer.townstead.Townstead.LOGGER.info(
+                        "Skin overlay layer inserted at {} (before FaceLayer) of {}", i, this.layers.size());
+                return;
+            }
+        }
+        this.addLayer(layer);   // no face layer found: painting over the skin still beats not painting
+        com.aetherianartificer.townstead.Townstead.LOGGER.warn(
+                "Skin overlay layer APPENDED (no FaceLayer found among {} layers)", this.layers.size());
     }
 }

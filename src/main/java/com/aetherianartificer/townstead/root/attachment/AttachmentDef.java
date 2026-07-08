@@ -30,6 +30,10 @@ import org.jetbrains.annotations.Nullable;
  * tip shown only below a length threshold makes a quarter-elf read human rather
  * than miniature-elven.</p>
  *
+ * <p>{@code whenJson} is an optional pheno condition gating the whole attachment:
+ * it renders only while the condition holds for the bearer, evaluated client-side
+ * like pose conditions (a beard worn only by masculine villagers). Empty = always.</p>
+ *
  * <p>{@code hidesUnder} lists armor slots ({@code helmet}/{@code chestplate}/
  * {@code leggings}/{@code boots}) that suppress the attachment entirely while the
  * bearer wears something there (horns vanish under a helm). The gentler option is
@@ -72,6 +76,7 @@ public record AttachmentDef(
         String emissiveSha1,
         boolean translucent,
         java.util.List<String> hidesUnder,
+        String whenJson,
         java.util.List<MorphChannel> morph,
         java.util.List<VisibilityRule> visibility,
         java.util.Map<String, StageOverride> stages,
@@ -88,7 +93,7 @@ public record AttachmentDef(
 
     /** The named pose states the client can resolve without extra sync. */
     public static final java.util.List<String> POSE_STATES = java.util.List.of(
-            "sleeping", "sitting", "sprinting", "sneaking", "swimming",
+            "sleeping", "sitting", "sprinting", "sneaking", "swimming", "gliding",
             "moving", "hurt", "attacking", "panicking", "working",
             "wearing_helmet", "wearing_chestplate", "wearing_leggings", "wearing_boots");
 
