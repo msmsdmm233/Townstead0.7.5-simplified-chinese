@@ -21,6 +21,7 @@ import com.aetherianartificer.townstead.client.gui.McaEditorCompat;
 import com.aetherianartificer.townstead.client.gui.life.LifeAgeSlider;
 import com.aetherianartificer.townstead.client.skin.SeniorHairDesat;
 import com.aetherianartificer.townstead.root.LifeStageScale;
+import com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload;
 import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -614,6 +615,51 @@ public abstract class VillagerEditorMixin extends Screen {
                 townstead$fatigueDisplay.setMessage(townstead$fatigueLabel());
             }
         }
+    }
+
+    @Inject(method = "syncVillagerData", remap = false, at = @At("HEAD"))
+    private void townstead$commitTownsteadEditorFields(CallbackInfo ci) {
+        TownsteadEditorCommitPayload payload = townstead$editorCommitPayload();
+        if (payload.isEmpty()) return;
+        //? if neoforge {
+        PacketDistributor.sendToServer(payload);
+        //?} else if forge {
+        /*TownsteadNetwork.sendToServer(payload);
+        *///?}
+    }
+
+    @Unique
+    private TownsteadEditorCommitPayload townstead$editorCommitPayload() {
+        boolean hasHunger = townstead$hungerDirty && villagerData.contains(HungerData.EDITOR_KEY_HUNGER);
+        boolean hasThirst = townstead$thirstDirty && villagerData.contains(ThirstData.EDITOR_KEY_THIRST);
+        boolean hasFatigue = townstead$fatigueDirty && villagerData.contains(FatigueData.EDITOR_KEY_FATIGUE);
+        boolean hasBioAge = villagerData.contains(LifeData.EDITOR_KEY_BIO_AGE_DAYS);
+        boolean hasBirthday = villagerData.contains(LifeData.EDITOR_KEY_BIRTH_MONTH)
+                || villagerData.contains(LifeData.EDITOR_KEY_BIRTH_DAY);
+        int hunger = hasHunger ? villagerData.getInt(HungerData.EDITOR_KEY_HUNGER) : 0;
+        float saturation = hasHunger && villagerData.contains(HungerData.EDITOR_KEY_SATURATION)
+                ? villagerData.getFloat(HungerData.EDITOR_KEY_SATURATION) : 0.0f;
+        float hungerExhaustion = hasHunger && villagerData.contains(HungerData.EDITOR_KEY_EXHAUSTION)
+                ? villagerData.getFloat(HungerData.EDITOR_KEY_EXHAUSTION) : 0.0f;
+
+        int thirst = hasThirst ? villagerData.getInt(ThirstData.EDITOR_KEY_THIRST) : 0;
+        int quenched = hasThirst && villagerData.contains(ThirstData.EDITOR_KEY_QUENCHED)
+                ? villagerData.getInt(ThirstData.EDITOR_KEY_QUENCHED) : 0;
+        float thirstExhaustion = hasThirst && villagerData.contains(ThirstData.EDITOR_KEY_EXHAUSTION)
+                ? villagerData.getFloat(ThirstData.EDITOR_KEY_EXHAUSTION) : 0.0f;
+
+        int fatigue = hasFatigue ? villagerData.getInt(FatigueData.EDITOR_KEY_FATIGUE) : 0;
+        int bioAge = hasBioAge ? villagerData.getInt(LifeData.EDITOR_KEY_BIO_AGE_DAYS) : 0;
+        LifeClientStore.Snapshot snap = LifeClientStore.get(villager.getId());
+        int birthMonth = hasBirthday && villagerData.contains(LifeData.EDITOR_KEY_BIRTH_MONTH)
+                ? villagerData.getInt(LifeData.EDITOR_KEY_BIRTH_MONTH)
+                : snap != null ? snap.birthMonthIndex() : 1;
+        int birthDay = hasBirthday && villagerData.contains(LifeData.EDITOR_KEY_BIRTH_DAY)
+                ? villagerData.getInt(LifeData.EDITOR_KEY_BIRTH_DAY)
+                : snap != null ? snap.birthDayOfMonth() : 1;
+        return new TownsteadEditorCommitPayload(villagerUUID, hasHunger, hunger, saturation, hungerExhaustion,
+                hasThirst, thirst, quenched, thirstExhaustion, hasFatigue, fatigue, hasBioAge, bioAge,
+                hasBirthday, birthMonth, birthDay);
     }
 
     @Unique

@@ -576,6 +576,9 @@ public class Townstead {
                         com.aetherianartificer.townstead.commands.PowersDiagnosticCommand.register(e.getDispatcher()));
         NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.GlideDiagnosticCommand.register(e.getDispatcher()));
+        NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.root.port.OriginsPortCommand.register(
                                 e.getDispatcher(), e.getBuildContext()));
         NeoForge.EVENT_BUS.addListener(
@@ -880,6 +883,9 @@ public class Townstead {
         MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.commands.PowersDiagnosticCommand.register(e.getDispatcher()));
+        MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.RegisterCommandsEvent e) ->
+                        com.aetherianartificer.townstead.commands.GlideDiagnosticCommand.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         com.aetherianartificer.townstead.root.port.OriginsPortCommand.register(
@@ -2262,6 +2268,11 @@ public class Townstead {
                 com.aetherianartificer.townstead.calendar.VillagerLifeRequestC2SPayload.STREAM_CODEC,
                 this::handleVillagerLifeRequest
         );
+        registrar.playToServer(
+                com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload.TYPE,
+                com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload.STREAM_CODEC,
+                this::handleTownsteadEditorCommit
+        );
         registrar.playToClient(
                 com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload.TYPE,
                 com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload.STREAM_CODEC,
@@ -2423,6 +2434,34 @@ public class Townstead {
             com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload sync = townstead$lifeSync(villager);
             // Re-key to the editor's preview entity so its client-side lookups match.
             if (sync != null) PacketDistributor.sendToPlayer(sp, sync.withEntityId(payload.previewEntityId()));
+        });
+    }
+
+    private void handleTownsteadEditorCommit(
+            com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sp)) return;
+            com.aetherianartificer.townstead.villager.TownsteadEditorCommitServer.Result result =
+                    com.aetherianartificer.townstead.villager.TownsteadEditorCommitServer.apply(sp, payload);
+            if (result == null) return;
+            if (result.hungerSync() != null) {
+                PacketDistributor.sendToPlayer(sp, result.hungerSync());
+                PacketDistributor.sendToPlayersTrackingEntity(result.villager(), result.hungerSync());
+            }
+            if (result.thirstSync() != null) {
+                PacketDistributor.sendToPlayer(sp, result.thirstSync());
+                PacketDistributor.sendToPlayersTrackingEntity(result.villager(), result.thirstSync());
+            }
+            if (result.fatigueSync() != null) {
+                PacketDistributor.sendToPlayer(sp, result.fatigueSync());
+                PacketDistributor.sendToPlayersTrackingEntity(result.villager(), result.fatigueSync());
+            }
+            if (result.lifeSync() != null) {
+                PacketDistributor.sendToPlayer(sp, result.lifeSync());
+                PacketDistributor.sendToPlayersTrackingEntity(result.villager(), result.lifeSync());
+            }
         });
     }
 

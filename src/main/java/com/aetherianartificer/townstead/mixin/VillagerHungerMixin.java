@@ -5,7 +5,6 @@ import com.aetherianartificer.townstead.TownsteadConfig;
 //? if forge {
 /*import com.aetherianartificer.townstead.TownsteadNetwork;
 *///?}
-import com.aetherianartificer.townstead.compat.butchery.ButcherSettings;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
 import com.aetherianartificer.townstead.fatigue.SeekBedWhenFatiguedTask;
 import com.aetherianartificer.townstead.hunger.ButcherWorkTask;
@@ -148,9 +147,6 @@ public abstract class VillagerHungerMixin extends Villager {
         nbt.putFloat(HungerData.EDITOR_KEY_SATURATION, needs.saturation());
         nbt.putFloat(HungerData.EDITOR_KEY_EXHAUSTION, needs.hungerExhaustion());
         nbt.putInt(FatigueData.EDITOR_KEY_FATIGUE, needs.fatigue());
-        nbt.putByte(ButcherSettings.EDITOR_KEY_SLAUGHTER_OVERRIDE,
-                TownsteadVillagers.get(self).professionMemory().slaughterOverride().code);
-
         if (ThirstBridgeResolver.isActive()) {
             nbt.putInt(ThirstData.EDITOR_KEY_THIRST, needs.thirst());
             nbt.putInt(ThirstData.EDITOR_KEY_QUENCHED, needs.quenched());
@@ -214,10 +210,5 @@ public abstract class VillagerHungerMixin extends Villager {
             }
         }
 
-        if (nbt.contains(ButcherSettings.EDITOR_KEY_SLAUGHTER_OVERRIDE)) {
-            TownsteadVillagers.get(self).professionMemory().setSlaughterOverride(
-                    ButcherSettings.SlaughterOverride.fromCode(
-                            nbt.getByte(ButcherSettings.EDITOR_KEY_SLAUGHTER_OVERRIDE)));
-        }
     }
 }

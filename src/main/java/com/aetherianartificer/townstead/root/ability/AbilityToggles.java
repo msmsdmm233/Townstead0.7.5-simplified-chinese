@@ -41,6 +41,37 @@ public final class AbilityToggles {
         return true;
     }
 
+    /** Force a toggle state (villager AI deploys and folds wings without a keybind). */
+    public static void set(LivingEntity entity, ResourceLocation geneId, boolean on) {
+        Set<ResourceLocation> set = ON.computeIfAbsent(entity.getUUID(), k -> ConcurrentHashMap.newKeySet());
+        if (on) set.add(geneId);
+        else set.remove(geneId);
+    }
+
+    /** Whether the entity has any toggle switched on — a cheap gate for per-tick AI. */
+    public static boolean hasAny(LivingEntity entity) {
+        Set<ResourceLocation> set = ON.get(entity.getUUID());
+        return set != null && !set.isEmpty();
+    }
+
+    /** Sync a non-player entity's on-set to everyone tracking it (a villager's deployed wings). */
+    public static void syncEntity(LivingEntity entity) {
+        List<String> on = new ArrayList<>();
+        for (Power gene : Powers.active(entity)) {
+            if (gene.component() instanceof AbilityGeneType.Instance ability
+                    && ability.mode() == AbilityGeneType.Mode.TOGGLE
+                    && isOn(entity, gene.id())) {
+                on.add(gene.id().toString());
+            }
+        }
+        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(entity.getId(), on);
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(entity, payload);
+        //?} else {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(entity, payload);
+        *///?}
+    }
+
     public static void clear(UUID uuid) {
         ON.remove(uuid);
     }

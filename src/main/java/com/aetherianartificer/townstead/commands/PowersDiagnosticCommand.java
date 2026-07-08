@@ -16,7 +16,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * {@code /townstead powers} — dumps the executing player's live power-resolution
+ * {@code /townstead debug powers} — dumps the executing player's live power-resolution
  * chain, so a "gene does nothing" report separates into its possible causes: no
  * root applied, gene missing from the genotype (needs re-apply), the player-model
  * expression gate (genes only take effect in MCA's Villager model mode), or the
@@ -27,8 +27,8 @@ public final class PowersDiagnosticCommand {
     private PowersDiagnosticCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("townstead").then(Commands.literal("powers")
-                .executes(c -> dump(c.getSource()))));
+        dispatcher.register(Commands.literal("townstead").then(Commands.literal("debug")
+                .then(Commands.literal("powers").executes(c -> dump(c.getSource())))));
     }
 
     private static int dump(CommandSourceStack source) throws CommandSyntaxException {

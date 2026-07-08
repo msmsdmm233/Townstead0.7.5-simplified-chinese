@@ -214,6 +214,10 @@ public final class TownsteadNetwork {
                 com.aetherianartificer.townstead.calendar.VillagerLifeRequestC2SPayload::write,
                 com.aetherianartificer.townstead.calendar.VillagerLifeRequestC2SPayload::read,
                 TownsteadNetwork::handleVillagerLifeRequest);
+        registerC2S(com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload.class,
+                com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload::write,
+                com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload::read,
+                TownsteadNetwork::handleTownsteadEditorCommit);
         registerS2C(com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload.class,
                 com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload::write,
                 com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload::read,
@@ -443,6 +447,29 @@ public final class TownsteadNetwork {
                 com.aetherianartificer.townstead.Townstead.townstead$lifeSync(villager);
         // Re-key to the editor's preview entity so its client-side lookups match.
         if (sync != null) sendToPlayer(sp, sync.withEntityId(payload.previewEntityId()));
+    }
+
+    private static void handleTownsteadEditorCommit(
+            com.aetherianartificer.townstead.villager.TownsteadEditorCommitPayload payload, ServerPlayer sp) {
+        com.aetherianartificer.townstead.villager.TownsteadEditorCommitServer.Result result =
+                com.aetherianartificer.townstead.villager.TownsteadEditorCommitServer.apply(sp, payload);
+        if (result == null) return;
+        if (result.hungerSync() != null) {
+            sendToPlayer(sp, result.hungerSync());
+            sendToTrackingEntity(result.villager(), result.hungerSync());
+        }
+        if (result.thirstSync() != null) {
+            sendToPlayer(sp, result.thirstSync());
+            sendToTrackingEntity(result.villager(), result.thirstSync());
+        }
+        if (result.fatigueSync() != null) {
+            sendToPlayer(sp, result.fatigueSync());
+            sendToTrackingEntity(result.villager(), result.fatigueSync());
+        }
+        if (result.lifeSync() != null) {
+            sendToPlayer(sp, result.lifeSync());
+            sendToTrackingEntity(result.villager(), result.lifeSync());
+        }
     }
 
     private static void handleStampSync(com.aetherianartificer.townstead.calendar.CalendarStampSyncPayload payload) {

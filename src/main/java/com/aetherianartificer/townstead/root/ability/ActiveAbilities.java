@@ -125,6 +125,7 @@ public final class ActiveAbilities {
             case ALWAYS -> true;
             case WHEN_HURT -> villager.getHealth() < villager.getMaxHealth() * 0.5f;
             case WHEN_THREATENED -> villager.getTarget() != null || villager.getLastHurtByMob() != null;
+            case WHEN_FLYING -> GlideAI.wantsLift(villager);
             case NEVER -> false;
         };
     }
