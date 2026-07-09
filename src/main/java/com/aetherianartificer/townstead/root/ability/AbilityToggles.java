@@ -54,17 +54,29 @@ public final class AbilityToggles {
         return set != null && !set.isEmpty();
     }
 
-    /** Sync a non-player entity's on-set to everyone tracking it (a villager's deployed wings). */
-    public static void syncEntity(LivingEntity entity) {
+    /**
+     * Every expressed gene whose state lives in this map and is currently on: toggle-mode
+     * abilities AND standalone {@code pheno:toggle} genes. Both sync paths must use this —
+     * filtering by one gene kind silently strands the other kind's state server-side
+     * (the client gates then never fire, invisibly).
+     */
+    private static List<String> onSet(LivingEntity entity) {
         List<String> on = new ArrayList<>();
         for (Power gene : Powers.active(entity)) {
-            if (gene.component() instanceof AbilityGeneType.Instance ability
+            boolean toggleKind = gene.component() instanceof AbilityGeneType.Instance ability
                     && ability.mode() == AbilityGeneType.Mode.TOGGLE
-                    && isOn(entity, gene.id())) {
+                    || gene.component()
+                    instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance;
+            if (toggleKind && isOn(entity, gene.id())) {
                 on.add(gene.id().toString());
             }
         }
-        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(entity.getId(), on);
+        return on;
+    }
+
+    /** Sync a non-player entity's on-set to everyone tracking it (a villager's deployed wings). */
+    public static void syncEntity(LivingEntity entity) {
+        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(entity.getId(), onSet(entity));
         //? if neoforge {
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(entity, payload);
         //?} else {
@@ -83,15 +95,7 @@ public final class AbilityToggles {
      * on other clients too). Carries only currently-expressed toggle genes that are on.
      */
     public static void syncTo(ServerPlayer player) {
-        List<String> on = new ArrayList<>();
-        for (Power gene : Powers.active(player)) {
-            if (gene.component() instanceof AbilityGeneType.Instance ability
-                    && ability.mode() == AbilityGeneType.Mode.TOGGLE
-                    && isOn(player, gene.id())) {
-                on.add(gene.id().toString());
-            }
-        }
-        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(player.getId(), on);
+        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(player.getId(), onSet(player));
         //? if neoforge {
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(player, payload);
         //?} else {

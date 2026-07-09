@@ -60,11 +60,19 @@ public final class PowersDiagnosticCommand {
         for (Power power : powers) {
             out.append("  ").append(power.id()).append("  (")
                     .append(power.component().getClass().getSimpleName()).append(')');
-            if (power.component() instanceof AbilityGeneType.Instance ability
-                    && ability.mode() == AbilityGeneType.Mode.TOGGLE) {
+            boolean toggleKind = power.component() instanceof AbilityGeneType.Instance ability
+                    && ability.mode() == AbilityGeneType.Mode.TOGGLE
+                    || power.component() instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance;
+            if (toggleKind) {
                 out.append(AbilityToggles.isOn(player, power.id()) ? "  [toggle ON]" : "  [toggle off]");
             }
             out.append('\n');
+        }
+
+        out.append("Root Ability key slots:\n");
+        for (var entry : com.aetherianartificer.townstead.root.ability.ActiveAbilities.slotMap(player).entrySet()) {
+            out.append("  ").append(entry.getKey()).append(" = ").append(entry.getValue().geneId())
+                    .append(" (").append(entry.getValue().kind().name().toLowerCase(java.util.Locale.ROOT)).append(")\n");
         }
 
         String text = out.toString().stripTrailing();

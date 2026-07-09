@@ -107,12 +107,30 @@ public final class ActiveAbilities {
         return fire(player, new Resolved(slotted.geneId(), (ActiveAbilityGeneType.Instance) slotted.instance()));
     }
 
-    /** Villager auto-use, throttled; fires each opt-in active whose trigger and gate pass. */
+    /**
+     * Villager auto-use, throttled: fires each opt-in active whose trigger and gate
+     * pass, and manages opt-in toggle genes (held ON while their trigger is true,
+     * released when it stops — a mender switching on beside a hurt neighbour).
+     */
     public static void aiTick(VillagerEntityMCA villager) {
         if (villager.level().isClientSide) return;
         if ((villager.level().getGameTime() + villager.getId()) % AI_INTERVAL != 0) return;
-        List<Resolved> actives = resolve(villager);
-        if (actives.isEmpty()) return;
+        List<Resolved> actives = new ArrayList<>();
+        boolean toggleChanged = false;
+        for (Power gene : Powers.active(villager)) {
+            if (gene.component() instanceof ActiveAbilityGeneType.Instance instance) {
+                actives.add(new Resolved(gene.id(), instance));
+            } else if (gene.component()
+                    instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance toggle
+                    && toggle.aiTrigger() != AiTrigger.NEVER) {
+                boolean want = shouldAiUse(villager, toggle.aiTrigger());
+                if (want != AbilityToggles.isOn(villager, gene.id())) {
+                    AbilityToggles.set(villager, gene.id(), want);
+                    toggleChanged = true;
+                }
+            }
+        }
+        if (toggleChanged) AbilityToggles.syncEntity(villager);
         for (Resolved resolved : actives) {
             if (resolved.instance().aiTrigger() == AiTrigger.NEVER) continue;
             if (!shouldAiUse(villager, resolved.instance().aiTrigger())) continue;
@@ -126,8 +144,20 @@ public final class ActiveAbilities {
             case WHEN_HURT -> villager.getHealth() < villager.getMaxHealth() * 0.5f;
             case WHEN_THREATENED -> villager.getTarget() != null || villager.getLastHurtByMob() != null;
             case WHEN_FLYING -> GlideAI.wantsLift(villager);
+            case WHEN_HURT_NEARBY -> hurtNonHostileNearby(villager);
             case NEVER -> false;
         };
+    }
+
+    /** A hurt villager, player, or animal close enough that a helping aura would reach soon. */
+    private static boolean hurtNonHostileNearby(VillagerEntityMCA villager) {
+        var nearby = villager.level().getEntitiesOfClass(LivingEntity.class,
+                villager.getBoundingBox().inflate(5.0));
+        for (LivingEntity candidate : nearby) {
+            if (candidate == villager || candidate instanceof net.minecraft.world.entity.monster.Enemy) continue;
+            if (candidate.getHealth() < candidate.getMaxHealth() - 0.01f) return true;
+        }
+        return false;
     }
 
     private static boolean fire(LivingEntity entity, Resolved resolved) {

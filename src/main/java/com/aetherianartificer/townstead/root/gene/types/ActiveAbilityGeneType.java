@@ -31,7 +31,7 @@ public final class ActiveAbilityGeneType implements GeneType {
     public static final String KEY = "pheno:active_ability";
 
     public enum AiTrigger {
-        NEVER, ALWAYS, WHEN_HURT, WHEN_THREATENED, WHEN_FLYING;
+        NEVER, ALWAYS, WHEN_HURT, WHEN_THREATENED, WHEN_FLYING, WHEN_HURT_NEARBY;
 
         public static AiTrigger byKey(String raw) {
             if (raw == null) return NEVER;
@@ -40,6 +40,7 @@ public final class ActiveAbilityGeneType implements GeneType {
                 case "when_hurt", "hurt" -> WHEN_HURT;
                 case "when_threatened", "threatened" -> WHEN_THREATENED;
                 case "when_flying", "flying" -> WHEN_FLYING;
+                case "when_hurt_nearby", "hurt_nearby" -> WHEN_HURT_NEARBY;
                 default -> NEVER;
             };
         }

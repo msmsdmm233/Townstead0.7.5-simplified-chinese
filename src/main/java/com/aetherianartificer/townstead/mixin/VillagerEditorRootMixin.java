@@ -1111,6 +1111,9 @@ public abstract class VillagerEditorRootMixin extends Screen {
             com.aetherianartificer.townstead.root.attachment.AttachmentDef def =
                     com.aetherianartificer.townstead.client.attachment.AttachmentClient.def(id);
             if (def == null || def.whenJson().isEmpty()) return false;
+            // A toggle-dependent gate means "not right now", not "never for this
+            // character" (the dummy carries no toggle state), so keep the control.
+            if (def.whenJson().contains("pheno:toggled")) return false;
             if (com.aetherianartificer.townstead.client.attachment.AttachmentPoses.defActive(villager, def)) {
                 return false;
             }

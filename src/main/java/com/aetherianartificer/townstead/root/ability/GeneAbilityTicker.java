@@ -113,7 +113,7 @@ public final class GeneAbilityTicker {
         applyEffectImmunity(entity, immunities);
         applyActionsOverTime(entity, overTime, ctx);
         applyHazardAvoidance(entity, overTime, ctx);
-        applyScare(entity, scares);
+        applyScare(entity, scares, ctx);
     }
 
     /**
@@ -197,9 +197,11 @@ public final class GeneAbilityTicker {
         return null;
     }
 
-    private static void applyScare(LivingEntity entity, List<ScareMobGeneType.Instance> scares) {
+    private static void applyScare(LivingEntity entity, List<ScareMobGeneType.Instance> scares,
+                                   ConditionContext ctx) {
         if (scares.isEmpty()) return;
         for (ScareMobGeneType.Instance scare : scares) {
+            if (scare.condition() != null && !scare.condition().test(ctx)) continue;
             var nearby = entity.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class,
                     entity.getBoundingBox().inflate(scare.radius()));
             for (net.minecraft.world.entity.Mob mob : nearby) {
@@ -308,13 +310,31 @@ public final class GeneAbilityTicker {
             // tickCount advances ~INTERVAL between passes, so this fires once per the aura's period.
             if (entity.tickCount % aura.interval() >= INTERVAL) continue;
             if (aura.condition() != null && !aura.condition().test(ctx)) continue;
+            if (aura.costResource() != null
+                    && ResourceValues.get(entity, aura.costResource()) < aura.costAmount()) {
+                continue;
+            }
             var nearby = entity.level().getEntitiesOfClass(LivingEntity.class,
                     entity.getBoundingBox().inflate(aura.radius()));
+            boolean pulsed = false;
             for (LivingEntity target : nearby) {
                 if (target == entity && !aura.includeSelf()) continue;
+                if (!auraTargets(aura.target(), target)) continue;
                 aura.action().run(new ActionContext(target));
+                pulsed = true;
+            }
+            if (pulsed && aura.costResource() != null) {
+                ResourceValues.change(entity, aura.costResource(), -aura.costAmount());
             }
         }
+    }
+
+    private static boolean auraTargets(String target, LivingEntity candidate) {
+        return switch (target) {
+            case "hostile" -> candidate instanceof net.minecraft.world.entity.monster.Enemy;
+            case "non_hostile" -> !(candidate instanceof net.minecraft.world.entity.monster.Enemy);
+            default -> true;
+        };
     }
 
     private static void applyParticles(LivingEntity entity, List<ParticleGeneType.Instance> particles,
