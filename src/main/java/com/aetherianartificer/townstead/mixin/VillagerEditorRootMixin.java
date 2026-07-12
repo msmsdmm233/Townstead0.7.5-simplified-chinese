@@ -1224,7 +1224,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Unique
     private String townstead$carriedRaw(String geneId) {
         String raw = RootClientStore.carriedVariants(villager.getId()).get(geneId);
-        if (raw == null || raw.isEmpty()) raw = townstead$carriedRaw(geneId);
+        if (raw == null || raw.isEmpty()) raw = RootClientStore.carriedVariants(townstead$target).get(geneId);
         if (raw == null || raw.isEmpty()) {
             net.minecraft.world.entity.LivingEntity real = townstead$previewSubject();
             if (real != null) raw = RootClientStore.resolveCarriedVariant(real, geneId);

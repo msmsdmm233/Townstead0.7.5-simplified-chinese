@@ -55,7 +55,10 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
         String rigBase = RigModels.rigBaseFor(entity);
-        if (entity.isInvisible()) return;
+        // Instead of vanilla's hard cut on the invisible flag, keep drawing while the
+        // fade tracker still has alpha; the body draw below blends by it.
+        float fade = InvisFade.alpha(entity, partialTick);
+        if (fade <= 0f) return;
         if (!RigModels.isAlternate(rigBase)) return;
         // Non-humanoid rigs (spider, etc.) render through a lean branch that drives the vanilla model's
         // own setupAnim; the humanoid path below (arm poses, crouch, held items, fitted armor) does not
@@ -71,7 +74,10 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
 
         Animations anim = RigModels.animations(entity);
         poseRig(model, entity, anim, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, partialTick);
-        VertexConsumer buffer = buffers.getBuffer(model.renderType(texture));
+        // The cutout render type ignores vertex alpha, so a fading body swaps to translucent.
+        VertexConsumer buffer = buffers.getBuffer(fade < 1f
+                ? net.minecraft.client.renderer.RenderType.entityTranslucent(texture)
+                : model.renderType(texture));
         float scale = hostBaseline * RigModels.scaleFor(entity);
         pose.pushPose();
         if (scale != 1f) {
@@ -98,6 +104,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         // Per-entity tint: MCA's per-villager skin value shifted by the origin's authored skin_tone,
         // so a village spans a palette of tones instead of every rig being identical.
         int tone = RigSkinTone.forEntity(entity);
+        if (fade < 1f) tone = (Math.round(fade * 255f) << 24) | (tone & 0xFFFFFF);
         //? if neoforge {
         model.renderToBuffer(pose, buffer, light, OverlayTexture.NO_OVERLAY, tone);
         //?} else {
@@ -106,24 +113,29 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
                 ((tone >>> 24) & 0xFF) / 255f);
         *///?}
 
-        // Custom face (eyes/mouth) drawn on the now-posed head bone, inside the scaled pose so it
-        // tracks the head. Resolved from the entity's face genes; a no-op for rigs without them. The
-        // baby flag matches model.young so the face follows the vanilla baby head scale/offset.
-        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, babyProportions(entity));
+        // Face, armor, and held items have no alpha channel to fade through, so they keep
+        // the hard cut at the flag flip (fade start) — matching vanilla-armor pop timing —
+        // while the body ghosts out beneath them.
+        if (fade >= 1f) {
+            // Custom face (eyes/mouth) drawn on the now-posed head bone, inside the scaled pose so it
+            // tracks the head. Resolved from the entity's face genes; a no-op for rigs without them. The
+            // baby flag matches model.young so the face follows the vanilla baby head scale/offset.
+            SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, babyProportions(entity));
 
-        // Worn armor, fitted to the rig (same model proportions, pose, and scale), drawn before held
-        // items like vanilla. The rig model is already posed above, which the armor layer copies from.
-        // MCA's villager-shaped host armor is suppressed for these entities by HostArmorSuppressMixin.
-        if (renderArmor) {
-            RigArmorRenderer.render(entity, rigBase, model, texture, pose, buffers, light,
-                    limbSwing, limbSwingAmount, partialTick, ageInTicks, netHeadYaw, headPitch);
+            // Worn armor, fitted to the rig (same model proportions, pose, and scale), drawn before held
+            // items like vanilla. The rig model is already posed above, which the armor layer copies from.
+            // MCA's villager-shaped host armor is suppressed for these entities by HostArmorSuppressMixin.
+            if (renderArmor) {
+                RigArmorRenderer.render(entity, rigBase, model, texture, pose, buffers, light,
+                        limbSwing, limbSwingAmount, partialTick, ageInTicks, netHeadYaw, headPitch);
+            }
+
+            // Held items, anchored to the rig bone the species names for each hand, inside the same
+            // scaled pose so they match the grip. A null grip (hand can't hold) renders nothing. The
+            // vanilla item layer is suppressed for alternate rigs by HeldItemSuppressMixin.
+            renderHeld(entity, rigBase, entity.getMainHandItem(), pose, buffers, light, scale, false);
+            renderHeld(entity, rigBase, entity.getOffhandItem(), pose, buffers, light, scale, true);
         }
-
-        // Held items, anchored to the rig bone the species names for each hand, inside the same
-        // scaled pose so they match the grip. A null grip (hand can't hold) renders nothing. The
-        // vanilla item layer is suppressed for alternate rigs by HeldItemSuppressMixin.
-        renderHeld(entity, rigBase, entity.getMainHandItem(), pose, buffers, light, scale, false);
-        renderHeld(entity, rigBase, entity.getOffhandItem(), pose, buffers, light, scale, true);
         pose.popPose();
     }
 
@@ -278,7 +290,10 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
         // populated the baked root, so bakedRoot() is non-null here.
         com.aetherianartificer.townstead.client.animation.emote.GenericEmoteApplier.apply(
                 entity, RigModels.bakedRoot(rigBase), RigModels.definition(rigBase), partialTick);
-        VertexConsumer buffer = buffers.getBuffer(model.renderType(texture));
+        float fade = InvisFade.alpha(entity, partialTick);
+        VertexConsumer buffer = buffers.getBuffer(fade < 1f
+                ? net.minecraft.client.renderer.RenderType.entityTranslucent(texture)
+                : model.renderType(texture));
         float scale = hostBaseline * RigModels.scaleFor(entity);
         pose.pushPose();
         if (scale != 1f) {
@@ -292,6 +307,7 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
             pose.translate(bodyOffset[0] / 16f, bodyOffset[1] / 16f, bodyOffset[2] / 16f);
         }
         int tone = RigSkinTone.forEntity(entity);
+        if (fade < 1f) tone = (Math.round(fade * 255f) << 24) | (tone & 0xFFFFFF);
         //? if neoforge {
         model.renderToBuffer(pose, buffer, light, OverlayTexture.NO_OVERLAY, tone);
         //?} else {
@@ -299,16 +315,19 @@ public class SpeciesRigLayer<T extends LivingEntity, M extends EntityModel<T>> e
                 ((tone >> 16) & 0xFF) / 255f, ((tone >> 8) & 0xFF) / 255f, (tone & 0xFF) / 255f,
                 ((tone >>> 24) & 0xFF) / 255f);
         *///?}
-        // Generic (non-humanoid) models don't apply the vanilla humanoid baby head transform, so the
-        // face poses straight from the bone with no baby correction.
-        SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, false);
-        // Worn boots laid across the rig's named bones (e.g. one per leg of a multi-legged rig), fitted
-        // with full vanilla armor fidelity. The bones are now posed by the setupAnim above, so they track.
-        RigBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
-        // Held items, anchored to the bone the species names for each hand (e.g. a front leg), inside the
-        // same scaled pose. The vanilla item layer is suppressed for alternate rigs by HeldItemSuppressMixin.
-        renderHeld(entity, rigBase, entity.getMainHandItem(), pose, buffers, light, scale, false);
-        renderHeld(entity, rigBase, entity.getOffhandItem(), pose, buffers, light, scale, true);
+        // Face, boots, and held items keep the hard cut at the flag flip (see the humanoid path).
+        if (fade >= 1f) {
+            // Generic (non-humanoid) models don't apply the vanilla humanoid baby head transform, so the
+            // face poses straight from the bone with no baby correction.
+            SpeciesFace.render(entity, rigBase, pose, buffers, light, partialTick, false);
+            // Worn boots laid across the rig's named bones (e.g. one per leg of a multi-legged rig), fitted
+            // with full vanilla armor fidelity. The bones are now posed by the setupAnim above, so they track.
+            RigBootsRenderer.render(entity, rigBase, RigModels.definition(rigBase), pose, buffers, light);
+            // Held items, anchored to the bone the species names for each hand (e.g. a front leg), inside the
+            // same scaled pose. The vanilla item layer is suppressed for alternate rigs by HeldItemSuppressMixin.
+            renderHeld(entity, rigBase, entity.getMainHandItem(), pose, buffers, light, scale, false);
+            renderHeld(entity, rigBase, entity.getOffhandItem(), pose, buffers, light, scale, true);
+        }
         pose.popPose();
     }
 

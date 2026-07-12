@@ -54,6 +54,7 @@ public final class TownsteadClient {
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onClientDisconnect);
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onGatherTooltipComponents);
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onClientTick);
+            NeoForge.EVENT_BUS.addListener(TownsteadClient::onRenderNameTag);
             NeoForge.EVENT_BUS.addListener(FishermanLineRenderer::onRenderLevel);
             NeoForge.EVENT_BUS.addListener(
                     com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPre);
@@ -74,6 +75,7 @@ public final class TownsteadClient {
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientConnect);
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientDisconnect);
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientTick);
+            MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onRenderNameTag);
             MinecraftForge.EVENT_BUS.addListener(FishermanLineRenderer::onRenderLevel);
             MinecraftForge.EVENT_BUS.addListener(
                     com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPre);
@@ -139,7 +141,31 @@ public final class TownsteadClient {
         clearClientStore("com.aetherianartificer.townstead.profession.ProfessionClientStore");
         clearClientStore("com.aetherianartificer.townstead.village.VillageResidentClientStore");
         clearClientStore("com.aetherianartificer.townstead.calendar.CalendarStampClientStore");
+        clearClientStore("com.aetherianartificer.townstead.client.species.InvisFade");
     }
+
+    /**
+     * Hides an invisible player's nameplate (vanilla renders it regardless). Players only:
+     * MCA villagers already hide theirs, and invisible name-flagged armor stands are the
+     * standard hologram technique, which must keep rendering.
+     */
+    //? if neoforge {
+    private static void onRenderNameTag(net.neoforged.neoforge.client.event.RenderNameTagEvent event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player
+                && net.minecraft.client.Minecraft.getInstance().player != null
+                && player.isInvisibleTo(net.minecraft.client.Minecraft.getInstance().player)) {
+            event.setCanRender(net.neoforged.neoforge.common.util.TriState.FALSE);
+        }
+    }
+    //?} else if forge {
+    /*private static void onRenderNameTag(net.minecraftforge.client.event.RenderNameTagEvent event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player
+                && net.minecraft.client.Minecraft.getInstance().player != null
+                && player.isInvisibleTo(net.minecraft.client.Minecraft.getInstance().player)) {
+            event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+        }
+    }
+    *///?}
 
     private static void clearClientStore(String className) {
         try {
@@ -157,6 +183,7 @@ public final class TownsteadClient {
         FishermanLineRenderer.onClientTick();
         tryWarmSpiritIndex();
         com.aetherianartificer.townstead.client.species.ClimbState.tick();
+        com.aetherianartificer.townstead.client.species.InvisFade.tick();
         com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge.ensureRegistered();
     }
     //?} else if forge {
@@ -166,6 +193,7 @@ public final class TownsteadClient {
         FishermanLineRenderer.onClientTick();
         tryWarmSpiritIndex();
         com.aetherianartificer.townstead.client.species.ClimbState.tick();
+        com.aetherianartificer.townstead.client.species.InvisFade.tick();
         com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge.ensureRegistered();
     }
     *///?}

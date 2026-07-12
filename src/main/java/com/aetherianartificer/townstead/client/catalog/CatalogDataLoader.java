@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.client.catalog;
 
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.compat.BuildingIconResolver;
+import com.aetherianartificer.townstead.compat.ModCompat;
 import com.aetherianartificer.townstead.data.TownsteadSchema;
 import com.aetherianartificer.townstead.enclosure.EnclosureTypeIndex;
 import com.aetherianartificer.townstead.root.building.BuildingSpawnPolicies;
@@ -99,6 +100,7 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
                 } else if (path.startsWith("buildings/")) {
                     TownsteadSchema.validate(json, "townstead:catalog_building/v1");
                     String buildingType = path.substring("buildings/".length());
+                    if (!ModCompat.isCompatAvailable(buildingType)) continue;
                     loadOverride(buildingType, json);
                 } else if ("theme".equals(path) && Townstead.MOD_ID.equals(location.getNamespace())) {
                     TownsteadSchema.validate(json, "townstead:catalog_theme/v1");
@@ -297,6 +299,12 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
      */
     private static void registerEnclosure(String buildingType, Map<String, Integer> blocks,
             int priority, int minInterior, int maxInterior) {
+        if (blocks.isEmpty()) {
+            // No blocks map means the MCA building type isn't loaded; a spec with zero
+            // requirements would classify every enclosure as this type.
+            LOGGER.warn("Skipped enclosure type '{}': building type has no blocks map", buildingType);
+            return;
+        }
         EnclosureTypeIndex.Spec spec = EnclosureTypeIndex.parseSpec(
                 buildingType, priority, blocks, minInterior, maxInterior);
         EnclosureTypeIndex.register(spec);
@@ -322,6 +330,7 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
             if (!path.startsWith("spirit/") || !path.endsWith(".json")) continue;
             String buildingType = path.substring("spirit/".length(),
                     path.length() - ".json".length());
+            if (!ModCompat.isCompatAvailable(buildingType)) continue;
             try (InputStream in = entry.getValue().open();
                     InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 JsonObject json = GSON.fromJson(reader, JsonObject.class);
@@ -347,6 +356,7 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
             String path = entry.getKey().getPath();
             if (!path.startsWith("building_spawn/") || !path.endsWith(".json")) continue;
             String buildingType = path.substring("building_spawn/".length(), path.length() - ".json".length());
+            if (!ModCompat.isCompatAvailable(buildingType)) continue;
             try (InputStream in = entry.getValue().open();
                     InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 JsonObject json = GSON.fromJson(reader, JsonObject.class);
@@ -374,6 +384,10 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
             String path = location.getPath();
             if (!path.startsWith("extended_buildings/") || !path.endsWith(".json")) continue;
             String buildingType = path.substring("extended_buildings/".length(), path.length() - ".json".length());
+            // compat/<mod>/ sidecars ship ungated in the jar (only the mca building_types are
+            // served conditionally), so gate here or absent-mod buildings still register data —
+            // worst case an enclosure spec with an empty blocks map that matches any pen.
+            if (!ModCompat.isCompatAvailable(buildingType)) continue;
             try (InputStream in = entry.getValue().open();
                     InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 JsonObject json = GSON.fromJson(reader, JsonObject.class);

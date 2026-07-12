@@ -489,8 +489,10 @@ public class Townstead {
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
                 townstead$seedBuildingRecognition(e.getServer()));
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
-                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) -> {
+                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer());
+                com.aetherianartificer.townstead.village.VillageSanitizer.sanitizeServer(e.getServer());
+        });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
                 ShiftTemplateRegistry.setServer(e.getServer()));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent e) ->
@@ -799,8 +801,10 @@ public class Townstead {
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
                 townstead$seedBuildingRecognition(e.getServer()));
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
-                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer()));
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) -> {
+                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer());
+                com.aetherianartificer.townstead.village.VillageSanitizer.sanitizeServer(e.getServer());
+        });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
                 ShiftTemplateRegistry.setServer(e.getServer()));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStoppingEvent e) ->

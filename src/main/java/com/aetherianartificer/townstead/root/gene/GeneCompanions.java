@@ -11,11 +11,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Peels a gene's root {@code resources} section into companion resource genes. A gene can
- * declare meters next to the behavior that uses them (a triple-jump's jump counter, a spell's
- * mana) instead of in a separate file; each becomes a real {@code pheno:resource} gene with the
- * derived id {@code <parentId>/<name>} that <em>rides along</em> its parent's expression (see
- * {@code GenePowerSource}), so it ticks, regenerates and syncs exactly like a standalone resource.
+ * Peels a gene's root {@code resources} and {@code companions} sections into companion genes
+ * that <em>ride along</em> the parent's expression (see {@code GenePowerSource}). {@code resources}
+ * declares meters next to the behavior that uses them (a triple-jump's jump counter, a spell's
+ * mana); {@code companions} declares supporting components of any gene type (an active ability's
+ * break-on-attack trigger, a form's aura) that belong to the same identity and should never be
+ * inherited or displayed apart from it. Each becomes a real gene with the derived id
+ * {@code <parentId>/<name>}, so it ticks and syncs exactly like a standalone gene.
  *
  * <p>Within the same gene, a bare {@code "resource": "name"} (or {@code compared_to_resource})
  * is rewritten to the derived id, so authors reference the short local name. References that
@@ -26,27 +28,45 @@ public final class GeneCompanions {
     private GeneCompanions() {}
 
     /**
-     * Extract a gene root's companion resources, mutating {@code root} in place: the
-     * {@code resources} block is removed and local references are rewritten to derived ids.
-     * Returns the companion configs keyed by derived id (empty when none are declared).
+     * Extract a gene root's companion sections, mutating {@code root} in place: the
+     * {@code resources} and {@code companions} blocks are removed and local resource references
+     * are rewritten to derived ids. Returns the companion configs keyed by derived id (empty
+     * when none are declared).
      */
     public static Map<ResourceLocation, JsonObject> extract(ResourceLocation file, JsonObject root) {
-        if (!root.has("resources") || !root.get("resources").isJsonObject()) return Map.of();
-        JsonObject block = root.getAsJsonObject("resources");
+        boolean hasResources = root.has("resources") && root.get("resources").isJsonObject();
+        boolean hasCompanions = root.has("companions") && root.get("companions").isJsonObject();
+        if (!hasResources && !hasCompanions) return Map.of();
         Map<ResourceLocation, JsonObject> companions = new LinkedHashMap<>();
-        Map<String, String> rename = new LinkedHashMap<>();
-        for (Map.Entry<String, JsonElement> entry : block.entrySet()) {
-            if (!entry.getValue().isJsonObject()) continue;
-            String name = entry.getKey();
-            ResourceLocation derived = DataPackLang.parseId(file.getNamespace() + ":" + file.getPath() + "/" + name);
-            if (derived == null) continue;
-            JsonObject config = entry.getValue().getAsJsonObject().deepCopy();
-            if (!config.has("type")) config.addProperty("type", ResourceGeneType.KEY);
-            companions.put(derived, config);
-            rename.put(name, derived.toString());
+        if (hasResources) {
+            JsonObject block = root.getAsJsonObject("resources");
+            Map<String, String> rename = new LinkedHashMap<>();
+            for (Map.Entry<String, JsonElement> entry : block.entrySet()) {
+                if (!entry.getValue().isJsonObject()) continue;
+                String name = entry.getKey();
+                ResourceLocation derived = DataPackLang.parseId(file.getNamespace() + ":" + file.getPath() + "/" + name);
+                if (derived == null) continue;
+                JsonObject config = entry.getValue().getAsJsonObject().deepCopy();
+                if (!config.has("type")) config.addProperty("type", ResourceGeneType.KEY);
+                companions.put(derived, config);
+                rename.put(name, derived.toString());
+            }
+            root.remove("resources");
+            // The companions block is still on the root here, so its configs get local
+            // resource references rewritten too.
+            rewriteRefs(root, rename);
         }
-        root.remove("resources");
-        rewriteRefs(root, rename);
+        if (hasCompanions) {
+            JsonObject block = root.getAsJsonObject("companions");
+            for (Map.Entry<String, JsonElement> entry : block.entrySet()) {
+                if (!entry.getValue().isJsonObject()) continue;
+                ResourceLocation derived = DataPackLang.parseId(
+                        file.getNamespace() + ":" + file.getPath() + "/" + entry.getKey());
+                if (derived == null) continue;
+                companions.put(derived, entry.getValue().getAsJsonObject().deepCopy());
+            }
+            root.remove("companions");
+        }
         return companions;
     }
 

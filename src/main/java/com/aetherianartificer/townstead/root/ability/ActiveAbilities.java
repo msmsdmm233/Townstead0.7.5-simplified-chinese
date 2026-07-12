@@ -72,14 +72,28 @@ public final class ActiveAbilities {
         return out;
     }
 
-    /** Map of key slot (1..POOL_SIZE) to whatever (active or toggle) is bound there. */
+    /**
+     * Map of key slot (1..POOL_SIZE) to the primary thing (active or toggle) bound there.
+     * Two ACTIVEs may declare the same slot (a cast and its counter-cast gated by mutually
+     * exclusive conditions): the extras stay co-bound to the declared slot rather than
+     * auto-filling elsewhere, and {@link #activate} fires all of them.
+     */
     public static Map<Integer, Slotted> slotMap(LivingEntity entity) {
         Map<Integer, Slotted> map = new LinkedHashMap<>();
         List<Slotted> auto = new ArrayList<>();
         for (Slotted slotted : slottables(entity)) {
             int slot = slotted.declaredSlot();
-            if (slot >= 1 && slot <= POOL_SIZE && !map.containsKey(slot)) map.put(slot, slotted);
-            else auto.add(slotted);
+            if (slot >= 1 && slot <= POOL_SIZE) {
+                if (!map.containsKey(slot)) {
+                    map.put(slot, slotted);
+                    continue;
+                }
+                if (slotted.kind() == GeneInstanceKind.ACTIVE
+                        && map.get(slot).kind() == GeneInstanceKind.ACTIVE) {
+                    continue; // co-bound; fired by activate(), not shown as its own slot
+                }
+            }
+            auto.add(slotted);
         }
         int next = 1;
         for (Slotted slotted : auto) {
@@ -92,7 +106,8 @@ public final class ActiveAbilities {
 
     /** The player pressed the key bound to {@code slot} (1-based): fire an active, or flip a toggle. */
     public static boolean activate(ServerPlayer player, int slot) {
-        Slotted slotted = slotMap(player).get(slot);
+        Map<Integer, Slotted> map = slotMap(player);
+        Slotted slotted = map.get(slot);
         if (slotted == null) return false;
         if (slotted.kind() == GeneInstanceKind.TOGGLE) {
             AbilityToggles.flip(player, slotted.geneId());
@@ -104,7 +119,15 @@ public final class ActiveAbilities {
                     ((com.aetherianartificer.townstead.root.gene.types.InventoryGeneType.Instance) slotted.instance()).size());
             return true;
         }
-        return fire(player, new Resolved(slotted.geneId(), (ActiveAbilityGeneType.Instance) slotted.instance()));
+        boolean fired = fire(player, new Resolved(slotted.geneId(), (ActiveAbilityGeneType.Instance) slotted.instance()));
+        // Co-bound actives declared on this slot (not bound anywhere in the map themselves):
+        // conditions and cooldowns decide which of them actually runs.
+        for (Slotted candidate : slottables(player)) {
+            if (candidate.kind() != GeneInstanceKind.ACTIVE || candidate.declaredSlot() != slot) continue;
+            if (map.containsValue(candidate)) continue;
+            fired |= fire(player, new Resolved(candidate.geneId(), (ActiveAbilityGeneType.Instance) candidate.instance()));
+        }
+        return fired;
     }
 
     /**
