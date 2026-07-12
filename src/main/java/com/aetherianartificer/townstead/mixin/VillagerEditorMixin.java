@@ -667,8 +667,8 @@ public abstract class VillagerEditorMixin extends Screen {
         townstead$hungerDirty = true;
         townstead$editorHunger = Math.max(0, Math.min(townstead$editorHunger + delta, HungerData.MAX_HUNGER));
         HungerClientStore.set(villager.getId(), townstead$editorHunger, 1, 0, 0, 1, 0, 0);
-        // Write into villagerData — MCA's syncVillagerData() will carry these to the server
-        // when the user clicks "Done"
+        // Write into villagerData: it feeds townstead$editorCommitPayload() on Done, and on
+        // old MCA (pre editor-patch allowlist) the full-NBT sync also carries it as a fallback.
         villagerData.putInt(HungerData.EDITOR_KEY_HUNGER, townstead$editorHunger);
         villagerData.putFloat(HungerData.EDITOR_KEY_SATURATION,
                 delta > 0 ? Math.min(townstead$editorHunger, HungerData.MAX_SATURATION) : 0f);

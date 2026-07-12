@@ -21,6 +21,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -42,17 +43,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * @Shadow} only walks the target class itself and would fail to locate
  * the field, refusing the whole apply step.
  *
- * <p>On 1.20.1 Forge, MCA villagers do not use vanilla {@link
- * WalkNodeEvaluator}; MCA 7.6 installs its own {@code
+ * <p>On 1.20.1 Forge, MCA &le;7.6.26 villagers do not use vanilla {@link
+ * WalkNodeEvaluator}; they install their own {@code
  * VillagerLandPathNodeMaker}. The Forge branch targets that evaluator
  * directly and returns MCA's {@code WALKABLE_DOOR} extended type for
  * closed fence gates, preserving the same door-opening flow without
- * relying on fragile inherited-field shadowing.
+ * relying on fragile inherited-field shadowing. MCA 7.6.27+ deleted that
+ * class in favor of a vanilla-based evaluator; Pseudo lets the Forge
+ * branch skip silently there (the config is required, so a missing hard
+ * target would otherwise be fatal at startup) and
+ * {@link WalkNodeEvaluatorFenceGateVanillaMixin} covers the rebadge.
  */
 //? if >=1.21 {
 @Mixin(WalkNodeEvaluator.class)
 //?} else {
-/*@Mixin(VillagerLandPathNodeMaker.class)
+/*@Pseudo
+@Mixin(VillagerLandPathNodeMaker.class)
 *///?}
 public abstract class WalkNodeEvaluatorFenceGateMixin extends NodeEvaluator {
     //? if >=1.21 {

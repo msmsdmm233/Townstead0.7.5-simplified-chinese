@@ -106,7 +106,58 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Inject(method = "getPages", remap = false, at = @At("RETURN"), cancellable = true)
     private void townstead$appendRootsPage(CallbackInfoReturnable<String[]> cir) {
         if ((Object) this instanceof DestinyScreen) return;
-        cir.setReturnValue(RootPicker.insertRootsPage(cir.getReturnValue()));
+        String[] pages = RootPicker.insertRootsPage(cir.getReturnValue());
+        // Old editor only (the new one hosts gene tabs under its Character hub): add a top-level
+        // Character page whenever the target's species resolves custom gene tabs. getPages runs
+        // inside MCA's setPage BEFORE our TAIL primes, so fall back to resolving the target here.
+        if (!McaEditorCompat.isNewCharacterEditor(pages)) {
+            int target = townstead$primed ? townstead$target
+                    : villagerUUID.equals(playerUUID) ? RootSetC2SPayload.SELF
+                    : townstead$resolveVillagerEntityId(villagerUUID);
+            CharacterEditorResolver.Resolved layout = CharacterEditorResolver.resolveOrDefault(
+                    com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(target)));
+            if (layout != null && !townstead$customTabs(layout).isEmpty()) {
+                pages = townstead$insertAfter(pages, "head", TOWNSTEAD_LEGACY_PAGE);
+            }
+        }
+        cir.setReturnValue(pages);
+    }
+
+    /**
+     * Old-editor top-level page hosting the species' gene tabs. Labelled "Features", not
+     * "Character", so a future MCA backport of the Character hub can land alongside it and
+     * the two merge then. The page id predates the label; keep it stable for lang packs.
+     */
+    @Unique private static final String TOWNSTEAD_LEGACY_PAGE = "townstead_character";
+
+    /** The layout's Townstead-rendered gene tabs, dropping delegated MCA-native groups. */
+    @Unique
+    private static List<CharacterEditorResolver.Tab> townstead$customTabs(CharacterEditorResolver.Resolved layout) {
+        List<CharacterEditorResolver.Tab> out = new ArrayList<>();
+        for (CharacterEditorResolver.Tab t : layout.tabs()) {
+            if (CharacterEditorResolver.isCustomPage(t.pageId())) out.add(t);
+        }
+        return out;
+    }
+
+    /** {@code pages} with {@code page} inserted after {@code anchor} (appended if absent); idempotent. */
+    @Unique
+    private static String[] townstead$insertAfter(String[] pages, String anchor, String page) {
+        for (String p : pages) {
+            if (page.equals(p)) return pages;
+        }
+        String[] out = new String[pages.length + 1];
+        int i = 0;
+        boolean inserted = false;
+        for (String p : pages) {
+            out[i++] = p;
+            if (!inserted && anchor.equals(p)) {
+                out[i++] = page;
+                inserted = true;
+            }
+        }
+        if (!inserted) out[i] = page;
+        return out;
     }
 
     // Draw the previewed origin's ambient particles around the model (the real emitter is
@@ -191,10 +242,31 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // ourselves. null = nothing of ours to edit, so MCA's native Character tab stays untouched.
         CharacterEditorResolver.Resolved charLayout = CharacterEditorResolver.resolveOrDefault(
                 com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target)));
-        // The scrollable Character tab strip only fits the new 1.21.1 editor (Character subpage hub).
-        // On the old editor (separate Body/Head top pages) we keep the per-page cyclers + tone swatch
-        // instead (the "natural split": tone on Body, face cyclers on Head), so the strip never builds.
+        // On the new 1.21.1 editor the strip replaces MCA's subpage bar under its Character hub. On the
+        // old editor (separate Body/Head top pages) the gene tabs get their own top-level Character page
+        // instead (inserted by the getPages hook): jamming them into Head/Body overflowed a control-heavy
+        // species (wings + tint + face cyclers) into MCA's hair controls.
         boolean useCharacterEditor = charLayout != null && McaEditorCompat.isNewCharacterEditor(getPages());
+        List<CharacterEditorResolver.Tab> legacyTabs = charLayout != null && !useCharacterEditor
+                ? townstead$customTabs(charLayout) : java.util.Collections.emptyList();
+        boolean useLegacyCharacterTab = !legacyTabs.isEmpty();
+        if (useLegacyCharacterTab) {
+            // The hub page itself has no content; land on the first gene tab.
+            if (TOWNSTEAD_LEGACY_PAGE.equals(page)) {
+                setPage(legacyTabs.get(0).pageId());
+                return;
+            }
+            if (CharacterEditorResolver.isCustomPage(page)) {
+                List<CharacterTabStrip.Entry> entries = new ArrayList<>();
+                for (CharacterEditorResolver.Tab t : legacyTabs) {
+                    entries.add(new CharacterTabStrip.Entry(t.pageId(), t.label()));
+                }
+                addRenderableWidget(new CharacterTabStrip(this.width / 2, this.height / 2 + TOWNSTEAD_STRIP_Y,
+                        175, 20, entries, page, this::setPage));
+                townstead$buildGeneTab(charLayout.byPage(page));
+                townstead$pressLegacyCharacterTab();
+            }
+        }
         if (useCharacterEditor && townstead$isCharacterPage(page)) {
             // Entering Character lands on MCA's "body" subpage; if the species dropped that group,
             // jump to the first resolved tab instead.
@@ -211,18 +283,19 @@ public abstract class VillagerEditorRootMixin extends Screen {
 
         // On the Body page, repaint MCA's skin color-picker square to the origin's tinted skin
         // field so the picker is WYSIWYG with the rendered villager, and add the tone-variant
-        // cycler above it for palette species. When the new Character editor is active its gene tabs
-        // own the variant cyclers, so the ad-hoc tone/face cyclers are suppressed there; on the old
-        // editor (or a species without a layout) they render per-page as before.
+        // cycler above it for palette species. When either Character surface is active its gene
+        // tabs own the variant cyclers, so the ad-hoc tone/face cyclers are suppressed; they only
+        // render per-page for a species with nothing that resolves into gene tabs.
+        boolean geneTabsOwnControls = useCharacterEditor || useLegacyCharacterTab;
         if (McaEditorCompat.isBodyPage(page)) {
             townstead$recolorSkinPicker();
-            if (!useCharacterEditor) townstead$addTonePicker();
+            if (!geneTabsOwnControls) townstead$addTonePicker();
             townstead$trimInertBodySliders();
         }
         if (McaEditorCompat.isHairPage(page)) {
             townstead$trimInertHair();
         }
-        if (McaEditorCompat.isFacePage(page) && !useCharacterEditor) {
+        if (McaEditorCompat.isFacePage(page) && !geneTabsOwnControls) {
             townstead$addFaceCyclers();
         }
         if ("personality".equals(page)) {
@@ -261,6 +334,21 @@ public abstract class VillagerEditorRootMixin extends Screen {
         return McaEditorCompat.isBodyPage(page) || McaEditorCompat.isHairPage(page)
                 || McaEditorCompat.isFacePage(page) || "clothing_style".equals(page)
                 || CharacterEditorResolver.isCustomPage(page);
+    }
+
+    /**
+     * Press the old editor's top-level Character tab while one of our gene subpages is open.
+     * MCA marks a tab pressed only when the page id equals the tab's own id
+     * ({@code active = !p.equals(page)}), which a {@code townstead_char:*} page never does.
+     */
+    @Unique
+    private void townstead$pressLegacyCharacterTab() {
+        for (GuiEventListener child : children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget w
+                    && ("gui.villager_editor.page." + TOWNSTEAD_LEGACY_PAGE).equals(townstead$widgetKey(w))) {
+                w.active = false;
+            }
+        }
     }
 
     /** Strip MCA's fixed 4-button subpage bar; our scrollable tab strip replaces it. */

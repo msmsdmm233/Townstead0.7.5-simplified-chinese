@@ -84,7 +84,7 @@ public final class TownsteadEditorCommitServer {
         }
 
         com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync =
-                lifeChanged ? Townstead.townstead$lifeSync(villager) : null;
+                lifeChanged ? Townstead.townstead$lifeSync(villager, player) : null;
         return new Result(villager, hungerSync, thirstSync, fatigueSync, lifeSync);
     }
 

@@ -15,6 +15,7 @@ import com.aetherianartificer.townstead.hunger.CareForYoungTask;
 import com.aetherianartificer.townstead.compat.farmersdelight.BaristaWorkTask;
 import com.aetherianartificer.townstead.compat.farmersdelight.CookWorkTask;
 import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
+import com.aetherianartificer.townstead.hunger.FoodSafety;
 import com.aetherianartificer.townstead.hunger.HarvestWorkTask;
 import com.aetherianartificer.townstead.hunger.HungerData;
 import com.aetherianartificer.townstead.hunger.RefuelTask;
@@ -32,6 +33,7 @@ import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.behavior.BehaviorControl;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.schedule.Activity;
+import net.minecraft.world.item.ItemStack;
 //? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
 //?}
@@ -51,6 +53,19 @@ public abstract class VillagerHungerMixin extends Villager {
 
     private VillagerHungerMixin() {
         super(null, null);
+    }
+
+    // MCA 7.6.28+/7.7.18+ recovery eating (hurt villagers snack from their inventory to
+    // heal) picks the first item passing canEat. Narrow that pick with FoodSafety: the
+    // eat-stage backstop would refuse an unsafe item on every retry and the villager
+    // would never reach MCA's heal(1) fallback. The bite itself stays enabled — it fills
+    // Townstead hunger through the unmanaged-eat credit in VillagerEatSafetyMixin.
+    // Inert on older MCA without the method (require=0).
+    @Inject(method = "canEat", remap = false, require = 0, at = @At("RETURN"), cancellable = true)
+    private static void townstead$filterRecoveryFoodSelection(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
+        if (cir.getReturnValueZ() && !FoodSafety.isSafeToEat(stack)) {
+            cir.setReturnValue(false);
+        }
     }
 
     @SuppressWarnings("unchecked")

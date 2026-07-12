@@ -97,6 +97,14 @@ public final class TraitJsonLoader extends SimpleJsonResourceReloadListener {
         for (DataTrait t : traits) {
             try {
                 Traits.registerTrait(t.id(), t.chance(), t.inherit(), t.usableOnPlayer());
+                // New-MCA-1.20.1 (7.6.28+) uppercases Trait.valueOf lookups (legacy enum-era
+                // NBT compat), so a lowercase-only registration resolves to the UNKNOWN
+                // sentinel there. Register an uppercase alias too; old MCA's case-exact
+                // valueOf keeps hitting the raw id.
+                String upper = t.id().toUpperCase(java.util.Locale.ROOT);
+                if (!upper.equals(t.id())) {
+                    Traits.registerTrait(upper, t.chance(), t.inherit(), t.usableOnPlayer());
+                }
                 any = true;
             } catch (Throwable e) {
                 LOGGER.warn("Could not register trait {} with MCA: {}", t.id(), e.toString());

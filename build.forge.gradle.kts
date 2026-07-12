@@ -58,7 +58,9 @@ dependencies {
     compileOnly(files("${rootProject.projectDir}/libs/mca-forge-7.6.15+1.20.1-universal.jar"))
     compileOnly("dev.architectury:architectury-forge:9.2.14")
     compileOnly(fg.deobf("vazkii.patchouli:Patchouli:1.20.1-85-FORGE:api"))
-    annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
+    // No mixin annotation processor: this build ships no refmap (targets are
+    // hand-written SRG with remap=false), so the AP generates nothing we use and
+    // its target validator can only warn about SRG names it cannot resolve.
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     // Pheno unit tests touch Minecraft types; surface the main compile classpath to tests.

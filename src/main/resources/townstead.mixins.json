@@ -37,6 +37,7 @@
     "VillagerHungerMixin",
     "VillagerServerTickMixin",
     "WalkNodeEvaluatorFenceGateMixin",
+    "WalkNodeEvaluatorFenceGateVanillaMixin",
     "PlayerElytraGeneMixin",
     "LivingEntityElytraKeepMixin",
     "EntityFallFlightMixin",

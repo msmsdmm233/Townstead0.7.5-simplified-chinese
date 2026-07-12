@@ -14,7 +14,9 @@ import java.util.Map;
  *
  * <p>{@link #chance}/{@link #inherit}/{@link #usableOnPlayer} are the MCA trait
  * registration params; {@code chance 0} means it never random-rolls (origin/potion
- * grant it instead), {@code inherit 1.0} means it always passes to children.</p>
+ * grant it instead). MCA rolls inheritance per parent at
+ * {@code inherit × Config.traitInheritChance} (default 0.5), so {@code inherit 1.0}
+ * passes to children at the config chance, not always.</p>
  */
 public record DataTrait(
         String id,

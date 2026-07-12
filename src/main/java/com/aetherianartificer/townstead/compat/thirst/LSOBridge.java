@@ -385,10 +385,10 @@ public final class LSOBridge implements ThirstCompatBridge {
             // HydrationEnum constants
             try {
                 Class<?> hydrationEnum = Class.forName("sfiomn.legendarysurvivaloverhaul.api.thirst.HydrationEnum");
-                hydrationPurified = Enum.valueOf(hydrationEnum.asSubclass(Enum.class), "PURIFIED");
-                hydrationPotion = Enum.valueOf(hydrationEnum.asSubclass(Enum.class), "POTION");
-                hydrationRain = Enum.valueOf(hydrationEnum.asSubclass(Enum.class), "RAIN");
-                hydrationNormal = Enum.valueOf(hydrationEnum.asSubclass(Enum.class), "NORMAL");
+                hydrationPurified = enumValueOf(hydrationEnum, "PURIFIED");
+                hydrationPotion = enumValueOf(hydrationEnum, "POTION");
+                hydrationRain = enumValueOf(hydrationEnum, "RAIN");
+                hydrationNormal = enumValueOf(hydrationEnum, "NORMAL");
             } catch (Exception ignored) {
                 // Enum constants not critical — fallback to name matching
             }

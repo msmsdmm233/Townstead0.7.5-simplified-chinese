@@ -67,19 +67,13 @@ public final class VillagerLifeStamper {
         if (!state.life().hasBirth()) {
             state.life().setBirth(fabricateDob(villager, server), false);
             stamped = true;
-        } else if (rolled) {
-            // A re-roll means stageDays changed shape/scale (cycle re-authored, aging
-            // anchor changed, or a pre-rework save). The old birth was measured against
-            // the previous lifespan and is now meaningless, so re-place the villager
-            // mid-stage of the freshly-rolled cycle by its current MCA body. Without
-            // this, an old birth + new stageDays yields absurd apparent ages (e.g. a
-            // 2352-day lifespan villager reading 290 against a 730-day human cycle).
-            state.life().setBirth(fabricateDob(villager, server), false);
-            stamped = true;
         } else if (townstead$birthIncoherent(state, server, villager)) {
-            // Self-heal a stale birth from the old human-decades fabrication: a
-            // villager reading older than its entire cycle gets re-placed mid-stage
-            // by its current MCA AgeState, so the editor slider seeds sanely.
+            // Re-place mid-stage by the current MCA body only when the stored birth no
+            // longer makes sense: older than the whole (possibly just re-rolled) cycle,
+            // or a stale stamp disagreeing with the live body. A birth still coherent
+            // after a stageDays re-roll is kept — apparent age derives from the birth
+            // day, so re-fabricating from freshly-randomized durations would make the
+            // displayed age jump on every re-roll.
             state.life().setBirth(fabricateDob(villager, server), false);
             stamped = true;
         }
@@ -93,6 +87,13 @@ public final class VillagerLifeStamper {
         }
         if (genotypeGrew) {
             broadcastExpressedGenes(villager);
+        }
+        // Persist any heal to the entity attachment now: this path runs outside the
+        // discrete user-action flush sites, so without it the re-roll/re-stamp sits
+        // dirty in memory, the stale snapshot is what saves, and the same heal (with
+        // a fresh random roll) repeats on every reload.
+        if (stamped || rolled || genotypeGrew) {
+            com.aetherianartificer.townstead.villager.TownsteadVillagers.flush(villager);
         }
     }
 

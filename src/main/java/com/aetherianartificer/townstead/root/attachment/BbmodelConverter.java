@@ -46,6 +46,7 @@ public final class BbmodelConverter {
         try {
             JsonObject project = JsonParser.parseString(new String(bbmodel, StandardCharsets.UTF_8)).getAsJsonObject();
             Map<String, JsonObject> elements = elementsById(project);
+            Map<String, JsonObject> groups = groupsById(project);
             Map<String, float[]> poseDeltas = pose == null || pose.isEmpty()
                     ? Map.of() : poseDeltas(project, pose);
 
@@ -62,7 +63,7 @@ public final class BbmodelConverter {
             JsonArray bones = new JsonArray();
             for (JsonElement root : GsonHelper.getAsJsonArray(project, "outliner", new JsonArray())) {
                 if (root.isJsonObject()) {
-                    convertBone(root.getAsJsonObject(), null, elements, poseDeltas, boxUv, bones);
+                    convertBone(root.getAsJsonObject(), null, elements, groups, poseDeltas, boxUv, bones);
                 }
             }
 
@@ -140,14 +141,19 @@ public final class BbmodelConverter {
     // --- geometry internals ---
 
     private static void convertBone(JsonObject node, String parent, Map<String, JsonObject> elements,
-                                    Map<String, float[]> poseDeltas, boolean boxUv, JsonArray out) {
-        String name = GsonHelper.getAsString(node, "name", "");
+                                    Map<String, JsonObject> groups, Map<String, float[]> poseDeltas,
+                                    boolean boxUv, JsonArray out) {
+        // Blockbench 5.0 projects keep group properties in a top-level "groups" array;
+        // the outliner node then carries only uuid + children.
+        JsonObject props = node.has("name") ? node
+                : groups.getOrDefault(GsonHelper.getAsString(node, "uuid", ""), node);
+        String name = GsonHelper.getAsString(props, "name", "");
         JsonObject bone = new JsonObject();
         bone.addProperty("name", name);
         if (parent != null) bone.addProperty("parent", parent);
-        float[] origin = vec(node, "origin");
+        float[] origin = vec(props, "origin");
         bone.add("pivot", array(-origin[0], origin[1], origin[2]));
-        float[] rot = vec(node, "rotation");
+        float[] rot = vec(props, "rotation");
         float[] delta = poseDeltas.get(name);
         if (delta != null) {
             rot = new float[]{rot[0] + delta[0], rot[1] + delta[1], rot[2] + delta[2]};
@@ -164,7 +170,7 @@ public final class BbmodelConverter {
                     cubes.add(convertCube(element, boxUv));
                 }
             } else if (child.isJsonObject()) {
-                convertBone(child.getAsJsonObject(), name, elements, poseDeltas, boxUv, out);
+                convertBone(child.getAsJsonObject(), name, elements, groups, poseDeltas, boxUv, out);
             }
         }
         if (!cubes.isEmpty()) bone.add("cubes", cubes);
@@ -325,6 +331,16 @@ public final class BbmodelConverter {
         JsonArray array = GsonHelper.getAsJsonArray(json, key, null);
         if (array != null) {
             for (int i = 0; i < 3 && i < array.size(); i++) out[i] = array.get(i).getAsFloat();
+        }
+        return out;
+    }
+
+    private static Map<String, JsonObject> groupsById(JsonObject project) {
+        Map<String, JsonObject> out = new LinkedHashMap<>();
+        for (JsonElement element : GsonHelper.getAsJsonArray(project, "groups", new JsonArray())) {
+            if (!element.isJsonObject()) continue;
+            JsonObject o = element.getAsJsonObject();
+            out.put(GsonHelper.getAsString(o, "uuid", ""), o);
         }
         return out;
     }
