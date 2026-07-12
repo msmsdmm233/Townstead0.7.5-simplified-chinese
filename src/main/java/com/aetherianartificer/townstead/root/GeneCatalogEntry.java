@@ -286,6 +286,16 @@ public record GeneCatalogEntry(
         return isOverlay() ? Math.max(0f, Math.min(1f, min)) : 1f;
     }
 
+    /** True when this gene sets a conditional body render opacity (alpha rides in {@code min}). */
+    public boolean isOpacity() {
+        return displayKind == GeneDisplay.Kind.OPACITY.ordinal();
+    }
+
+    /** For OPACITY genes, the render alpha 0–1 (rides in {@code min}); 1 otherwise. */
+    public float opacityAlpha() {
+        return isOpacity() ? Math.max(0f, Math.min(1f, min)) : 1f;
+    }
+
     /** Whether a HIDE_FEATURE gene hides the given part group ({@code head}/{@code body}/{@code arms}/{@code legs}). */
     public boolean hidesPart(String group) {
         if (targetId == null || targetId.isEmpty()) return false;

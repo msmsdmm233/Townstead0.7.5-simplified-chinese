@@ -19,7 +19,7 @@ package com.aetherianartificer.townstead.root.gene;
  */
 public record GeneDisplay(Kind kind, float min, float max, String targetId, float amount) {
 
-    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY, SKIN_OVERLAY }
+    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY, SKIN_OVERLAY, OPACITY }
 
     public static final GeneDisplay PRESENCE = new GeneDisplay(Kind.BOOLEAN, 0f, 1f, "", 0f);
 
@@ -189,6 +189,16 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
             }
         }
         return new GeneDisplay(Kind.BUOYANCY, 0f, 1f, packed.toString(), 0f);
+    }
+
+    /**
+     * Conditional body render opacity: {@code min} carries the alpha (1 solid, 0 unseen);
+     * the gene's condition rides the catalog's {@code conditionJson}. Synced so the client
+     * fade can hold a translucent floor (imperfect invisibility, a standing ghost); a
+     * presence chip in the picker.
+     */
+    public static GeneDisplay opacity(float alpha) {
+        return new GeneDisplay(Kind.OPACITY, clamp01(alpha), 1f, "", 0f);
     }
 
     private static String fmt(float v) {

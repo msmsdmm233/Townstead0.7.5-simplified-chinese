@@ -77,6 +77,14 @@ public record ExpressedGenesS2CPayload(int entityId, List<String> genes) impleme
         List<String> genes = new ArrayList<>();
         for (Allele allele : Heredity.expressedAlleles(genotype)) {
             genes.add(Heredity.scaleByHeritage(allele, heritage).encode());
+            // Companions ride along their parent's expression server-side (GenePowerSource);
+            // mirror them here so client-resolved render genes (opacity, attachments granted
+            // as companions) see them too.
+            if (allele.geneId() == null) continue;
+            for (ResourceLocation companion
+                    : com.aetherianartificer.townstead.root.gene.GeneRegistry.companionsOf(allele.geneId())) {
+                genes.add(Allele.of(companion, null).encode());
+            }
         }
         return new ExpressedGenesS2CPayload(entityId, genes);
     }

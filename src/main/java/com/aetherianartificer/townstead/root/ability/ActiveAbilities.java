@@ -121,11 +121,15 @@ public final class ActiveAbilities {
         }
         boolean fired = fire(player, new Resolved(slotted.geneId(), (ActiveAbilityGeneType.Instance) slotted.instance()));
         // Co-bound actives declared on this slot (not bound anywhere in the map themselves):
-        // conditions and cooldowns decide which of them actually runs.
+        // conditions and cooldowns decide which runs. A press does exactly ONE thing — stop at
+        // the first success, or a cast that flips state (vanish) hands the very same press to
+        // its counter-cast (unveil), whose condition now passes against the mutated state, and
+        // the pair self-cancels within one tick.
         for (Slotted candidate : slottables(player)) {
+            if (fired) break;
             if (candidate.kind() != GeneInstanceKind.ACTIVE || candidate.declaredSlot() != slot) continue;
             if (map.containsValue(candidate)) continue;
-            fired |= fire(player, new Resolved(candidate.geneId(), (ActiveAbilityGeneType.Instance) candidate.instance()));
+            fired = fire(player, new Resolved(candidate.geneId(), (ActiveAbilityGeneType.Instance) candidate.instance()));
         }
         return fired;
     }

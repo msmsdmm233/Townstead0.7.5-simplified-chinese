@@ -91,6 +91,7 @@
     "client.VillagerEntityModelMcaCopyWearMixin",
     "client.VillagerLayerBendMixin",
     "client.VillagerLayerFadeMixin",
+    "client.PlayerBodyFadeMixin",
     "client.SkinLayerTintMixin",
     "client.VillagerAttachmentLayerMixin",
     "client.PlayerAttachmentLayerMixin",

@@ -158,10 +158,15 @@ public final class RootCatalog {
                 conditionOf(gene.instance()));
     }
 
-    /** A particle gene's serialized emission gate, shipped so the editor preview can test it. */
+    /** A particle or opacity gene's serialized gate, shipped so the client can test the same condition. */
     private static String conditionOf(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
-        return instance instanceof com.aetherianartificer.townstead.root.gene.types.ParticleGeneType.Instance p
-                ? p.conditionJson() : "";
+        if (instance instanceof com.aetherianartificer.townstead.root.gene.types.ParticleGeneType.Instance p) {
+            return p.conditionJson();
+        }
+        if (instance instanceof com.aetherianartificer.townstead.root.gene.types.OpacityGeneType.Instance o) {
+            return o.conditionJson();
+        }
+        return "";
     }
 
     /** The attachment id(s) an option wears ({@code ;}-joined for a composite set), or {@code ""}. */

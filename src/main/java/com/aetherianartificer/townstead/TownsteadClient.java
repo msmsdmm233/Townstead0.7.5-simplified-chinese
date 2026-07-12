@@ -218,9 +218,33 @@ public final class TownsteadClient {
         boolean villagerMoodPath = path.startsWith("villager.")
                 && (path.contains(".laugh") || path.contains(".cry") || path.contains(".celebrate"));
         boolean directClipPath = path.contains("/laugh/") || path.contains("/cry/") || path.contains("/celebrate/");
-        if (villagerMoodPath || directClipPath) {
-            event.setSound(null);
+        if (!villagerMoodPath && !directClipPath) return;
+        if (isBabyVoice(event.getSound())) return;
+        event.setSound(null);
+    }
+
+    /**
+     * True when the matched mood clip comes from a baby-stage villager (nearest MCA villager to the
+     * sound position — the event carries no emitter). Babies keep cooing under the mute: MCA's baby
+     * ambient is {@code villager.baby.laugh}, which the path match would otherwise swallow.
+     */
+    private static boolean isBabyVoice(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        net.minecraft.client.multiplayer.ClientLevel level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) return false;
+        double x = sound.getX(), y = sound.getY(), z = sound.getZ();
+        net.conczin.mca.entity.VillagerEntityMCA nearest = null;
+        double best = Double.MAX_VALUE;
+        for (net.conczin.mca.entity.VillagerEntityMCA v : level.getEntitiesOfClass(
+                net.conczin.mca.entity.VillagerEntityMCA.class,
+                new net.minecraft.world.phys.AABB(x - 2, y - 2, z - 2, x + 2, y + 2, z + 2))) {
+            double d = v.distanceToSqr(x, y, z);
+            if (d < best) {
+                best = d;
+                nearest = v;
+            }
         }
+        return nearest != null
+                && com.aetherianartificer.townstead.root.LifeStageProgression.isBabyStage(nearest);
     }
 
     //? if forge {

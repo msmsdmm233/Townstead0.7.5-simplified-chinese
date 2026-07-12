@@ -214,6 +214,18 @@ public final class LifeStageProgression {
         return c != CanonicalStage.ADULT && c != CanonicalStage.SENIOR;
     }
 
+    /**
+     * True when the villager presents as a baby by its resolved Townstead life stage (so custom life
+     * cycles count), falling back to MCA's age state when no stage is resolved. Client-safe like
+     * {@link #isMuteStage}.
+     */
+    public static boolean isBabyStage(VillagerEntityMCA villager) {
+        if (villager == null) return false;
+        LifeStage stage = currentStage(villager);
+        if (stage == null) return villager.getAgeState() == AgeState.BABY;
+        return stage.presentsAs() == CanonicalStage.BABY;
+    }
+
     @Nullable
     private static LifeCycle resolveCycle(TownsteadVillager.Life life) {
         ResourceLocation rootId = ResourceLocation.tryParse(life.rootId());
