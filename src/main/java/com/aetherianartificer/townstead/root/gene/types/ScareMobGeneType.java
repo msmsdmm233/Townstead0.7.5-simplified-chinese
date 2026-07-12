@@ -1,11 +1,14 @@
 package com.aetherianartificer.townstead.root.gene.types;
 
 import com.aetherianartificer.townstead.data.DataPackLang;
+import com.aetherianartificer.townstead.pheno.condition.Condition;
+import com.aetherianartificer.townstead.pheno.condition.Conditions;
 import com.aetherianartificer.townstead.root.gene.GeneDisplay;
 import com.aetherianartificer.townstead.root.gene.GeneInstance;
 import com.aetherianartificer.townstead.root.gene.GeneType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -24,13 +27,15 @@ import java.util.Set;
  * ticker.
  *
  * <p>JSON: {@code { "type":"pheno:scare_mob",
- * "mobs":["minecraft:creeper","#minecraft:skeletons"], "radius":8 }}</p>
+ * "mobs":["minecraft:creeper","#minecraft:skeletons"], "radius":8,
+ * "condition":{ "type":"pheno:toggled", "gene":"my_pack:dread_form" } }}</p>
  */
 public final class ScareMobGeneType implements GeneType {
 
     public static final String KEY = "pheno:scare_mob";
 
-    public record Instance(Set<ResourceLocation> ids, Set<TagKey<EntityType<?>>> tags, double radius)
+    public record Instance(Set<ResourceLocation> ids, Set<TagKey<EntityType<?>>> tags, double radius,
+                           @Nullable Condition condition)
             implements GeneInstance {
         @Override public String typeKey() { return KEY; }
         @Override public GeneDisplay display() { return GeneDisplay.PRESENCE; }
@@ -68,6 +73,7 @@ public final class ScareMobGeneType implements GeneType {
         }
         if (ids.isEmpty() && tags.isEmpty()) return null;
         double radius = GsonHelper.getAsDouble(json, "radius", 8.0);
-        return new Instance(ids, tags, radius);
+        Condition condition = json.has("condition") ? Conditions.parse(json.get("condition")) : null;
+        return new Instance(ids, tags, radius, condition);
     }
 }

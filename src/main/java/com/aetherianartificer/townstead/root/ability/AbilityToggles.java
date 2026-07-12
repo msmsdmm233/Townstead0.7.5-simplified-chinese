@@ -41,29 +41,66 @@ public final class AbilityToggles {
         return true;
     }
 
+    /** Force a toggle state (villager AI deploys and folds wings without a keybind). */
+    public static void set(LivingEntity entity, ResourceLocation geneId, boolean on) {
+        Set<ResourceLocation> set = ON.computeIfAbsent(entity.getUUID(), k -> ConcurrentHashMap.newKeySet());
+        if (on) set.add(geneId);
+        else set.remove(geneId);
+    }
+
+    /** Whether the entity has any toggle switched on — a cheap gate for per-tick AI. */
+    public static boolean hasAny(LivingEntity entity) {
+        Set<ResourceLocation> set = ON.get(entity.getUUID());
+        return set != null && !set.isEmpty();
+    }
+
+    /**
+     * Every expressed gene whose state lives in this map and is currently on: toggle-mode
+     * abilities AND standalone {@code pheno:toggle} genes. Both sync paths must use this —
+     * filtering by one gene kind silently strands the other kind's state server-side
+     * (the client gates then never fire, invisibly).
+     */
+    private static List<String> onSet(LivingEntity entity) {
+        List<String> on = new ArrayList<>();
+        for (Power gene : Powers.active(entity)) {
+            boolean toggleKind = gene.component() instanceof AbilityGeneType.Instance ability
+                    && ability.mode() == AbilityGeneType.Mode.TOGGLE
+                    || gene.component()
+                    instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance;
+            if (toggleKind && isOn(entity, gene.id())) {
+                on.add(gene.id().toString());
+            }
+        }
+        return on;
+    }
+
+    /** Sync a non-player entity's on-set to everyone tracking it (a villager's deployed wings). */
+    public static void syncEntity(LivingEntity entity) {
+        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(entity.getId(), onSet(entity));
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(entity, payload);
+        //?} else {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(entity, payload);
+        *///?}
+    }
+
     public static void clear(UUID uuid) {
         ON.remove(uuid);
     }
 
     /**
-     * Send the player their live on-set so the controlling client can predict
-     * toggle-driven movement abilities. Carries only currently-expressed toggle
-     * genes that are on, keyed by the player's network id; player-only.
+     * Sync the player's live on-set, keyed by network id: to the player themself
+     * (so the controlling client can predict toggle-driven movement abilities) AND
+     * to everyone tracking them (so toggle-gated visuals — deployed wings — render
+     * on other clients too). Carries only currently-expressed toggle genes that are on.
      */
     public static void syncTo(ServerPlayer player) {
-        List<String> on = new ArrayList<>();
-        for (Power gene : Powers.active(player)) {
-            if (gene.component() instanceof AbilityGeneType.Instance ability
-                    && ability.mode() == AbilityGeneType.Mode.TOGGLE
-                    && isOn(player, gene.id())) {
-                on.add(gene.id().toString());
-            }
-        }
-        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(player.getId(), on);
+        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(player.getId(), onSet(player));
         //? if neoforge {
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, payload);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(player, payload);
         //?} else {
         /*com.aetherianartificer.townstead.TownsteadNetwork.sendToPlayer(player, payload);
+        com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(player, payload);
         *///?}
     }
 }

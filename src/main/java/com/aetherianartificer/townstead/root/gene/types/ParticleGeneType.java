@@ -28,8 +28,9 @@ public final class ParticleGeneType implements GeneType {
 
     public static final String KEY = "pheno:particle";
 
+    /** {@code conditionJson} keeps the raw gate for the client catalog (editor preview); {@code ""} = always. */
     public record Instance(ResourceLocation particle, int count, float spread, float speed, float yOffset,
-                           @Nullable Condition condition) implements GeneInstance {
+                           @Nullable Condition condition, String conditionJson) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
         @Override public GeneDisplay display() {
             return GeneDisplay.particle(particle, count, spread, speed, yOffset);
@@ -50,6 +51,8 @@ public final class ParticleGeneType implements GeneType {
         float speed = Math.max(0f, GsonHelper.getAsFloat(json, "speed", 0f));
         float yOffset = GsonHelper.getAsFloat(json, "y_offset", 0.6f);
         Condition condition = json.has("condition") ? Conditions.parse(json.get("condition")) : null;
-        return new Instance(particle, count, spread, speed, yOffset, condition);
+        String conditionJson = json.has("condition") && json.get("condition").isJsonObject()
+                ? json.get("condition").toString() : "";
+        return new Instance(particle, count, spread, speed, yOffset, condition, conditionJson);
     }
 }

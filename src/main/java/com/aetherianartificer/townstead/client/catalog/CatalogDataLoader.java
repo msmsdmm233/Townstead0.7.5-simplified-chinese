@@ -443,6 +443,38 @@ public final class CatalogDataLoader extends SimpleJsonResourceReloadListener {
         }
     }
 
+    /** Copy of the override map, for the catalog sync packet. */
+    public static Map<String, BuildingOverride> overridesSnapshot() {
+        synchronized (OVERRIDES) {
+            return new LinkedHashMap<>(OVERRIDES);
+        }
+    }
+
+    /** The datapack-provided theme, before any client resource-pack theme is merged in. */
+    public static Theme dataTheme() {
+        return DATA_THEME;
+    }
+
+    /**
+     * Client-side entry point for {@link CatalogSyncS2CPayload}: replace everything the
+     * server's datapack reload produced. On a dedicated server the client never runs
+     * {@link #apply}, so groups, overrides, theme, and spirits stay empty without this.
+     */
+    public static void applySynced(CatalogSyncS2CPayload payload) {
+        GROUPS.clear();
+        GROUPS.addAll(payload.groups());
+        MATCH_CACHE.clear();
+        synchronized (OVERRIDES) {
+            OVERRIDES.clear();
+            OVERRIDES.putAll(payload.overrides());
+        }
+        DATA_THEME = payload.theme();
+        THEME = payload.theme();
+        CLIENT_THEME_RESOURCE_MANAGER = null;
+        BuildingSpiritIndex.replaceAll(payload.spirits());
+        BuildingIconResolver.invalidate();
+    }
+
     public static Theme theme() {
         return THEME;
     }

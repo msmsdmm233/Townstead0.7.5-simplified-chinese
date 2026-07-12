@@ -37,23 +37,113 @@ public record GeneCatalogEntry(
         String descriptionKey,
         // Face-overlay slot for a custom-face gene: "eyes" / "mouth" / "eye_color", else "". Lets the
         // client face layer identify the eyes/mouth/colour genes among an origin's inherited genes.
-        String faceSlot
+        String faceSlot,
+        // A sized attachment gene's editor-slider label ("Ear Size") + its translate key; both empty
+        // when the gene carries no size or authored no label (the editor uses the gene name then).
+        String sizeLabel,
+        String sizeLabelKey,
+        // The gene's heritable size channels (empty when unsized); the editor renders one
+        // slider per channel. A single-channel legacy gene has one entry named "".
+        List<Channel> channels,
+        // The gene's heritable-tint preset colours (0xRRGGBB); non-empty means the tint_r/g/b
+        // channels exist and the editor renders palette swatches + free colour sliders.
+        List<Integer> palette,
+        // A PARTICLE gene's serialized pheno gate (empty = always on), so the editor preview
+        // can honour the same condition the server emitter tests.
+        String conditionJson
 ) {
     public GeneCatalogEntry {
         variants = variants == null ? List.of() : List.copyOf(variants);
         faceSlot = faceSlot == null ? "" : faceSlot;
+        sizeLabel = sizeLabel == null ? "" : sizeLabel;
+        sizeLabelKey = sizeLabelKey == null ? "" : sizeLabelKey;
+        channels = channels == null ? List.of() : List.copyOf(channels);
+        palette = palette == null ? List.of() : List.copyOf(palette);
+        conditionJson = conditionJson == null ? "" : conditionJson;
+    }
+
+    /** One heritable size channel: name (empty = legacy anonymous), roll range, slider label. */
+    public record Channel(String name, float min, float max, String label, String labelKey) {
+        public Channel {
+            label = label == null ? "" : label;
+            labelKey = labelKey == null ? "" : labelKey;
+        }
     }
 
     /**
      * One option of a VARIANTS gene: its id, resolved label, roll weight, the label's translate key,
-     * a colour tint ({@code 0xRRGGBB}, or {@code -1} when none), and — for a face eyes/mouth variant —
-     * its sprite-strip {@code texture} ({@code ""} when none) and {@code glow} (emissive eyes) flag.
+     * a colour tint ({@code 0xRRGGBB}, or {@code -1} when none), for a face eyes/mouth variant
+     * its sprite-strip {@code texture} ({@code ""} when none) and {@code glow} (emissive eyes) flag,
+     * and — for a variant-swapped attachment gene — the {@code attachment} id(s) this option wears
+     * ({@code ;}-joined for a composite set) plus that option's own size {@code channels} and
+     * heritable-tint {@code palette}.
      */
     public record Variant(String id, String label, int weight, String labelKey, int tint,
-                          String texture, boolean glow) {
+                          String texture, boolean glow, String attachment, List<Channel> channels,
+                          List<Integer> palette) {
         public Variant {
             texture = texture == null ? "" : texture;
+            attachment = attachment == null ? "" : attachment;
+            channels = channels == null ? List.of() : List.copyOf(channels);
+            palette = palette == null ? List.of() : List.copyOf(palette);
         }
+    }
+
+    /** True when this gene puts an attachment on its bearer, directly or via any variant. */
+    public boolean grantsAttachment() {
+        if (isAttachment()) return true;
+        for (Variant variant : variants) {
+            if (!variant.attachment().isEmpty()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * The attachment this gene expresses for a carried variant id: the gene's own for a
+     * plain attachment gene, the matching option's for a variant swap. A matched variant
+     * that wears nothing (a "none" option) is honoured as nothing; only an UNMATCHED
+     * carried id falls back to the first option that wears one. Empty when the gene
+     * grants no attachment.
+     */
+    public String attachmentFor(String variantId) {
+        if (isAttachment()) return attachmentId();
+        for (Variant variant : variants) {
+            if (variant.id().equals(variantId)) return variant.attachment();
+        }
+        for (Variant variant : variants) {
+            if (!variant.attachment().isEmpty()) return variant.attachment();
+        }
+        return "";
+    }
+
+    /**
+     * Every attachment id this gene expresses for a carried variant: the resolved
+     * {@link #attachmentFor} entry split on {@code ;} (a composite grant wears them all).
+     */
+    public List<String> attachmentsFor(String variantId) {
+        String joined = attachmentFor(variantId);
+        if (joined.isEmpty()) return List.of();
+        List<String> out = new java.util.ArrayList<>();
+        for (String id : joined.split(";")) {
+            if (!id.isEmpty()) out.add(id);
+        }
+        return out;
+    }
+
+    /** The size channels behind a carried variant id (the variant's own, else the gene's). */
+    public List<Channel> channelsFor(String variantId) {
+        for (Variant variant : variants) {
+            if (variant.id().equals(variantId) && !variant.channels().isEmpty()) return variant.channels();
+        }
+        return channels;
+    }
+
+    /** The heritable-tint palette behind a carried variant id (the variant's own, else the gene's). */
+    public List<Integer> paletteFor(String variantId) {
+        for (Variant variant : variants) {
+            if (variant.id().equals(variantId) && !variant.palette().isEmpty()) return variant.palette();
+        }
+        return palette;
     }
 
     /** This gene's face slot is eyes / mouth / eye_color (a custom-face overlay gene). */
@@ -88,28 +178,79 @@ public record GeneCatalogEntry(
     }
 
     /**
-     * Render multiplier for a model-part group ({@code "head"}/{@code "arms"}/{@code "legs"}/{@code "body"})
-     * from a PROPORTIONS gene, parsed from {@code targetId} {@code "head=1.0;arms=1.0;..."}.
-     * Returns {@link Float#NaN} when the part isn't listed (that part keeps MCA's normal squash).
+     * Per-axis render multipliers {@code {x, y, z}} for a model-part group ({@code "head"}/
+     * {@code "arms"}/{@code "legs"}/{@code "body"}) from a PROPORTIONS gene, parsed from
+     * {@code targetId} {@code "head=1.1,1.1,1.1;body=1.15,1.0,1.4"} (a bare number applies to
+     * all axes). A {@code "lean:stout"} entry lerps by {@code bulk} (0 = lean, 1 = stout — the
+     * bearer's width roll mapped through {@link #proportionBulkRange}). Returns {@code null}
+     * when the part isn't listed (it keeps MCA's normal squash).
      */
-    public float proportionScale(String part) {
-        if (targetId == null || targetId.isEmpty()) return Float.NaN;
+    public float[] proportionScale(String part, float bulk) {
+        if (targetId == null || targetId.isEmpty()) return null;
         for (String entry : targetId.split(";")) {
             int eq = entry.indexOf('=');
             if (eq <= 0) continue;
             if (entry.substring(0, eq).equals(part)) {
-                try {
-                    return Float.parseFloat(entry.substring(eq + 1).trim());
-                } catch (NumberFormatException e) {
-                    return Float.NaN;
-                }
+                int colon = entry.indexOf(':', eq);
+                float[] lean = parseAxes(entry.substring(eq + 1, colon > 0 ? colon : entry.length()));
+                if (lean == null) return null;
+                if (colon < 0) return lean;
+                float[] stout = parseAxes(entry.substring(colon + 1));
+                if (stout == null) return lean;
+                float t = Math.max(0f, Math.min(1f, bulk));
+                return new float[]{lean[0] + (stout[0] - lean[0]) * t,
+                        lean[1] + (stout[1] - lean[1]) * t,
+                        lean[2] + (stout[2] - lean[2]) * t};
             }
         }
-        return Float.NaN;
+        return null;
+    }
+
+    /** The gene's width range {@code {min, max}} for the lean↔stout lerp, or {@code null}. */
+    public float[] proportionBulkRange() {
+        if (targetId == null || targetId.isEmpty()) return null;
+        for (String entry : targetId.split(";")) {
+            if (entry.startsWith("@width=")) {
+                return parsePair(entry.substring("@width=".length()));
+            }
+        }
+        return null;
+    }
+
+    private static float[] parseAxes(String csv) {
+        try {
+            String[] parts = csv.trim().split(",");
+            if (parts.length == 3) {
+                return new float[]{Float.parseFloat(parts[0].trim()),
+                        Float.parseFloat(parts[1].trim()), Float.parseFloat(parts[2].trim())};
+            }
+            float f = Float.parseFloat(parts[0].trim());
+            return new float[]{f, f, f};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static float[] parsePair(String csv) {
+        try {
+            String[] parts = csv.trim().split(",");
+            if (parts.length != 2) return null;
+            return new float[]{Float.parseFloat(parts[0].trim()), Float.parseFloat(parts[1].trim())};
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /** For ATTACHMENT genes, the attachment id (rides in {@code targetId}). */
     public String attachmentId() { return targetId; }
+
+    /**
+     * True for an ATTACHMENT gene whose scale is a heritable size roll (flagged in {@code amount};
+     * the roll range rides in {@code min}/{@code max}). The character editor offers a slider for it.
+     */
+    public boolean isSizedAttachment() {
+        return isAttachment() && Math.round(amount) == 1;
+    }
 
     public boolean isHideFeature() {
         return displayKind == GeneDisplay.Kind.HIDE_FEATURE.ordinal();
@@ -181,6 +322,25 @@ public record GeneCatalogEntry(
     /** True when this gene emits ambient particles (emitter params ride in {@code targetId}). */
     public boolean isParticle() {
         return displayKind == GeneDisplay.Kind.PARTICLE.ordinal();
+    }
+
+    /** True when this gene paints a skin-overlay layer ({@code "texture;tint"} rides in {@code targetId}). */
+    public boolean isSkinOverlay() {
+        return displayKind == GeneDisplay.Kind.SKIN_OVERLAY.ordinal();
+    }
+
+    /** A SKIN_OVERLAY gene's texture id (a data-pack texture reference); empty otherwise. */
+    public String skinOverlayTexture() {
+        if (!isSkinOverlay() || targetId == null) return "";
+        int semi = targetId.indexOf(';');
+        return semi < 0 ? targetId : targetId.substring(0, semi);
+    }
+
+    /** A SKIN_OVERLAY gene's tint spec: {@code ""} (untinted), a hex colour, {@code skin}, or {@code hair}. */
+    public String skinOverlayTint() {
+        if (!isSkinOverlay() || targetId == null) return "";
+        int semi = targetId.indexOf(';');
+        return semi < 0 ? "" : targetId.substring(semi + 1);
     }
 
     /** PARTICLE emitter params, parsed from {@code targetId} {@code "particleId;count;spread;speed;yOffset"}. */

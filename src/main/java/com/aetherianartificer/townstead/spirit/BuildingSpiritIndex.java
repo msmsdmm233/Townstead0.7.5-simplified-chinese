@@ -56,6 +56,26 @@ public final class BuildingSpiritIndex {
         CONTRIBUTIONS.clear();
     }
 
+    /**
+     * Copy of every non-empty contribution map, for the catalog sync packet.
+     * Cached scan misses (empty maps from {@link #contributionsFor}) are skipped.
+     */
+    public static Map<String, Map<String, Integer>> snapshot() {
+        Map<String, Map<String, Integer>> out = new HashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> e : CONTRIBUTIONS.entrySet()) {
+            if (!e.getValue().isEmpty()) out.put(e.getKey(), e.getValue());
+        }
+        return out;
+    }
+
+    /** Client-side entry point for the catalog sync packet: replace the whole index. */
+    public static void replaceAll(Map<String, Map<String, Integer>> contributions) {
+        CONTRIBUTIONS.clear();
+        for (Map.Entry<String, Map<String, Integer>> e : contributions.entrySet()) {
+            put(e.getKey(), e.getValue());
+        }
+    }
+
     public static int size() {
         return CONTRIBUTIONS.size();
     }

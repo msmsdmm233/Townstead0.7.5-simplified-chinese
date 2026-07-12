@@ -39,6 +39,9 @@ public class LifePotionEffect extends MobEffect {
         if (target.level().isClientSide) return;
         if (target instanceof VillagerEntityMCA villager) {
             TownsteadVillagers.get(villager).life().setAgeless(freeze);
+            // Mirror onto MCA's NO_AGING trait (7.6.28+/7.7.18+) so the editor's age-lock
+            // toggle and other trait readers agree; no-op on MCA versions without it.
+            com.aetherianartificer.townstead.root.trait.NoAgingTrait.set(villager, freeze);
         }
     }
 }

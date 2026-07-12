@@ -45,6 +45,8 @@ public final class PreviewParticles {
 
     private static final List<Particle> LIVE = new ArrayList<>();
     private static final RandomSource RAND = RandomSource.create();
+    private static final java.util.Map<String, java.util.Optional<
+            com.aetherianartificer.townstead.pheno.condition.Condition>> CONDITIONS = new java.util.HashMap<>();
     private static String lastRoot = "";
     private static long lastTimeMs;
     private static float tickAcc;
@@ -53,12 +55,21 @@ public final class PreviewParticles {
 
     public static void clear() {
         LIVE.clear();
+        CONDITIONS.clear();
         lastRoot = "";
         spawnAcc = 0f;
         tickAcc = 0f;
     }
 
-    public static void render(GuiGraphics ctx, Entity entity, int x0, int y0, int x1, int y1) {
+    /**
+     * Draws the previewed origin's particle genes over the editor model. {@code subject}
+     * is the entity the preview REPRESENTS (the real villager, or the player on a
+     * self-edit) — each gene's emission condition is tested against it so the preview
+     * shows what the world would actually show, not every particle the origin owns.
+     * Null subject (target unresolved) skips the gating and previews everything.
+     */
+    public static void render(GuiGraphics ctx, Entity entity, @org.jetbrains.annotations.Nullable
+                              net.minecraft.world.entity.LivingEntity subject, int x0, int y0, int x1, int y1) {
         if (entity == null) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
@@ -87,12 +98,38 @@ public final class PreviewParticles {
             spawnAcc += dt;
             if (spawnAcc >= EMIT_INTERVAL) {
                 spawnAcc = 0f;
-                for (GeneCatalogEntry g : specs) spawn(mc, g);
+                for (GeneCatalogEntry g : specs) {
+                    if (conditionHolds(g, subject)) spawn(mc, g);
+                }
             }
         }
 
         if (LIVE.isEmpty()) return;
         drawPass(mc, x0, y0, x1, y1);
+    }
+
+    /**
+     * Whether a particle gene's synced emission gate holds for the previewed subject —
+     * the same client-side evaluation attachment poses use (mood and needs are
+     * entity-tracked; time and weather read the level). No gate, no subject, or an
+     * unparseable condition previews as always-on, mirroring the server emitter.
+     */
+    private static boolean conditionHolds(GeneCatalogEntry gene,
+                                          @org.jetbrains.annotations.Nullable
+                                          net.minecraft.world.entity.LivingEntity subject) {
+        if (gene.conditionJson().isEmpty() || subject == null) return true;
+        var condition = CONDITIONS.computeIfAbsent(gene.conditionJson(), json -> {
+            try {
+                return java.util.Optional.ofNullable(
+                        com.aetherianartificer.townstead.pheno.condition.Conditions.parse(
+                                com.google.gson.JsonParser.parseString(json)));
+            } catch (Exception e) {
+                return java.util.Optional.empty();
+            }
+        });
+        return condition.map(c -> c.test(
+                new com.aetherianartificer.townstead.pheno.condition.ConditionContext(subject)))
+                .orElse(true);
     }
 
     private static void drawPass(Minecraft mc, int x0, int y0, int x1, int y1) {

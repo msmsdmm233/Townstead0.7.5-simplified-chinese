@@ -83,6 +83,12 @@ public final class RootCatalog {
                     stageRigsFor(origin.id()),
                     spc != null ? spc.characterEditor() : null));
         }
+        // Every registered gene gets a catalog entry, not just origin-wired ones: a gene
+        // granted outright (/townstead gene grant, or a pack gene awaiting wiring) still
+        // has to resolve client-side or its attachment/labels silently don't render.
+        for (Gene gene : GeneRegistry.all()) {
+            genes.computeIfAbsent(gene.id(), RootCatalog::toGeneEntry);
+        }
         return new Snapshot(origins, new ArrayList<>(genes.values()), traits,
                 com.aetherianartificer.townstead.root.rig.RigRegistry.all());
     }
@@ -109,7 +115,8 @@ public final class RootCatalog {
         Gene gene = GeneRegistry.byId(geneId);
         if (gene == null) {
             return new GeneCatalogEntry(geneId.toString(), geneId.getPath(), "", "general",
-                    GeneDisplay.Kind.BOOLEAN.ordinal(), 0f, 1f, "", 0f, 0, "", 1, List.of(), "", "", "");
+                    GeneDisplay.Kind.BOOLEAN.ordinal(), 0f, 1f, "", 0f, 0, "", 1, List.of(), "", "", "", "", "",
+                    List.of(), List.of(), "");
         }
         GeneDisplay display = gene.display();
         List<GeneCatalogEntry.Variant> variants = new ArrayList<>();
@@ -117,8 +124,17 @@ public final class RootCatalog {
             for (com.aetherianartificer.townstead.root.gene.GeneVariant v : gene.variants()) {
                 variants.add(new GeneCatalogEntry.Variant(
                         v.id(), v.displayName().getString(), v.weight(), keyOf(v.displayName()),
-                        variantTint(v.instance()), variantTexture(v.instance()), variantGlow(v.instance())));
+                        variantTint(v.instance()), variantTexture(v.instance()), variantGlow(v.instance()),
+                        variantAttachment(v.instance()), channelEntries(v.instance()),
+                        paletteEntries(v.instance())));
             }
+        }
+        List<GeneCatalogEntry.Channel> channels = channelEntries(gene.instance());
+        String sizeLabel = "";
+        String sizeLabelKey = "";
+        if (!channels.isEmpty()) {
+            sizeLabel = channels.get(0).label();
+            sizeLabelKey = channels.get(0).labelKey();
         }
         return new GeneCatalogEntry(
                 geneId.toString(),
@@ -134,7 +150,47 @@ public final class RootCatalog {
                 variants,
                 keyOf(gene.displayName()),
                 keyOf(gene.description()),
-                faceSlotOf(gene.instance()));
+                faceSlotOf(gene.instance()),
+                sizeLabel,
+                sizeLabelKey,
+                channels,
+                paletteEntries(gene.instance()),
+                conditionOf(gene.instance()));
+    }
+
+    /** A particle gene's serialized emission gate, shipped so the editor preview can test it. */
+    private static String conditionOf(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
+        return instance instanceof com.aetherianartificer.townstead.root.gene.types.ParticleGeneType.Instance p
+                ? p.conditionJson() : "";
+    }
+
+    /** The attachment id(s) an option wears ({@code ;}-joined for a composite set), or {@code ""}. */
+    private static String variantAttachment(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
+        return instance instanceof com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.Instance att
+                ? String.join(";", att.attachments()) : "";
+    }
+
+    /** An instance's heritable-tint preset colours for the catalog (empty when none). */
+    private static List<Integer> paletteEntries(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
+        return instance instanceof com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.Instance att
+                ? att.palette() : List.of();
+    }
+
+    /** An instance's size channels flattened for the catalog (labels resolved for the sync). */
+    private static List<GeneCatalogEntry.Channel> channelEntries(
+            com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
+        if (!(instance instanceof com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType.Instance att)
+                || att.channels().isEmpty()) {
+            return List.of();
+        }
+        List<GeneCatalogEntry.Channel> out = new ArrayList<>(att.channels().size());
+        for (var channel : att.channels()) {
+            out.add(new GeneCatalogEntry.Channel(channel.name(), channel.min(), channel.max(),
+                    com.aetherianartificer.townstead.data.DataPackLang.resolveFallback(
+                            channel.labelKey(), "en_us", channel.labelText()),
+                    channel.labelKey()));
+        }
+        return out;
     }
 
     /** The colour tint a variant carries (skin tone or eye colour), or {@code -1} for none. */
@@ -144,10 +200,11 @@ public final class RootCatalog {
         return -1;
     }
 
-    /** The face sprite-strip texture a variant carries (eyes/mouth), or {@code ""}. */
+    /** The texture a variant carries (face sprite strip, or a skin-overlay style), or {@code ""}. */
     private static String variantTexture(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
         if (instance instanceof com.aetherianartificer.townstead.root.gene.types.EyesGeneType.Instance e) return e.texture();
         if (instance instanceof com.aetherianartificer.townstead.root.gene.types.MouthGeneType.Instance m) return m.texture();
+        if (instance instanceof com.aetherianartificer.townstead.root.gene.types.SkinOverlayGeneType.Instance s) return s.texture();
         return "";
     }
 

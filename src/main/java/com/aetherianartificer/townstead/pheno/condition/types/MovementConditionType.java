@@ -35,6 +35,8 @@ public final class MovementConditionType implements ConditionType {
             case "climbing" -> ctx -> ctx.entity().onClimbable();
             case "sleeping" -> ctx -> ctx.entity().isSleeping();
             case "fall_flying" -> ctx -> ctx.entity().isFallFlying();
+            case "ascending" -> ctx -> ctx.entity().getDeltaMovement().y > 0.08;
+            case "descending" -> ctx -> !ctx.entity().onGround() && ctx.entity().getDeltaMovement().y < -0.08;
             case "creative_flying" -> ctx -> ctx.entity() instanceof Player player && player.getAbilities().flying;
             case "colliding_horizontally" -> ctx -> ctx.entity().horizontalCollision;
             case "colliding_vertically" -> ctx -> ctx.entity().verticalCollision;

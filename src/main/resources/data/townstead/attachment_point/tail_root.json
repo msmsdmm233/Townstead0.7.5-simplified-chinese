@@ -1,0 +1,7 @@
+{
+  "schema": "townstead:attachment_point/v1",
+  "bone": "body",
+  "offset": [0, 10, 2],
+  "mirror": false,
+  "tags": ["tail_root"]
+}

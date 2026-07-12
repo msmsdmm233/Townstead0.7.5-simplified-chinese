@@ -174,7 +174,8 @@ public final class LifeStageProgression {
      * Ageless: the villager's biological clock never advances by the calendar (e.g. skeletons), so its
      * stage and apparent age hold fixed. The admin still picks a frozen apparent age with the continuous
      * slider; it just never advances. Sources: the granted Potion of Agelessness flag, or an intrinsic
-     * {@code ageless} life cycle. See also {@link #freezesAging}.
+     * {@code ageless} life cycle. MCA's NO_AGING editor age-lock (7.6.28+/7.7.18+) feeds the granted
+     * flag too, folded in by {@code LifeStageTicker.reconcileNoAgingTrait}. See also {@link #freezesAging}.
      */
     public static boolean isAgeless(TownsteadVillager.Life life) {
         if (life.ageless()) return true; // granted by the Potion of Agelessness

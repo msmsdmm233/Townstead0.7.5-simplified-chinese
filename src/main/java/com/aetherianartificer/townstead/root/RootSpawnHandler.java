@@ -62,8 +62,8 @@ public final class RootSpawnHandler {
 
         // Founder: pick an origin weighted by the biome/dimension spawn bias, with a
         // per-species chance of a mixed-ancestry blend instead. A mix seeds its own
-        // heritage + genotype; its body metrics, traits and life cycle are blended
-        // from the contributors by share (the parentless analogue of MCA's blend).
+        // heritage + genotype; its body metrics and traits are blended from the
+        // contributors by share (the parentless analogue of MCA's blend).
         //
         // Inside an existing village, constrain the selection: drop origins whose disposition group
         // clashes with the resident majority (so a hostile species never spawns into a peaceful town)
@@ -79,13 +79,12 @@ public final class RootSpawnHandler {
             assignPersonality(villager, state, mixedRoot == null ? RootRegistry.DEFAULT_ID : mixedRoot);
             RootGenes.apply(villager, blendBodyMetrics(mix), villager.getRandom());
             rollBlendedTraitGenes(villager, mix);
-            BlendedCycle blended = blendCycle(mix);
-            if (blended != null) {
-                rollAndStoreStageDays(villager, state, blended.cycle(), blended.variance());
-            } else {
-                ResourceLocation dominant = ResourceLocation.tryParse(state.life().rootId());
-                rollAndStoreStageDays(villager, state, dominant == null ? RootRegistry.DEFAULT_ID : dominant);
-            }
+            // Life cycle: roll once against the dominant root's cycle, exactly like a
+            // bred child. A share-blended cycle can't be reconstructed on load, so it
+            // can't survive backfillIfMissing's re-authored-cycle fingerprint check.
+            ResourceLocation dominant = ResourceLocation.tryParse(state.life().rootId());
+            if (dominant == null) dominant = RootRegistry.DEFAULT_ID;
+            rollAndStoreStageDays(villager, state, dominant);
             return;
         }
 
@@ -142,13 +141,6 @@ public final class RootSpawnHandler {
      * fraction-weighted sum of its occurrence across the contributing origins
      * (a half-elf gets half the elf-trait chance plus half the human-trait chance).
      */
-    // MCA's Trait.valueOf returns null for an unknown id on newer builds, and a sentinel
-    // trait (id "unknown") on older ones. Treat both as unregistered so gene data referencing
-    // a missing trait is skipped rather than applying a bogus trait or NPEing.
-    private static boolean isUnregisteredTrait(net.conczin.mca.entity.ai.Traits.Trait trait) {
-        return trait == null || "unknown".equals(trait.id());
-    }
-
     private static void rollBlendedTraitGenes(VillagerEntityMCA villager, List<RootSelector.Weighted> mix) {
         Map<String, Float> chance = new LinkedHashMap<>();
         for (RootSelector.Weighted w : mix) {
@@ -158,61 +150,14 @@ public final class RootSpawnHandler {
             }
         }
         for (Map.Entry<String, Float> entry : chance.entrySet()) {
-            net.conczin.mca.entity.ai.Traits.Trait trait = net.conczin.mca.entity.ai.Traits.Trait.valueOf(entry.getKey());
-            if (isUnregisteredTrait(trait)) continue;
+            net.conczin.mca.entity.ai.Traits.Trait trait =
+                    com.aetherianartificer.townstead.root.trait.McaTraitResolver.resolve(entry.getKey());
+            if (trait == null) continue; // gene references a trait this MCA version lacks
             float p = Math.min(1f, entry.getValue());
             if (p >= 1f || villager.getRandom().nextFloat() < p) {
                 villager.getTraits().addTrait(trait);
             }
         }
-    }
-
-    private record BlendedCycle(LifeCycle cycle, float variance) {}
-
-    /**
-     * Blend the contributors' life cycles when they share a stage structure (same
-     * stage ids/order/canonical kinds), interpolating each stage's day count and the
-     * variance by share. Returns {@code null} when the structures differ (e.g. a
-     * butterfly crossed with a human), so the caller falls back to the dominant cycle.
-     */
-    @org.jetbrains.annotations.Nullable
-    private static BlendedCycle blendCycle(List<RootSelector.Weighted> mix) {
-        List<LifeCycle> cycles = new ArrayList<>(mix.size());
-        float[] fraction = new float[mix.size()];
-        float[] variance = new float[mix.size()];
-        for (int i = 0; i < mix.size(); i++) {
-            com.aetherianartificer.townstead.root.gene.types.LifeCycleGeneType.Instance gene =
-                    RootRegistry.effectiveCycleGene(mix.get(i).rootId());
-            cycles.add(gene == null || gene.cycle().isEmpty() ? LifeCycle.defaultHumanLike() : gene.cycle());
-            variance[i] = gene == null ? 0f : gene.variance();
-            fraction[i] = mix.get(i).fraction();
-        }
-        LifeCycle ref = cycles.get(0);
-        for (LifeCycle c : cycles) {
-            if (!sameStructure(ref, c)) return null;
-        }
-        List<LifeStage> stages = new ArrayList<>(ref.size());
-        for (int s = 0; s < ref.size(); s++) {
-            float days = 0f;
-            for (int i = 0; i < cycles.size(); i++) days += fraction[i] * cycles.get(i).stageAt(s).days();
-            LifeStage base = ref.stageAt(s);
-            stages.add(new LifeStage(base.id(), base.label(), base.presentsAs(), Math.max(1, Math.round(days)),
-                    base.narrativeStart(), base.narrativeEnd(), base.onEnd(), base.scale(), base.explicitNarrative(),
-                    base.rig(), base.mobile(), base.needs(), base.talkable(), base.deathLoot()));
-        }
-        float blendedVariance = 0f;
-        for (int i = 0; i < mix.size(); i++) blendedVariance += fraction[i] * variance[i];
-        return new BlendedCycle(new LifeCycle(stages), blendedVariance);
-    }
-
-    private static boolean sameStructure(LifeCycle a, LifeCycle b) {
-        if (a.size() != b.size()) return false;
-        for (int i = 0; i < a.size(); i++) {
-            LifeStage sa = a.stageAt(i);
-            LifeStage sb = b.stageAt(i);
-            if (!sa.id().equals(sb.id()) || sa.presentsAs() != sb.presentsAs()) return false;
-        }
-        return true;
     }
 
     /**
@@ -305,8 +250,8 @@ public final class RootSpawnHandler {
         for (com.aetherianartificer.townstead.root.gene.types.TraitOccurrenceGeneType.Instance gene
                 : RootRegistry.traitGenes(rootId)) {
             net.conczin.mca.entity.ai.Traits.Trait trait =
-                    net.conczin.mca.entity.ai.Traits.Trait.valueOf(gene.trait());
-            if (isUnregisteredTrait(trait)) continue;
+                    com.aetherianartificer.townstead.root.trait.McaTraitResolver.resolve(gene.trait());
+            if (trait == null) continue; // gene references a trait this MCA version lacks
             if (gene.delta() >= 1.0f || villager.getRandom().nextFloat() < gene.delta()) {
                 villager.getTraits().addTrait(trait);
             }

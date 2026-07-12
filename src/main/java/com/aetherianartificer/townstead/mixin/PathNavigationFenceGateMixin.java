@@ -28,16 +28,22 @@ import java.util.Set;
  * Make MCA villagers open and close fence gates as a natural part of
  * path traversal — companion to {@link WalkNodeEvaluatorFenceGateMixin}
  * which gets fence gates routed through the pathfinder in the first
- * place.
+ * place. Gates found already open on the path are closed behind the
+ * villager too (villagers keep the pens shut), except gates held open by
+ * redstone, which stay under the circuit's control.
  *
  * <p>This mixin lives in the navigation layer rather than as a brain
  * behavior because gate handling is fundamentally a property of "moving
  * along a path" — there's no decision to make outside of an active
- * navigation. Hooking {@code followThePath} means the work only fires
+ * navigation. Hooking {@code followThePath} means opening only fires
  * when the villager actually crosses a path node (i.e., once per block
- * of movement, not every server tick), and when there's no active path
- * the mixin is dormant entirely. The matching {@code stop} hook handles
- * close-behind on path completion.
+ * of movement, not every server tick). Closing has two layers: while
+ * pathing, gates more than 3 blocks behind close on node crossings; once
+ * the path is done (or navigation stopped), a {@code tick} hook closes
+ * each remaining gate the moment the villager is clear of it. The tick
+ * hook is the authority on trailing gates because {@code stop()} is not
+ * guaranteed to run when a path simply completes, and a villager may
+ * still be standing in the gateway when it does.
  *
  * <p>State is kept in {@code @Unique} fields on the per-mob {@code
  * PathNavigation} instance, so each villager has their own opened-gate
@@ -56,7 +62,10 @@ public abstract class PathNavigationFenceGateMixin {
     @Unique
     private static Field townstead$pathField;
 
-    /** Gates this navigation has opened, closed once they're behind the villager. */
+    /**
+     * Gates to close once they're behind the villager: ones this navigation opened,
+     * plus ones crossed while already open (tracked, not touched, on the way in).
+     */
     @Unique
     private Set<BlockPos> townstead$openedGates;
     /** Last observed next-node index — when this changes the villager just crossed a node. */
@@ -102,26 +111,47 @@ public abstract class PathNavigationFenceGateMixin {
 
     //? if >=1.21 {
     @Inject(method = "stop", at = @At("HEAD"))
-    private void townstead$closeOnNavStop(CallbackInfo ci) {
+    private void townstead$resetOnNavStop(CallbackInfo ci) {
     //?} else {
     /*@Inject(method = "m_26573_", remap = false, at = @At("HEAD"))
-    private void townstead$closeOnNavStop(CallbackInfo ci) {
+    private void townstead$resetOnNavStop(CallbackInfo ci) {
     *///?}
-        Mob mob = townstead$mob();
-        if (!(mob instanceof VillagerEntityMCA)) return;
+        // Closing happens in the tick hook, not here: a villager stopping while still
+        // inside the gateway must stay tracked until they step away (clearing here
+        // orphaned those gates open), and stop() isn't guaranteed to fire at all when
+        // a path simply runs to completion.
+        this.townstead$lastNodeIndex = -1;
+    }
+
+    // Close pending gates once no path is being followed. Gates a path ends beside
+    // (within closeFarGates' 3-block band) and gates the villager was standing in at
+    // stop() land here; each closes the moment the villager is clear of it. Runs every
+    // tick but early-outs on the (almost always) empty gate set.
+    //? if >=1.21 {
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void townstead$closePendingGates(CallbackInfo ci) {
+    //?} else {
+    /*@Inject(method = "m_7638_", remap = false, at = @At("TAIL"))
+    private void townstead$closePendingGates(CallbackInfo ci) {
+    *///?}
         if (this.townstead$openedGates == null || this.townstead$openedGates.isEmpty()) return;
+        Path p = townstead$path();
+        if (p != null && !p.isDone()) return;   // active pathing: closeFarGates owns close-behind
+        Mob mob = townstead$mob();
+        if (mob == null) return;
         if (!(townstead$level() instanceof ServerLevel serverLevel)) return;
-        for (BlockPos pos : this.townstead$openedGates) {
+        Iterator<BlockPos> it = this.townstead$openedGates.iterator();
+        while (it.hasNext()) {
+            BlockPos pos = it.next();
             double dx = mob.getX() - (pos.getX() + 0.5);
             double dy = mob.getY() - (pos.getY() + 0.5);
             double dz = mob.getZ() - (pos.getZ() + 0.5);
-            // Don't shut a gate the villager is currently standing in.
+            // Still don't shut a gate on a villager standing in it.
             if (dx * dx + dy * dy + dz * dz > TOWNSTEAD_STANDING_IN_DISTANCE_SQ) {
                 townstead$closeFenceGate(serverLevel, pos);
+                it.remove();
             }
         }
-        this.townstead$openedGates.clear();
-        this.townstead$lastNodeIndex = -1;
     }
 
     @Unique
@@ -129,11 +159,16 @@ public abstract class PathNavigationFenceGateMixin {
         if (!serverLevel.isLoaded(pos)) return;
         BlockState state = serverLevel.getBlockState(pos);
         if (!(state.getBlock() instanceof FenceGateBlock)) return;
-        if (state.getValue(FenceGateBlock.OPEN)) return;
-        serverLevel.setBlock(pos, state.setValue(FenceGateBlock.OPEN, true), 10);
-        serverLevel.playSound(null, pos,
-                SoundEvents.FENCE_GATE_OPEN, SoundSource.BLOCKS,
-                1.0f, serverLevel.random.nextFloat() * 0.1f + 0.9f);
+        if (state.getValue(FenceGateBlock.OPEN)) {
+            // Someone else's open gate on our path: track it so it closes behind us
+            // like one we opened. Redstone-held gates stay the circuit's business.
+            if (state.getValue(FenceGateBlock.POWERED)) return;
+        } else {
+            serverLevel.setBlock(pos, state.setValue(FenceGateBlock.OPEN, true), 10);
+            serverLevel.playSound(null, pos,
+                    SoundEvents.FENCE_GATE_OPEN, SoundSource.BLOCKS,
+                    1.0f, serverLevel.random.nextFloat() * 0.1f + 0.9f);
+        }
         if (this.townstead$openedGates == null) this.townstead$openedGates = new HashSet<>();
         this.townstead$openedGates.add(pos.immutable());
     }
@@ -165,6 +200,8 @@ public abstract class PathNavigationFenceGateMixin {
         BlockState state = serverLevel.getBlockState(pos);
         if (!(state.getBlock() instanceof FenceGateBlock)) return;
         if (!state.getValue(FenceGateBlock.OPEN)) return;
+        // Powered since we tracked it: closing would fight the redstone circuit.
+        if (state.getValue(FenceGateBlock.POWERED)) return;
         serverLevel.setBlock(pos, state.setValue(FenceGateBlock.OPEN, false), 10);
         serverLevel.playSound(null, pos,
                 SoundEvents.FENCE_GATE_CLOSE, SoundSource.BLOCKS,

@@ -29,6 +29,18 @@ public final class ToggledConditionType implements ConditionType {
     public Condition parse(JsonObject json) {
         ResourceLocation geneId = DataPackLang.parseId(GsonHelper.getAsString(json, "gene", ""));
         if (geneId == null) return null;
-        return ctx -> AbilityToggles.isOn(ctx.entity(), geneId);
+        // Side-aware: the live map is server-side; clients (attachment gates, pose
+        // conditions) read the synced per-entity toggle set instead.
+        return ctx -> ctx.entity().level().isClientSide()
+                ? ClientToggleState.isOn(ctx.entity(), geneId)
+                : AbilityToggles.isOn(ctx.entity(), geneId);
+    }
+
+    /** Client-only store access, isolated so dedicated servers never load it. */
+    private static final class ClientToggleState {
+        static boolean isOn(net.minecraft.world.entity.Entity entity, ResourceLocation geneId) {
+            return com.aetherianartificer.townstead.client.root.RootClientStore.isToggled(
+                    entity.getId(), geneId.toString());
+        }
     }
 }

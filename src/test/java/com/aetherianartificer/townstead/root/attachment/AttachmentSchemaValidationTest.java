@@ -51,7 +51,10 @@ class AttachmentSchemaValidationTest {
     void wellFormedAttachmentHasNoFieldDiagnostics() {
         Diagnostics diag = validate(AttachmentSchemas.ATTACHMENT,
                 "{ 'geometry':'a', 'texture':'b', 'target':{ 'tag':'ear' },"
-                        + " 'offset':[0,0.5,0], 'scale':1.0, 'tint':'#FFFFFF' }");
+                        + " 'offset':[0,0.5,0], 'scale':1.0, 'tint':'#FFFFFF', 'skin_tint':true,"
+                        + " 'morph':{ 'axes':[0.6,1.0,0.6], 'bones':['left_ear','right_ear'] },"
+                        + " 'poses':{ 'sleeping':{ 'bones':{ 'left_ear':{ 'rotation':[0,0,-35] } },"
+                        + " 'transition':10 } } }");
         for (Diagnostic d : diag.all()) {
             assertFalse(d.message().contains("Missing required field") || d.message().contains("Expected"),
                     "well-formed attachment should produce no field diagnostics, got: " + d.render());

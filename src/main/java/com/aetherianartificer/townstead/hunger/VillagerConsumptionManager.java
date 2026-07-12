@@ -5,8 +5,10 @@ import com.aetherianartificer.townstead.compat.mca.McaSicknessAdapter;
 import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import com.aetherianartificer.townstead.compat.thirst.ThirstCompatBridge;
 import com.aetherianartificer.townstead.fatigue.FatigueData;
+import com.aetherianartificer.townstead.root.needs.NeedSuppression;
 import com.aetherianartificer.townstead.storage.EmptyContainerDropoff;
 import com.aetherianartificer.townstead.villager.TownsteadVillager;
+import com.aetherianartificer.townstead.villager.TownsteadVillagers;
 import net.conczin.mca.entity.VillagerEntityMCA;
 import net.minecraft.core.BlockPos;
 //? if >=1.21 {
@@ -135,6 +137,31 @@ public final class VillagerConsumptionManager {
         boolean changed = applyFoodBenefits(recipient, stack, recipientNeeds);
         changed |= applyThirstBenefits(recipient, stack, recipientNeeds);
         return changed;
+    }
+
+    /**
+     * Credits food consumed OUTSIDE the managed flow — MCA 7.6.28+/7.7.18+ recovery eating
+     * (hurt villagers snack from their inventory to heal), or any third-party mod driving the
+     * vanilla eat chain on a villager. The vanilla chain already applied status effects and the
+     * item's own finish behavior (containers, chorus teleport), so only the hunger ledger moves;
+     * the hunger ticker notices the change and syncs it. Managed consumption is skipped here —
+     * it is still pending at eat time and credits itself on finalize.
+     */
+    public static void creditUnmanagedFood(VillagerEntityMCA villager, ItemStack stack) {
+        if (villager.level().isClientSide()) return;
+        if (PENDING.containsKey(villager.getId())) return;
+        if (!TownsteadConfig.isVillagerHungerEnabled()) return;
+        if (NeedSuppression.suppressesHunger(villager)) return;
+        //? if >=1.21 {
+        FoodProperties food = stack.get(DataComponents.FOOD);
+        //?} else {
+        /*FoodProperties food = stack.getFoodProperties(null);
+        *///?}
+        if (food == null) return;
+        TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        float foodScale = com.aetherianartificer.townstead.root.hook.PhenoHooks.foodMultiplier(villager);
+        needs.applyFood(food, foodScale);
+        needs.setLastAteTime(villager.level().getGameTime());
     }
 
     // --- Benefit application (act on the recipient: the villager that gains the food/drink) ---

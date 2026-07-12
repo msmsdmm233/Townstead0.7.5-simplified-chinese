@@ -7,6 +7,7 @@ import com.aetherianartificer.townstead.root.gene.GeneRegistry;
 import com.aetherianartificer.townstead.root.gene.GeneVariant;
 import com.aetherianartificer.townstead.root.gene.Genotype;
 import com.aetherianartificer.townstead.root.gene.InheritedGene;
+import com.aetherianartificer.townstead.root.gene.types.AttachmentGeneType;
 import com.aetherianartificer.townstead.root.gene.types.BodyMetricGeneType;
 import com.aetherianartificer.townstead.root.gene.types.LifeCycleGeneType;
 import com.aetherianartificer.townstead.root.gene.types.TraitOccurrenceGeneType;
@@ -124,7 +125,10 @@ public final class Heredity {
             Gene gene = GeneRegistry.byId(ref.geneId());
             if (gene == null || !isDiploid(gene)) continue;
             ResourceLocation locus = locusOf(gene);
-            if (genotype.has(locus)) continue;
+            if (genotype.has(locus)) {
+                healSizedPayloads(genotype, locus, gene, random);
+                continue;
+            }
             if (gene.hasVariants() && life.hasCarriedVariant(gene.id().toString())) {
                 Allele legacy = Allele.of(gene.id(), life.carriedVariant(gene.id().toString()));
                 genotype.set(locus, legacy, legacy);
@@ -252,8 +256,10 @@ public final class Heredity {
      */
     public static void recomputeExpressed(TownsteadVillager.Life life) {
         Genotype genotype = life.genotype();
+        Heritage heritage = life.hasHeritage() ? life.heritage() : null;
         List<String> encodings = new java.util.ArrayList<>();
-        for (Allele allele : expressedAlleles(genotype)) {
+        for (Allele raw : expressedAlleles(genotype)) {
+            Allele allele = scaleByHeritage(raw, heritage);
             encodings.add(allele.encode());
             if (allele.variantId() == null) continue;
             Gene gene = GeneRegistry.byId(allele.geneId());
@@ -296,16 +302,196 @@ public final class Heredity {
         return best.rootId().toString();
     }
 
+    /**
+     * A freshly rolled allele for granting {@code gene} outright (the authoring
+     * command path): a rolled variant for variant genes, rolled size channels for
+     * sized attachment genes (per-variant channels when both apply), else a plain
+     * present allele.
+     */
+    public static Allele grantAllele(Gene gene, RandomSource random) {
+        if (gene.hasVariants()) {
+            GeneVariant variant = rollVariant(gene, random);
+            return Allele.of(gene.id(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                    variant.id(), rollChannels(channelsOf(variant.instance()),
+                            paletteOf(variant.instance()), random)));
+        }
+        java.util.List<AttachmentGeneType.Channel> channels = channelsOf(gene);
+        if (!channels.isEmpty()) {
+            return Allele.of(gene.id(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                    "", rollChannels(channels, paletteOf(gene.instance()), random)));
+        }
+        return Allele.of(gene.id(), null);
+    }
+
     private static Allele rollAllele(Gene gene, InheritedGene ref, RandomSource random) {
         if (gene.hasVariants()) {
             GeneVariant variant = rollVariant(gene, random);
-            return Allele.of(gene.id(), variant.id());
+            return Allele.of(gene.id(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                    variant.id(), rollChannels(channelsOf(variant.instance()),
+                            paletteOf(variant.instance()), random)));
         }
         float occurrence = ref.occurrence();
         if (occurrence >= 1f || random.nextFloat() < occurrence) {
+            java.util.List<AttachmentGeneType.Channel> channels = channelsOf(gene);
+            if (!channels.isEmpty()) {
+                return Allele.of(gene.id(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                        "", rollChannels(channels, paletteOf(gene.instance()), random)));
+            }
             return Allele.of(gene.id(), null);
         }
         return Allele.WILD;
+    }
+
+    /** The gene's heritable size channels (empty when it carries none). */
+    private static java.util.List<AttachmentGeneType.Channel> channelsOf(@Nullable Gene gene) {
+        return gene == null ? java.util.List.of() : channelsOf(gene.instance());
+    }
+
+    private static java.util.List<AttachmentGeneType.Channel> channelsOf(
+            @Nullable com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
+        return instance instanceof AttachmentGeneType.Instance att ? att.channels() : java.util.List.of();
+    }
+
+    /**
+     * The size channels behind an allele: the gene's own, or — for a variant gene
+     * whose options are attachments — the carried variant's.
+     */
+    private static java.util.List<AttachmentGeneType.Channel> channelsFor(@Nullable Gene gene, String variantId) {
+        if (gene == null) return java.util.List.of();
+        if (gene.hasVariants() && !variantId.isEmpty()) {
+            for (GeneVariant variant : gene.variants()) {
+                if (variant.id().equals(variantId)) return channelsOf(variant.instance());
+            }
+        }
+        return channelsOf(gene);
+    }
+
+    /** An instance's heritable-tint preset colours (empty when its colour isn't heritable). */
+    private static java.util.List<Integer> paletteOf(
+            @Nullable com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
+        return instance instanceof AttachmentGeneType.Instance att ? att.palette() : java.util.List.of();
+    }
+
+    /** The tint palette behind an allele (the carried variant's, else the gene's). */
+    private static java.util.List<Integer> paletteFor(@Nullable Gene gene, String variantId) {
+        if (gene == null) return java.util.List.of();
+        if (gene.hasVariants() && !variantId.isEmpty()) {
+            for (GeneVariant variant : gene.variants()) {
+                if (variant.id().equals(variantId)) return paletteOf(variant.instance());
+            }
+        }
+        return paletteOf(gene.instance());
+    }
+
+    /**
+     * Fresh rolls for every channel: size channels roll uniformly in their range;
+     * the reserved tint channels roll ONE palette colour together (plus a little
+     * per-component jitter, so littermates aren't clones), since three independent
+     * uniform components would be mud, not a coat colour.
+     */
+    private static java.util.Map<String, Float> rollChannels(
+            java.util.List<AttachmentGeneType.Channel> channels,
+            java.util.List<Integer> palette, RandomSource random) {
+        if (channels.isEmpty()) return java.util.Map.of();
+        java.util.Map<String, Float> out = new java.util.LinkedHashMap<>();
+        int tint = -1;
+        for (AttachmentGeneType.Channel channel : channels) {
+            if (AttachmentGeneType.isTintChannel(channel.name())) {
+                if (tint < 0) tint = pickTint(palette, random);
+                out.put(channel.name(), tintComponent(tint, channel.name(), random));
+            } else {
+                out.put(channel.name(), channel.min() + random.nextFloat() * (channel.max() - channel.min()));
+            }
+        }
+        return out;
+    }
+
+    private static int pickTint(java.util.List<Integer> palette, RandomSource random) {
+        return palette.isEmpty() ? 0xFFFFFF : palette.get(random.nextInt(palette.size()));
+    }
+
+    private static float tintComponent(int color, String channel, RandomSource random) {
+        int shift = AttachmentGeneType.TINT_R.equals(channel) ? 16
+                : AttachmentGeneType.TINT_G.equals(channel) ? 8 : 0;
+        float base = ((color >> shift) & 0xFF) / 255f;
+        float jitter = (random.nextFloat() - 0.5f) * 0.06f;
+        return Math.max(0f, Math.min(1f, base + jitter));
+    }
+
+    /**
+     * Self-heal an outdated save: alleles rolled before sizes (or before a channel
+     * was added to the gene) carry no value for it, so roll the missing channels
+     * now; a legacy anonymous single-value roll is renamed to the gene's first
+     * declared channel. Runs on the migrate path, so a loaded villager picks up
+     * its individual rolls once and keeps them.
+     */
+    private static void healSizedPayloads(Genotype genotype, ResourceLocation locus, Gene gene,
+                                          RandomSource random) {
+        Allele[] pair = genotype.at(locus);
+        if (pair == null) return;
+        Allele a = healSized(pair[0], gene, random);
+        Allele b = healSized(pair[1], gene, random);
+        if (a != pair[0] || b != pair[1]) genotype.set(locus, a, b);
+    }
+
+    private static Allele healSized(Allele allele, Gene gene, RandomSource random) {
+        if (allele.isWild() || !gene.id().equals(allele.geneId())) return allele;
+        var payload = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(allele.variantId());
+        java.util.List<AttachmentGeneType.Channel> channels = channelsFor(gene, payload.variant());
+        if (channels.isEmpty()) return allele;
+        java.util.Map<String, Float> healed = new java.util.LinkedHashMap<>(payload.channels());
+        Float anonymous = healed.remove(com.aetherianartificer.townstead.root.gene.AllelePayload.LEGACY_CHANNEL);
+        if (anonymous != null && !channels.get(0).name().isEmpty()) {
+            healed.putIfAbsent(channels.get(0).name(), anonymous);
+        } else if (anonymous != null) {
+            healed.put("", anonymous);
+        }
+        boolean changed = anonymous != null && !channels.get(0).name().isEmpty();
+        java.util.List<Integer> palette = paletteFor(gene, payload.variant());
+        int tint = -1;
+        for (AttachmentGeneType.Channel channel : channels) {
+            if (!healed.containsKey(channel.name())) {
+                if (AttachmentGeneType.isTintChannel(channel.name())) {
+                    if (tint < 0) tint = pickTint(palette, random);
+                    healed.put(channel.name(), tintComponent(tint, channel.name(), random));
+                } else {
+                    healed.put(channel.name(), channel.min() + random.nextFloat() * (channel.max() - channel.min()));
+                }
+                changed = true;
+            }
+        }
+        if (!changed) return allele;
+        return Allele.of(gene.id(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                payload.variant(), healed));
+    }
+
+    /**
+     * Fold a bearer's heritage into a sized attachment allele: each channel's rolled
+     * value is multiplied by that channel's heritage factor (share of the coupled
+     * ancestry mapped onto [floor, 1]), so a half-elf expresses smaller elven ears
+     * than a full elf. The genotype keeps the raw rolls; only the expressed
+     * projection is scaled. Anything without heritage-coupled channels passes through.
+     */
+    public static Allele scaleByHeritage(Allele allele, @Nullable Heritage heritage) {
+        if (allele.isWild()) return allele;
+        Gene gene = GeneRegistry.byId(allele.geneId());
+        var payload = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(allele.variantId());
+        java.util.List<AttachmentGeneType.Channel> channels = channelsFor(gene, payload.variant());
+        if (channels.isEmpty() || payload.channels().isEmpty()) return allele;
+        boolean scaled = false;
+        java.util.Map<String, Float> out = new java.util.LinkedHashMap<>(payload.channels());
+        for (AttachmentGeneType.Channel channel : channels) {
+            if (channel.heritageAncestry() == null) continue;
+            String key = out.containsKey(channel.name()) ? channel.name()
+                    : (out.size() == 1 && out.containsKey("") ? "" : null);
+            if (key == null) continue;
+            float fraction = heritage == null ? 1f : heritage.fractionOf(channel.heritageAncestry());
+            out.put(key, out.get(key) * channel.heritageFactor(fraction));
+            scaled = true;
+        }
+        if (!scaled) return allele;
+        return Allele.of(allele.geneId(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                payload.variant(), out));
     }
 
     private static GeneVariant rollVariant(Gene gene, RandomSource random) {
@@ -343,8 +529,23 @@ public final class Heredity {
         if (aDominant != bDominant) return aDominant ? a : b;
 
         if (a.geneId().equals(b.geneId())) {
-            int wa = variantWeight(ga, a.variantId());
-            int wb = variantWeight(gb, b.variantId());
+            // Size channels are quantitative traits: when the two carried copies agree
+            // on the variant (or carry none), each channel expresses the mean of the two
+            // rolls rather than one masking the other, so ear size blends down the
+            // generations instead of snapping between the parents' rolls. Copies carrying
+            // different variants (two tail styles) stay Mendelian: the winner's channel
+            // rolls ride along unblended, since channels are per-variant.
+            var pa = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(a.variantId());
+            var pb = com.aetherianartificer.townstead.root.gene.AllelePayload.parse(b.variantId());
+            if (pa.variant().equals(pb.variant()) && pa.hasChannels() && pb.hasChannels()) {
+                java.util.Map<String, Float> mean = new java.util.LinkedHashMap<>(pa.channels());
+                pb.channels().forEach((name, value) ->
+                        mean.merge(name, value, (x, y) -> (x + y) / 2f));
+                return Allele.of(a.geneId(), com.aetherianartificer.townstead.root.gene.AllelePayload.encode(
+                        pa.variant(), mean));
+            }
+            int wa = variantWeight(ga, pa.variant());
+            int wb = variantWeight(gb, pb.variant());
             if (wa != wb) return wa > wb ? a : b;
             String va = a.variantId() == null ? "" : a.variantId();
             String vb = b.variantId() == null ? "" : b.variantId();

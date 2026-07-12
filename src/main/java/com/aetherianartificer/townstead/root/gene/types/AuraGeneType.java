@@ -17,8 +17,18 @@ import org.jetbrains.annotations.Nullable;
  * everything nearby). Optionally gated by a {@link Condition} on the holder, and can
  * include the holder itself.
  *
+ * <p>{@code target} filters who the action runs on: {@code all} (default),
+ * {@code hostile} (monsters only), or {@code non_hostile} (villagers, players,
+ * animals) — a healing aura must not mend the raider it stands beside.</p>
+ *
+ * <p>{@code resource_cost} makes each pulse spend a resource meter (paid once per
+ * pulse that reaches at least one target; a pulse the holder cannot afford is
+ * skipped), so a sustained aura competes with whatever else spends that meter.</p>
+ *
  * <p>JSON: {@code { "type":"pheno:aura", "radius":4, "interval":40,
- * "include_self":false, "action":{ "type":"pheno:apply_effect",
+ * "include_self":false, "target":"non_hostile",
+ * "resource_cost":{ "resource":"my_pack:stamina", "amount":30 },
+ * "action":{ "type":"pheno:apply_effect",
  * "effect":"minecraft:regeneration", "duration":60 } }}</p>
  */
 public final class AuraGeneType implements GeneType {
@@ -26,7 +36,9 @@ public final class AuraGeneType implements GeneType {
     public static final String KEY = "pheno:aura";
 
     public record Instance(double radius, int interval, Action action,
-                           @Nullable Condition condition, boolean includeSelf) implements GeneInstance {
+                           @Nullable Condition condition, boolean includeSelf,
+                           String target, @Nullable net.minecraft.resources.ResourceLocation costResource,
+                           int costAmount) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
         @Override public GeneDisplay display() { return GeneDisplay.PRESENCE; }
     }
@@ -44,6 +56,15 @@ public final class AuraGeneType implements GeneType {
         int interval = Math.max(10, GsonHelper.getAsInt(json, "interval", 40));
         Condition condition = json.has("condition") ? Conditions.parse(json.get("condition")) : null;
         boolean includeSelf = GsonHelper.getAsBoolean(json, "include_self", false);
-        return new Instance(radius, interval, action, condition, includeSelf);
+        String target = GsonHelper.getAsString(json, "target", "all").toLowerCase(java.util.Locale.ROOT);
+        net.minecraft.resources.ResourceLocation costResource = null;
+        int costAmount = 0;
+        if (json.has("resource_cost") && json.get("resource_cost").isJsonObject()) {
+            JsonObject cost = json.getAsJsonObject("resource_cost");
+            costResource = com.aetherianartificer.townstead.data.DataPackLang.parseId(
+                    GsonHelper.getAsString(cost, "resource", ""));
+            costAmount = GsonHelper.getAsInt(cost, "amount", 0);
+        }
+        return new Instance(radius, interval, action, condition, includeSelf, target, costResource, costAmount);
     }
 }

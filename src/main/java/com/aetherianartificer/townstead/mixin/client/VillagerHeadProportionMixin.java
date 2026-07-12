@@ -52,6 +52,10 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
         // the 1.20.1 entity API). 1.0 when uniform or when there's no proportions gene to apply.
         float xz0 = 1.0f;
         float y0 = 1.0f;
+        // Lean↔stout position from the individual's rolled width gene, mapped through the gene's
+        // own width range (so the spread covers the race's actual roll, and MCA's width blending
+        // makes bulk heritable). Only lean:stout entries read it.
+        float bulk = 0.5f;
         if (proportions != null) {
             Genetics genetics = entity.getGenetics();
             Traits traits = entity.getTraits();
@@ -64,16 +68,23 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
                     y0 = mean / vert;
                 }
             }
+            if (genetics != null) {
+                float width = genetics.getGene(Genetics.WIDTH);
+                float[] range = proportions.proportionBulkRange();
+                bulk = range != null && range[1] - range[0] > 1.0e-4f
+                        ? Math.max(0f, Math.min(1f, (width - range[0]) / (range[1] - range[0])))
+                        : width;
+            }
         }
 
         HumanoidModel<?> model = (HumanoidModel<?>) (Object) this;
-        townstead$scalePart(model.head, proportions, "head", xz0, y0);
-        townstead$scalePart(model.hat, proportions, "head", xz0, y0);
-        townstead$scalePart(model.rightArm, proportions, "arms", xz0, y0);
-        townstead$scalePart(model.leftArm, proportions, "arms", xz0, y0);
-        townstead$scalePart(model.rightLeg, proportions, "legs", xz0, y0);
-        townstead$scalePart(model.leftLeg, proportions, "legs", xz0, y0);
-        townstead$scalePart(model.body, proportions, "body", xz0, y0);
+        townstead$scalePart(model.head, proportions, "head", xz0, y0, bulk);
+        townstead$scalePart(model.hat, proportions, "head", xz0, y0, bulk);
+        townstead$scalePart(model.rightArm, proportions, "arms", xz0, y0, bulk);
+        townstead$scalePart(model.leftArm, proportions, "arms", xz0, y0, bulk);
+        townstead$scalePart(model.rightLeg, proportions, "legs", xz0, y0, bulk);
+        townstead$scalePart(model.leftLeg, proportions, "legs", xz0, y0, bulk);
+        townstead$scalePart(model.body, proportions, "body", xz0, y0, bulk);
 
         // Hidden features (prevent_feature_render): zero the listed groups after proportions.
         com.aetherianartificer.townstead.client.root.HideFeatures.hide(
@@ -82,22 +93,26 @@ public abstract class VillagerHeadProportionMixin<T extends LivingEntity & Villa
 
     /**
      * Set {@code part}'s scale: when the gene lists this group, the de-squash {@code (xz0,y0)} times
-     * the part's factor (clamped); otherwise reset to {@code (1,1,1)} so the part keeps MCA's squash.
+     * the part's per-axis factors (clamped); otherwise reset to {@code (1,1,1)} so the part keeps
+     * MCA's squash. Per-axis factors stylize without stretching — thick arms that aren't longer,
+     * a torso that's deep but not tall.
      */
     private static void townstead$scalePart(ModelPart part, GeneCatalogEntry proportions,
-            String group, float xz0, float y0) {
-        float xz = 1.0f;
+            String group, float xz0, float y0, float bulk) {
+        float x = 1.0f;
         float y = 1.0f;
+        float z = 1.0f;
         if (proportions != null) {
-            float factor = proportions.proportionScale(group);
-            if (!Float.isNaN(factor)) {
-                xz = Math.max(0.4f, Math.min(2.5f, xz0 * factor));
-                y = Math.max(0.4f, Math.min(2.5f, y0 * factor));
+            float[] factor = proportions.proportionScale(group, bulk);
+            if (factor != null) {
+                x = Math.max(0.4f, Math.min(2.5f, xz0 * factor[0]));
+                y = Math.max(0.4f, Math.min(2.5f, y0 * factor[1]));
+                z = Math.max(0.4f, Math.min(2.5f, xz0 * factor[2]));
             }
         }
-        part.xScale = xz;
+        part.xScale = x;
         part.yScale = y;
-        part.zScale = xz;
+        part.zScale = z;
     }
 
     /** The proportions gene on the entity's applied origin (synced catalog), or {@code null}. */

@@ -78,6 +78,8 @@ public final class VillagerServerTickDispatcher {
                 com.aetherianartificer.townstead.root.attribute.GeneAttributeApplier.tick(villager));
         profile("villager.active_ability", () ->
                 com.aetherianartificer.townstead.root.ability.ActiveAbilities.aiTick(villager));
+        profile("villager.glide", () ->
+                com.aetherianartificer.townstead.root.ability.GlideAI.tick(villager));
         profile("villager.gene_resource", () ->
                 com.aetherianartificer.townstead.root.ability.ResourceValues.tick(villager));
         profile("villager.gene_collection", () ->
