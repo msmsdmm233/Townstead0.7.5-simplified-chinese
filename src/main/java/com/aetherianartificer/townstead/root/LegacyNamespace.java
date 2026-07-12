@@ -33,4 +33,18 @@ public final class LegacyNamespace {
         if (!key.startsWith(prefix)) return null;
         return RootRegistry.NAMESPACE + ":" + key.substring(prefix.length());
     }
+
+    /**
+     * The {@code townstead_roots} form of a dotted lang key whose namespace segment is the legacy
+     * one (e.g. {@code origin.townstead_origins.stage.adult}), else {@code null}. Old data packs
+     * reference mod-owned keys under the legacy segment; the mod's lang files only define the
+     * renamed keys, so lookups fall back through this the same way registry ids do.
+     */
+    @Nullable
+    public static String remapLangKey(@Nullable String key) {
+        if (key == null) return null;
+        String segment = "." + LEGACY + ".";
+        if (!key.contains(segment)) return null;
+        return key.replace(segment, "." + RootRegistry.NAMESPACE + ".");
+    }
 }

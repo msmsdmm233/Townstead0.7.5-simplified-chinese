@@ -116,22 +116,27 @@ public final class DataPackLang {
     public static String find(String key, String locale) {
         if (key == null || key.isEmpty()) return null;
         String normalized = normalizeLocale(locale);
-        String resolved = LOCALES.getOrDefault(normalized, Map.of()).get(key);
-        if (resolved == null && !DEFAULT_LOCALE.equals(normalized)) {
-            resolved = LOCALES.getOrDefault(DEFAULT_LOCALE, Map.of()).get(key);
+        String resolved = lookup(key, normalized);
+        if (resolved == null) {
+            String remapped = com.aetherianartificer.townstead.root.LegacyNamespace.remapLangKey(key);
+            if (remapped != null) resolved = lookup(remapped, normalized);
         }
         return resolved;
     }
 
     /** Resolve a key for a player locale, then English, then the supplied fallback. */
     public static String resolveFallback(String key, String locale, String fallback) {
-        if (key == null || key.isEmpty()) return fallback != null ? fallback : "";
-        String normalized = normalizeLocale(locale);
-        String resolved = LOCALES.getOrDefault(normalized, Map.of()).get(key);
-        if (resolved == null && !DEFAULT_LOCALE.equals(normalized)) {
+        String resolved = find(key, locale);
+        return resolved != null ? resolved : (fallback != null ? fallback : "");
+    }
+
+    /** Locale-then-English lookup for one key as-given; the legacy remap lives in {@link #find}. */
+    private static String lookup(String key, String normalizedLocale) {
+        String resolved = LOCALES.getOrDefault(normalizedLocale, Map.of()).get(key);
+        if (resolved == null && !DEFAULT_LOCALE.equals(normalizedLocale)) {
             resolved = LOCALES.getOrDefault(DEFAULT_LOCALE, Map.of()).get(key);
         }
-        return resolved != null ? resolved : (fallback != null ? fallback : "");
+        return resolved;
     }
 
     private static String normalizeLocale(String locale) {
@@ -153,6 +158,15 @@ public final class DataPackLang {
             if (obj.has("translate")) {
                 String key = obj.get("translate").getAsString();
                 String resolved = langIndex.get(key);
+                if (resolved == null) {
+                    // Old packs reference mod-owned keys under the pre-rebrand namespace segment;
+                    // only the remapped key still resolves (lang files or a sidecar), so carry it.
+                    String remapped = com.aetherianartificer.townstead.root.LegacyNamespace.remapLangKey(key);
+                    if (remapped != null && langIndex.containsKey(remapped)) {
+                        key = remapped;
+                        resolved = langIndex.get(remapped);
+                    }
+                }
                 return resolved != null
                         ? Component.translatableWithFallback(key, resolved)
                         : Component.translatable(key);

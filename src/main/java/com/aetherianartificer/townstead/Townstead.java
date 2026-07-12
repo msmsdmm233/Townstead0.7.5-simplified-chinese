@@ -439,6 +439,7 @@ public class Townstead {
                 com.aetherianartificer.townstead.calendar.AgeableCatchup.onEntityJoin(e.getEntity(), sl.getServer());
                 if (e.getEntity() instanceof VillagerEntityMCA villager) {
                     com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
+                    com.aetherianartificer.townstead.root.trait.TraitBridge.migrate(villager);
                 }
             }
         });
@@ -755,6 +756,7 @@ public class Townstead {
                 com.aetherianartificer.townstead.calendar.AgeableCatchup.onEntityJoin(e.getEntity(), sl.getServer());
                 if (e.getEntity() instanceof VillagerEntityMCA villager) {
                     com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
+                    com.aetherianartificer.townstead.root.trait.TraitBridge.migrate(villager);
                 }
             }
         });
