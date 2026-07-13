@@ -159,13 +159,19 @@ public final class RootCatalog {
                 conditionOf(gene.instance()));
     }
 
-    /** A particle or opacity gene's serialized gate, shipped so the client can test the same condition. */
+    /** A conditioned client-predicted gene's serialized gate, shipped so the client tests the same condition. */
     private static String conditionOf(com.aetherianartificer.townstead.root.gene.GeneInstance instance) {
         if (instance instanceof com.aetherianartificer.townstead.root.gene.types.ParticleGeneType.Instance p) {
             return p.conditionJson();
         }
         if (instance instanceof com.aetherianartificer.townstead.root.gene.types.OpacityGeneType.Instance o) {
             return o.conditionJson();
+        }
+        if (instance instanceof com.aetherianartificer.townstead.root.gene.types.InnateToolGeneType.Instance t) {
+            return t.conditionJson();
+        }
+        if (instance instanceof com.aetherianartificer.townstead.root.gene.types.BlockBreakSpeedGeneType.Instance b) {
+            return b.conditionJson();
         }
         return "";
     }

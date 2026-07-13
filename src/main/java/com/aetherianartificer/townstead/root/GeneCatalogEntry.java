@@ -422,6 +422,31 @@ public record GeneCatalogEntry(
         return out;
     }
 
+    /** True when this gene makes the empty mainhand act as a tool (item id rides in {@code targetId}). */
+    public boolean isInnateTool() {
+        return displayKind == GeneDisplay.Kind.INNATE_TOOL.ordinal();
+    }
+
+    /** An INNATE_TOOL gene's item id; empty otherwise. */
+    public String innateToolItem() {
+        return isInnateTool() && targetId != null ? targetId : "";
+    }
+
+    /** True when this gene scales dig speed against a block filter ({@code "#tag"} or block id in {@code targetId}). */
+    public boolean isBlockBreakSpeed() {
+        return displayKind == GeneDisplay.Kind.BLOCK_BREAK_SPEED.ordinal();
+    }
+
+    /** A BLOCK_BREAK_SPEED gene's block filter spec; empty otherwise. */
+    public String breakSpeedFilter() {
+        return isBlockBreakSpeed() && targetId != null ? targetId : "";
+    }
+
+    /** A BLOCK_BREAK_SPEED gene's speed multiplier (rides in {@code amount}); 1 otherwise. */
+    public float breakSpeedValue() {
+        return isBlockBreakSpeed() ? amount : 1f;
+    }
+
     public boolean isRecessive() {
         return dominanceOrdinal == com.aetherianartificer.townstead.root.gene.Dominance.RECESSIVE.ordinal();
     }

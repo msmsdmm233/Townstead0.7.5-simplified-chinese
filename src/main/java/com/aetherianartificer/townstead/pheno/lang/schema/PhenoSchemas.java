@@ -71,6 +71,20 @@ public final class PhenoSchemas {
                 .field(of("damage_type", PhenoType.ID))
                 .field(of("condition", PhenoType.CONDITION)).build());
 
+        NodeSchemas.register(NodeSchema.of("pheno:innate_tool", NodeDomain.GENE)
+                .doc("Empty mainhand counts as this item for harvest checks and dig speed. Never "
+                        + "occupies the hand and only ever upgrades (speed is max of hand and tool).")
+                .field(required("item", PhenoType.ID))
+                .field(of("condition", PhenoType.CONDITION)).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:block_break_speed", NodeDomain.GENE)
+                .doc("Multiplies dig speed against blocks matching a block tag or id; the "
+                        + "block-scoped complement to modifier break_speed.")
+                .field(of("tag", PhenoType.TAG_OR_ID).doc("Block tag to match."))
+                .field(of("block", PhenoType.ID).doc("Single block id to match (alternative to tag)."))
+                .field(of("value", PhenoType.FLOAT).doc("Speed multiplier; below 1 slows."))
+                .field(of("condition", PhenoType.CONDITION)).build());
+
         NodeSchemas.register(NodeSchema.of("pheno:glow", NodeDomain.GENE)
                 .doc("Makes the holder glow, optionally only while a condition holds.")
                 .field(of("condition", PhenoType.CONDITION)).build());

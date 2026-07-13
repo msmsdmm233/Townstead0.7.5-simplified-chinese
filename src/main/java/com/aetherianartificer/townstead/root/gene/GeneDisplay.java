@@ -19,7 +19,7 @@ package com.aetherianartificer.townstead.root.gene;
  */
 public record GeneDisplay(Kind kind, float min, float max, String targetId, float amount) {
 
-    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY, SKIN_OVERLAY, OPACITY }
+    public enum Kind { RANGE, BOOLEAN, INFLUENCE, COLOR, ATTACHMENT, VARIANTS, PROPORTIONS, HIDE_FEATURE, ABILITY, OVERLAY, PARTICLE, SUPPRESS_NEED, STUCK_IMMUNITY, BUOYANCY, SKIN_OVERLAY, OPACITY, INNATE_TOOL, BLOCK_BREAK_SPEED }
 
     public static final GeneDisplay PRESENCE = new GeneDisplay(Kind.BOOLEAN, 0f, 1f, "", 0f);
 
@@ -199,6 +199,26 @@ public record GeneDisplay(Kind kind, float min, float max, String targetId, floa
      */
     public static GeneDisplay opacity(float alpha) {
         return new GeneDisplay(Kind.OPACITY, clamp01(alpha), 1f, "", 0f);
+    }
+
+    /**
+     * An empty-hand-acts-as-tool gene; {@code targetId} carries the item id (e.g.
+     * {@code minecraft:stone_pickaxe}). Synced so the controlling client predicts the same
+     * dig speed / harvest result locally (block breaking is client-paced); the gene's
+     * condition rides the catalog's {@code conditionJson}. A presence chip in the picker.
+     */
+    public static GeneDisplay innateTool(String itemId) {
+        return new GeneDisplay(Kind.INNATE_TOOL, 0f, 1f, itemId == null ? "" : itemId, 0f);
+    }
+
+    /**
+     * A block-scoped dig-speed multiplier; {@code targetId} carries the block filter
+     * ({@code "#ns:tag"} or a block id), {@code amount} the multiplier. Synced for the same
+     * client-paced prediction as {@link #innateTool}; the gene's condition rides the
+     * catalog's {@code conditionJson}. A presence chip in the picker.
+     */
+    public static GeneDisplay blockBreakSpeed(String filterSpec, float value) {
+        return new GeneDisplay(Kind.BLOCK_BREAK_SPEED, 0f, 1f, filterSpec == null ? "" : filterSpec, value);
     }
 
     private static String fmt(float v) {

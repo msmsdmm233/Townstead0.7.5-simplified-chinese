@@ -678,11 +678,14 @@ public class Townstead {
             else e.setAmount(scaled);
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerEvent.BreakSpeed e) ->
-                e.setNewSpeed(com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
-                        com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed()))));
+                e.setNewSpeed(com.aetherianartificer.townstead.root.harvest.InnateTool.breakSpeed(e.getEntity(), e.getState(),
+                        com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
+                                com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed())))));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerEvent.HarvestCheck e) -> {
-            if (!e.canHarvest() && com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
-                    e.getEntity(), e.getTargetBlock())) {
+            if (!e.canHarvest() && (com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
+                    e.getEntity(), e.getTargetBlock())
+                    || com.aetherianartificer.townstead.root.harvest.InnateTool.allowsHarvest(
+                            e.getEntity(), e.getTargetBlock()))) {
                 e.setCanHarvest(true);
             }
         });
@@ -1007,11 +1010,14 @@ public class Townstead {
             else e.setAmount(scaled);
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerEvent.BreakSpeed e) ->
-                e.setNewSpeed(com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
-                        com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed()))));
+                e.setNewSpeed(com.aetherianartificer.townstead.root.harvest.InnateTool.breakSpeed(e.getEntity(), e.getState(),
+                        com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
+                                com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed())))));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerEvent.HarvestCheck e) -> {
-            if (!e.canHarvest() && com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
-                    e.getEntity(), e.getTargetBlock())) {
+            if (!e.canHarvest() && (com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
+                    e.getEntity(), e.getTargetBlock())
+                    || com.aetherianartificer.townstead.root.harvest.InnateTool.allowsHarvest(
+                            e.getEntity(), e.getTargetBlock()))) {
                 e.setCanHarvest(true);
             }
         });
@@ -1226,6 +1232,10 @@ public class Townstead {
                     new com.aetherianartificer.townstead.root.gene.types.InventoryGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.RecipeGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.InnateToolGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.BlockBreakSpeedGeneType());
 
             // Condition types that gate conditioned genes (Apoli entity-condition subset)
             registerConditionTypes();
