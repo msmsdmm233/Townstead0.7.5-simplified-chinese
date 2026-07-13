@@ -94,6 +94,15 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
                 || (thirstOn() && needs.thirst() <= ThirstData.ADEQUATE_THRESHOLD);
     }
 
+    /** During rest hours the task is drink-only: no meals, and never while asleep. */
+    private static boolean resting(VillagerEntityMCA villager) {
+        return currentScheduleActivity(villager) == Activity.REST;
+    }
+
+    private static boolean shouldStartResting(TownsteadVillager.Needs needs) {
+        return thirstOn() && needs.thirst() <= ThirstData.ADEQUATE_THRESHOLD;
+    }
+
     private static boolean emergency(TownsteadVillager.Needs needs) {
         return (hungerOn() && needs.hunger() <= HungerData.EMERGENCY_THRESHOLD)
                 || (thirstOn() && needs.thirst() <= ThirstData.EMERGENCY_THRESHOLD);
@@ -114,7 +123,8 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
     protected boolean checkExtraStartConditions(ServerLevel level, VillagerEntityMCA villager) {
         if (!hungerOn() && !thirstOn()) return false;
         if (VillagerConsumptionManager.isConsuming(villager)) return false;
-        if (currentScheduleActivity(villager) == Activity.REST) return false;
+        boolean resting = resting(villager);
+        if (resting && villager.isSleeping()) return false;
         if (villager.getLastHurtByMob() != null) return false;
 
         TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
@@ -132,7 +142,7 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
         // Outside of breaks, only an emergency pulls a villager off-task.
         if (currentScheduleActivity(villager) == Activity.WORK && !emergency(needs)) return false;
 
-        return shouldStart(needs);
+        return resting ? shouldStartResting(needs) : shouldStart(needs);
     }
 
     @Override
@@ -195,7 +205,7 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
     private void tickConsume(ServerLevel level, VillagerEntityMCA villager, TownsteadVillager.Needs needs, long gameTime) {
         if (VillagerConsumptionManager.isConsuming(villager)) return; // current bite/sip in progress
 
-        boolean food = wantsFood(needs);
+        boolean food = wantsFood(needs) && !resting(villager);
         boolean drink = wantsDrink(needs);
         if (!food && !drink) { doStop(level, villager, gameTime); return; } // satiated
 
@@ -234,8 +244,11 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
     @Override
     protected boolean canStillUse(ServerLevel level, VillagerEntityMCA villager, long gameTime) {
         if (villager.getLastHurtByMob() != null) return false;
-        if (currentScheduleActivity(villager) == Activity.REST) return false;
         TownsteadVillager.Needs needs = TownsteadVillagers.get(villager).needs();
+        if (resting(villager)) {
+            if (villager.isSleeping()) return false;
+            if (!wantsDrink(needs)) return false;
+        }
         if (!wantsFood(needs) && !wantsDrink(needs)) return false; // satiated
         if (phase == Phase.ACQUIRE && targetType == TargetType.NONE) return false;
         return true;
@@ -257,7 +270,7 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
 
     private boolean hasRationFor(VillagerEntityMCA villager, TownsteadVillager.Needs needs) {
         SimpleContainer inv = villager.getInventory();
-        if (wantsFood(needs) && bestFoodSlot(inv) >= 0) return true;
+        if (wantsFood(needs) && !resting(villager) && bestFoodSlot(inv) >= 0) return true;
         return wantsDrink(needs) && bestDrinkSlot(inv, ThirstBridgeResolver.get()) >= 0;
     }
 
@@ -286,7 +299,7 @@ public class RefuelTask extends Behavior<VillagerEntityMCA> {
 
     /** Picks a source for whichever need is unsatisfied and lacks a ration. Food is prioritized. */
     private boolean beginAcquire(ServerLevel level, VillagerEntityMCA villager, TownsteadVillager.Needs needs) {
-        if (wantsFood(needs) && bestFoodSlot(villager.getInventory()) < 0) {
+        if (wantsFood(needs) && !resting(villager) && bestFoodSlot(villager.getInventory()) < 0) {
             if (acquireFood(level, villager)) { acquiring = Need.FOOD; setAcquireWalkTarget(villager); return true; }
         }
         if (wantsDrink(needs) && bestDrinkSlot(villager.getInventory(), ThirstBridgeResolver.get()) < 0) {

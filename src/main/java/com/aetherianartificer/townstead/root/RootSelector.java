@@ -52,20 +52,22 @@ public final class RootSelector {
      */
     public static Selection select(Level level, BlockPos pos, RandomSource random,
                                    Predicate<ResourceLocation> allowed) {
+        // Server-config blocklist applies to every founder roll, on top of the caller's filter.
+        Predicate<ResourceLocation> permitted = id -> !RootBlocklist.isBlocked(id) && allowed.test(id);
         Holder<Biome> biome = level.getBiome(pos);
         ResourceLocation biomeId = biome.unwrapKey().map(ResourceKey::location).orElse(null);
         Set<ResourceLocation> tagIds = new HashSet<>();
         biome.tags().forEach(t -> tagIds.add(t.location()));
         ResourceLocation dimId = level.dimension().location();
 
-        ResourceLocation chosen = weightedPick(RootRegistry.all(), biomeId, tagIds, dimId, random, allowed);
+        ResourceLocation chosen = weightedPick(RootRegistry.all(), biomeId, tagIds, dimId, random, permitted);
         if (chosen == null) return new Selection(null, null);
 
         ResourceLocation speciesId = RootRegistry.effectiveSpecies(chosen);
         Species species = SpeciesRegistry.byId(speciesId);
         float chance = species == null ? 0f : species.admixtureChance();
         if (chance > 0f && random.nextFloat() < chance) {
-            List<Weighted> mix = rollMix(speciesId, biomeId, tagIds, dimId, random, allowed);
+            List<Weighted> mix = rollMix(speciesId, biomeId, tagIds, dimId, random, permitted);
             if (mix.size() > 1) return new Selection(null, mix);
         }
         return new Selection(chosen, null);

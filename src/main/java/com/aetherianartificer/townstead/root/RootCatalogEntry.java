@@ -47,7 +47,10 @@ public record RootCatalogEntry(
         // render a different model; the client renderer indexes it by the villager's current stage.
         List<String> stageRigs,
         // Data-pack Character-editor layout from the species (null = keep MCA's full native tab).
-        CharacterEditorLayout characterEditor
+        CharacterEditorLayout characterEditor,
+        // Server-config blocklisted: hidden from picker lists and rejected on apply, but kept in the
+        // catalog so entities that already carry this root still resolve their rig/labels client-side.
+        boolean blocked
 ) {
     /** A gene this origin inherits, with its base occurrence (presence probability). */
     public record Inherited(String geneId, float occurrence) {}

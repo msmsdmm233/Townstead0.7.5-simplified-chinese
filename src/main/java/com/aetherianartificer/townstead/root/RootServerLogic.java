@@ -197,7 +197,9 @@ public final class RootServerLogic {
     @Nullable
     private static ResourceLocation resolveKnown(String rootId) {
         ResourceLocation id = DataPackLang.parseId(rootId);
-        return id != null && RootRegistry.byId(id) != null ? id : null;
+        if (id == null || RootRegistry.byId(id) == null) return null;
+        // The picker hides blocked roots; rejecting here keeps a modified client from applying one.
+        return RootBlocklist.isBlocked(id) ? null : id;
     }
 
     /** Treat an unset origin as the default (everyone is an Overworlder by default). */

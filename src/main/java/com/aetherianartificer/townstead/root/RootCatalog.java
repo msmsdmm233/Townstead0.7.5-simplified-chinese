@@ -81,7 +81,8 @@ public final class RootCatalog {
                     spc != null ? spc.animations() : Animations.DEFAULT,
                     spc == null || spc.breasts(),
                     stageRigsFor(origin.id()),
-                    spc != null ? spc.characterEditor() : null));
+                    spc != null ? spc.characterEditor() : null,
+                    RootBlocklist.isBlocked(origin.id())));
         }
         // Every registered gene gets a catalog entry, not just origin-wired ones: a gene
         // granted outright (/townstead gene grant, or a pack gene awaiting wiring) still
