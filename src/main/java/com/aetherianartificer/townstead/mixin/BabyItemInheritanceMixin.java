@@ -37,5 +37,8 @@ public abstract class BabyItemInheritanceMixin {
         Heredity.inheritFromEntities(TownsteadVillagers.get(child).life(), parents, child.getRandom());
         // Re-align stage durations to the (possibly newly inherited) origin's cycle.
         RootSpawnHandler.backfillIfMissing(child);
+        // birthChild spawned the child mid-method, so nearby players already received
+        // the founder-seeded placeholder sync; re-push the inherited state.
+        RootSpawnHandler.broadcastLateInheritance(child);
     }
 }

@@ -62,12 +62,13 @@ public final class DirectBirth {
     }
 
     /** Spawn the mother's whole clutch at her position, inheriting from both parents. */
-    public static void spawnOffspring(VillagerEntityMCA mother, Entity spouse) {
-        if (!(mother.level() instanceof ServerLevel level)) return;
+    public static List<VillagerEntityMCA> spawnOffspring(VillagerEntityMCA mother, Entity spouse) {
+        if (!(mother.level() instanceof ServerLevel level)) return List.of();
         int litter = LitterSize.roll(mother, mother.getRandom());
         boolean playerCoParent = !(spouse instanceof VillagerEntityMCA);
         VillagerEntityMCA geneticPartner = spouse instanceof VillagerEntityMCA v ? v : mother;
         RandomSource random = mother.getRandom();
+        List<VillagerEntityMCA> born = new java.util.ArrayList<>(litter);
 
         SPAWNING.set(true);
         try {
@@ -91,9 +92,11 @@ public final class DirectBirth {
 
                 scatterAround(child, mother, random);
                 WorldUtils.spawnEntity(level, child, MobSpawnType.BREEDING);
+                born.add(child);
             }
         } finally {
             SPAWNING.set(false);
         }
+        return born;
     }
 }

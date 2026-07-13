@@ -190,6 +190,38 @@ public final class RootSpawnHandler {
     }
 
     /**
+     * Re-push a late-inherited child's genetics to clients already tracking it. The
+     * baby-item birth path spawns the child inside MCA's {@code birthChild}, so
+     * StartTracking synced the founder-seeded placeholder state to nearby players
+     * before the inheritance hook ran; without a re-push the watching player keeps
+     * rendering the placeholder genes (no gnome ears on a half-gnome newborn) until
+     * the entity is re-tracked. Mirrors onTrueSpawn's fertility reflection and flush,
+     * which also ran against the placeholder genotype.
+     */
+    public static void broadcastLateInheritance(VillagerEntityMCA child) {
+        com.aetherianartificer.townstead.root.reproduction.Fertility.syncMcaInfertileTrait(child);
+        TownsteadVillagers.flush(child);
+        TownsteadVillager state = TownsteadVillagers.get(child);
+        RootSyncS2CPayload rootSync = new RootSyncS2CPayload(child.getId(), state.life().rootId());
+        ExpressedGenesS2CPayload genes = ExpressedGenesS2CPayload.forEntity(child.getId(), child);
+        com.aetherianartificer.townstead.calendar.VillagerLifeSyncPayload lifeSync =
+                com.aetherianartificer.townstead.Townstead.townstead$lifeSync(child);
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(child, rootSync);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(child, genes);
+        if (lifeSync != null) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(child, lifeSync);
+        }
+        //?} else if forge {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(child, rootSync);
+        com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(child, genes);
+        if (lifeSync != null) {
+            com.aetherianartificer.townstead.TownsteadNetwork.sendToTrackingEntity(child, lifeSync);
+        }
+        *///?}
+    }
+
+    /**
      * Roll each trait-granting gene the origin expresses once at spawn and grant the matching
      * MCA trait. A gene's occurrence ({@code force}/{@code delta}) is the spawn probability;
      * ≥1.0 is guaranteed. MCA owns membership (persisted, synced, heritable); Townstead's effect

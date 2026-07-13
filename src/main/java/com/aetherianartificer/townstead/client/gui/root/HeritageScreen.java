@@ -35,6 +35,10 @@ public class HeritageScreen extends Screen {
     private final UUID villagerUuid;
     private final Screen parent;
 
+    // Gene-list scroll state; the max is recomputed every frame from the live layout.
+    private double geneScroll = 0;
+    private int geneMaxScroll = 0;
+
     public HeritageScreen(VillagerLike<?> villager) {
         this(villager.asEntity().getUUID(), Minecraft.getInstance().screen);
     }
@@ -101,13 +105,15 @@ public class HeritageScreen extends Screen {
             return;
         }
 
-        // Measure content height: header (2 lines) + ancestry block + genes block.
+        // Measure content height: header (2 lines) + ancestry block + genes block. A long
+        // genome would run past the screen (and under the Done button), so the panel is
+        // clamped to the space above the button and the gene list scrolls inside it.
         int ancestryRows = data.ancestry().size();
         int geneRows = data.genes().size();
         int contentH = 14 + 12                                   // race name + origin subtitle
                 + 12 + 13 + ancestryRows * 11                     // "Ancestry" + stacked bar + legend
                 + (geneRows > 0 ? 5 + 12 + geneRows * (ROW_H + GAP) : 0); // gap + "Genes" label + rows
-        int panelH = contentH + PAD * 2;
+        int panelH = Math.min(contentH + PAD * 2, height - 24 - 32);
 
         int x0 = (width - PANEL_W) / 2;
         int y0 = Math.max(24, (height - panelH) / 2 - 10);
@@ -157,18 +163,42 @@ public class HeritageScreen extends Screen {
         }
 
         // Gene rows: expressed value + carrier dot; full stat-block tooltip on hover.
+        // Scrolls inside the clamped panel when the genome doesn't fit; a slim
+        // scrollbar in the right gutter shows position.
         HeritageSyncPayload.GeneRow hoveredRow = null;
         if (geneRows > 0) {
             y += 5; // breathing room between the ancestry block and the genes list
             g.drawString(font, Component.translatable("townstead.heritage.genes"), left, y, 0xFFC8C8C8, false);
             y += 12;
+            int viewTop = y;
+            int viewBottom = y0 + panelH - PAD;
+            int viewH = Math.max(ROW_H, viewBottom - viewTop);
+            int genesH = geneRows * (ROW_H + GAP) - GAP;
+            geneMaxScroll = Math.max(0, genesH - viewH);
+            geneScroll = Math.max(0, Math.min(geneScroll, geneMaxScroll));
+            int rowW = geneMaxScroll > 0 ? innerW - 6 : innerW; // free a gutter for the scrollbar
+            g.enableScissor(left, viewTop, left + innerW, viewBottom);
+            int rowY = viewTop - (int) geneScroll;
             for (HeritageSyncPayload.GeneRow row : data.genes()) {
-                drawGeneRow(g, font, row, left, y, innerW, mouseX, mouseY);
-                if (mouseX >= left && mouseX <= left + innerW && mouseY >= y && mouseY <= y + ROW_H) {
-                    hoveredRow = row;
+                if (rowY + ROW_H >= viewTop && rowY <= viewBottom) {
+                    drawGeneRow(g, font, row, left, rowY, rowW, mouseX, mouseY);
+                    if (mouseX >= left && mouseX <= left + rowW && mouseY >= rowY && mouseY <= rowY + ROW_H
+                            && mouseY >= viewTop && mouseY <= viewBottom) {
+                        hoveredRow = row;
+                    }
                 }
-                y += ROW_H + GAP;
+                rowY += ROW_H + GAP;
             }
+            g.disableScissor();
+            if (geneMaxScroll > 0) {
+                int trackX = left + innerW - 2;
+                g.fill(trackX, viewTop, trackX + 2, viewBottom, 0xFF0A0A0A);
+                int thumbH = Math.max(8, viewH * viewH / genesH);
+                int thumbY = viewTop + (int) Math.round((viewH - thumbH) * (geneScroll / geneMaxScroll));
+                g.fill(trackX, thumbY, trackX + 2, thumbY + thumbH, 0xFF9A9A9A);
+            }
+        } else {
+            geneMaxScroll = 0;
         }
 
         // Tooltip last, so it sits above the panel.
@@ -263,6 +293,27 @@ public class HeritageScreen extends Screen {
     private static int ancestryColor(String name) {
         int h = name == null ? 0 : name.hashCode();
         return ANCESTRY_PALETTE[Math.floorMod(h, ANCESTRY_PALETTE.length)];
+    }
+
+    //? if neoforge {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollGenes(scrollY)) return true;
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+    //?} else {
+    /*@Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scroll) {
+        if (scrollGenes(scroll)) return true;
+        return super.mouseScrolled(mouseX, mouseY, scroll);
+    }
+    *///?}
+
+    /** One wheel notch moves the gene list one row; no-op when everything fits. */
+    private boolean scrollGenes(double delta) {
+        if (geneMaxScroll <= 0) return false;
+        geneScroll = Math.max(0, Math.min(geneScroll - delta * (ROW_H + GAP), geneMaxScroll));
+        return true;
     }
 
     @Override
