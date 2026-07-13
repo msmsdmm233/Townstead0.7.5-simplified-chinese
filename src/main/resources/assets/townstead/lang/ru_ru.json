@@ -54,6 +54,8 @@
   "townstead.configuration.needs.thirst.enableCookWaterPurification.tooltip": "Позволяет поварам по случаю очищать бутылки с грязной водой в доступных кухонных сковородах.",
   "townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles": "Сдача бутылок на кухню",
   "townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles.tooltip": "Отдавать предпочтение складыванию пустых бутылок в кухонное хранилище после питья.",
+  "townstead.configuration.needs.thirst.preferredBackend": "Предпочитаемый мод жажды",
+  "townstead.configuration.needs.thirst.preferredBackend.tooltip": "Какой мод жажды управляет жаждой жителей, если установлено несколько. Авто предпочитает Legendary Survival Overhaul, затем Thirst Was Reclaimed или Thirst Was Taken.",
   "townstead.configuration.farming": "Земледелие",
   "townstead.configuration.farming.tooltip": "Управляет поведением ИИ жителей-фермеров и параметрами фермы.",
   "townstead.configuration.farming.enableFarmAssist": "Включить помощь на ферме",

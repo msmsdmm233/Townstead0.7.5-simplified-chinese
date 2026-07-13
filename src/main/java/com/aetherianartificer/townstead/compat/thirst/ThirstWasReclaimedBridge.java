@@ -3,6 +3,8 @@ package com.aetherianartificer.townstead.compat.thirst;
 import com.aetherianartificer.townstead.Townstead;
 import com.aetherianartificer.townstead.compat.ModCompat;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
@@ -11,9 +13,19 @@ import net.minecraft.world.level.Level;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.Supplier;
 
-public final class ThirstWasTakenBridge implements ThirstCompatBridge {
-    public static final ThirstWasTakenBridge INSTANCE = new ThirstWasTakenBridge();
+/**
+ * Bridge for Thirst Was Reclaimed (mlus's continuation of Thirst Was Taken; ships per-version
+ * branches for 1.20.1 Forge and 1.21.1 NeoForge). Shares the "thirst" mod id with Thirst Was
+ * Taken; distinguished by the relocated cn.mlus.thirst API package. Config field names,
+ * campfire purification recipes, and the HUD icon sheet are unchanged from Thirst Was Taken.
+ * Player thirst has no static helper: recent builds mirror it into the entity's persistent
+ * data; older builds need the loader-specific store (NeoForge attachment on 1.21.1, Forge
+ * capability on 1.20.1).
+ */
+public final class ThirstWasReclaimedBridge implements ThirstCompatBridge {
+    public static final ThirstWasReclaimedBridge INSTANCE = new ThirstWasReclaimedBridge();
     //? if >=1.21 {
     private static final ResourceLocation THIRST_ICONS =
             ResourceLocation.fromNamespaceAndPath("thirst", "textures/gui/thirst_icons.png");
@@ -22,7 +34,13 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
             new ResourceLocation("thirst", "textures/gui/thirst_icons.png");
     *///?}
 
-    private static final int FALLBACK_DEFAULT_PURITY = 2;
+    // TWR has no DEFAULT_PURITY config; unknown/missing purity resolves to
+    // WaterPurity MAX_PURITY = 3 (purified) on both version branches.
+    private static final int DEFAULT_PURITY = 3;
+
+    // PlayerThirst.PERSISTENT_DATA_KEY / PERSISTENT_THIRST_KEY
+    private static final String PERSISTENT_DATA_KEY = "thirst:player_thirst";
+    private static final String PERSISTENT_THIRST_KEY = "thirst";
     private static final int FALLBACK_DIRTY_NAUSEA = 100;
     private static final int FALLBACK_DIRTY_POISON = 30;
     private static final int FALLBACK_SLIGHTLY_DIRTY_NAUSEA = 50;
@@ -45,10 +63,17 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
     private Method getThirstMethod;
     private Method getQuenchedMethod;
     private Method getPurityMethod;
-    private Method getPlayerThirstMethod;
     private Class<?> commonConfigClass;
 
-    private ThirstWasTakenBridge() {}
+    private Supplier<?> playerThirstAttachmentSupplier;
+    private Object playerThirstAttachmentType;
+    private Method getDataMethod;
+    private Object playerThirstCapability;
+    private Method getCapabilityMethod;
+    private Method lazyOptionalOrElseMethod;
+    private Method thirstDataGetThirstMethod;
+
+    private ThirstWasReclaimedBridge() {}
 
     @Override
     public boolean isActive() {
@@ -118,14 +143,14 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
 
     @Override
     public int purity(ItemStack stack) {
-        if (stack.isEmpty()) return readConfigInt("DEFAULT_PURITY", FALLBACK_DEFAULT_PURITY);
+        if (stack.isEmpty()) return DEFAULT_PURITY;
         initIfNeeded();
-        if (!active || getPurityMethod == null) return readConfigInt("DEFAULT_PURITY", FALLBACK_DEFAULT_PURITY);
+        if (!active || getPurityMethod == null) return DEFAULT_PURITY;
         try {
             Object value = getPurityMethod.invoke(null, stack);
             if (value instanceof Number n) return n.intValue();
         } catch (Exception ignored) {}
-        return readConfigInt("DEFAULT_PURITY", FALLBACK_DEFAULT_PURITY);
+        return DEFAULT_PURITY;
     }
 
     @Override
@@ -168,7 +193,7 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
 
     @Override
     public PurityResult evaluatePurity(int purity, RandomSource random) {
-        int normalizedPurity = Math.max(0, Math.min(3, purity < 0 ? readConfigInt("DEFAULT_PURITY", FALLBACK_DEFAULT_PURITY) : purity));
+        int normalizedPurity = Math.max(0, Math.min(3, purity < 0 ? DEFAULT_PURITY : purity));
         float chance = random.nextFloat();
 
         int sicknessPct;
@@ -221,12 +246,71 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
     public double playerThirst(Player player) {
         if (player == null) return Double.NaN;
         initIfNeeded();
-        if (!active || getPlayerThirstMethod == null) return Double.NaN;
+        if (!active) return Double.NaN;
+
+        // Recent TWR builds mirror thirst into persistent data on every server-side
+        // change and client sync; loader-agnostic, so try it first.
+        CompoundTag persistent = player.getPersistentData();
+        if (persistent.contains(PERSISTENT_DATA_KEY, Tag.TAG_COMPOUND)) {
+            return persistent.getCompound(PERSISTENT_DATA_KEY).getInt("thirst");
+        }
+        if (persistent.contains(PERSISTENT_THIRST_KEY, Tag.TAG_INT)) {
+            return persistent.getInt(PERSISTENT_THIRST_KEY);
+        }
+
+        if (thirstDataGetThirstMethod == null) return Double.NaN;
+        Object thirstData = attachmentThirstData(player);
+        if (thirstData == null) thirstData = capabilityThirstData(player);
+        if (thirstData == null) return Double.NaN;
         try {
-            Object value = getPlayerThirstMethod.invoke(null, player);
+            Object value = thirstDataGetThirstMethod.invoke(thirstData);
             if (value instanceof Number n) return n.doubleValue();
         } catch (Exception ignored) {}
         return Double.NaN;
+    }
+
+    // 1.21.1 NeoForge builds without the persistent-data mirror.
+    private Object attachmentThirstData(Player player) {
+        Object attachmentType = resolveAttachmentType();
+        if (attachmentType == null) return null;
+        try {
+            if (getDataMethod == null) {
+                getDataMethod = player.getClass().getMethod("getData",
+                        Class.forName("net.neoforged.neoforge.attachment.AttachmentType"));
+            }
+            return getDataMethod.invoke(player, attachmentType);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    // 1.20.1 Forge builds without the persistent-data mirror.
+    private Object capabilityThirstData(Player player) {
+        if (playerThirstCapability == null) return null;
+        try {
+            if (getCapabilityMethod == null) {
+                getCapabilityMethod = player.getClass().getMethod("getCapability",
+                        Class.forName("net.minecraftforge.common.capabilities.Capability"));
+            }
+            Object lazyOptional = getCapabilityMethod.invoke(player, playerThirstCapability);
+            if (lazyOptional == null) return null;
+            if (lazyOptionalOrElseMethod == null) {
+                lazyOptionalOrElseMethod = lazyOptional.getClass().getMethod("orElse", Object.class);
+            }
+            return lazyOptionalOrElseMethod.invoke(lazyOptional, (Object) null);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    // Resolved lazily: the DeferredRegister supplier throws until registries are baked.
+    private Object resolveAttachmentType() {
+        if (playerThirstAttachmentType != null) return playerThirstAttachmentType;
+        if (playerThirstAttachmentSupplier == null) return null;
+        try {
+            playerThirstAttachmentType = playerThirstAttachmentSupplier.get();
+        } catch (Exception ignored) {}
+        return playerThirstAttachmentType;
     }
 
     private void initIfNeeded() {
@@ -237,66 +321,55 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
             return;
         }
         try {
-            // Thirst Was Reclaimed reuses the "thirst" mod id and ships a dev.ghen
-            // shim, but relocates its real API; ThirstWasReclaimedBridge handles it.
             Class.forName("cn.mlus.thirst.api.ThirstHelper");
+        } catch (ClassNotFoundException e) {
+            // "thirst" mod id but no relocated package: this is Thirst Was Taken.
             active = false;
             return;
-        } catch (ClassNotFoundException ignored) {}
+        }
         try {
-            Class<?> thirstHelper = Class.forName("dev.ghen.thirst.api.ThirstHelper");
-            commonConfigClass = Class.forName("dev.ghen.thirst.foundation.config.CommonConfig");
+            Class<?> thirstHelper = Class.forName("cn.mlus.thirst.api.ThirstHelper");
+            commonConfigClass = Class.forName("cn.mlus.thirst.foundation.config.CommonConfig");
             itemRestoresThirstMethod = thirstHelper.getMethod("itemRestoresThirst", ItemStack.class);
             isDrinkMethod = thirstHelper.getMethod("isDrink", ItemStack.class);
             getThirstMethod = thirstHelper.getMethod("getThirst", ItemStack.class);
             getQuenchedMethod = thirstHelper.getMethod("getQuenched", ItemStack.class);
             getPurityMethod = thirstHelper.getMethod("getPurity", ItemStack.class);
-            getPlayerThirstMethod = findPlayerThirstMethod(thirstHelper);
             try {
-                Class<?> waterPurity = Class.forName("dev.ghen.thirst.content.purity.WaterPurity");
+                Class<?> waterPurity = Class.forName("cn.mlus.thirst.content.purity.WaterPurity");
                 isPurityWaterContainerMethod = waterPurity.getMethod("isWaterFilledContainer", ItemStack.class);
             } catch (Exception ignored) {
                 isPurityWaterContainerMethod = null;
             }
+            try {
+                thirstDataGetThirstMethod = Class.forName("cn.mlus.thirst.foundation.common.capability.IThirst")
+                        .getMethod("getThirst");
+            } catch (Exception ignored) {
+                thirstDataGetThirstMethod = null;
+            }
+            try {
+                // 1.21.1 NeoForge branch
+                Class<?> modAttachment = Class.forName("cn.mlus.thirst.foundation.common.capability.ModAttachment");
+                Object supplier = modAttachment.getField("PLAYER_THIRST").get(null);
+                if (supplier instanceof Supplier<?> s) {
+                    playerThirstAttachmentSupplier = s;
+                }
+            } catch (Exception ignored) {
+                playerThirstAttachmentSupplier = null;
+            }
+            try {
+                // 1.20.1 Forge branch
+                Class<?> modCapabilities = Class.forName("cn.mlus.thirst.foundation.common.capability.ModCapabilities");
+                playerThirstCapability = modCapabilities.getField("PLAYER_THIRST").get(null);
+            } catch (Exception ignored) {
+                playerThirstCapability = null;
+            }
             active = true;
-            Townstead.LOGGER.info("Thirst Was Taken compatibility enabled.");
+            Townstead.LOGGER.info("Thirst Was Reclaimed compatibility enabled.");
         } catch (Exception e) {
             active = false;
-            Townstead.LOGGER.warn("Failed to initialize Thirst Was Taken compatibility. Villager thirst integration disabled.", e);
+            Townstead.LOGGER.warn("Failed to initialize Thirst Was Reclaimed compatibility. Villager thirst integration disabled.", e);
         }
-    }
-
-    private static Method findPlayerThirstMethod(Class<?> owner) {
-        for (String name : new String[] { "getThirst", "getThirstLevel", "getHydration", "getHydrationLevel" }) {
-            try {
-                Method method = owner.getMethod(name, Player.class);
-                if (java.lang.reflect.Modifier.isStatic(method.getModifiers())
-                        && Number.class.isAssignableFrom(wrap(method.getReturnType()))) {
-                    return method;
-                }
-            } catch (NoSuchMethodException ignored) {}
-        }
-        for (Method method : owner.getMethods()) {
-            if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) continue;
-            if (!Number.class.isAssignableFrom(wrap(method.getReturnType()))) continue;
-            Class<?>[] params = method.getParameterTypes();
-            if (params.length == 1 && params[0].isAssignableFrom(Player.class)
-                    && method.getName().toLowerCase(java.util.Locale.ROOT).contains("thirst")) {
-                return method;
-            }
-        }
-        return null;
-    }
-
-    private static Class<?> wrap(Class<?> type) {
-        if (!type.isPrimitive()) return type;
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == float.class) return Float.class;
-        if (type == double.class) return Double.class;
-        if (type == short.class) return Short.class;
-        if (type == byte.class) return Byte.class;
-        return type;
     }
 
     private int readConfigInt(String fieldName, int fallback) {

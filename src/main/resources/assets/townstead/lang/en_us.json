@@ -57,6 +57,8 @@
   "townstead.configuration.needs.thirst.enableCookWaterPurification.tooltip": "Allow cooks to opportunistically purify impure water bottles in available kitchen skillets.",
   "townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles": "Kitchen Bottle Drop-Off",
   "townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles.tooltip": "Prefer depositing empty bottles into kitchen storage after drinking.",
+  "townstead.configuration.needs.thirst.preferredBackend": "Preferred Thirst Mod",
+  "townstead.configuration.needs.thirst.preferredBackend.tooltip": "Which thirst mod drives villager thirst when more than one is installed. Auto prefers Legendary Survival Overhaul, then Thirst Was Reclaimed or Thirst Was Taken.",
   "townstead.configuration.farming": "Farming",
   "townstead.configuration.farming.tooltip": "Controls farmer villager AI behavior and farm parameters.",
   "townstead.configuration.farming.enableFarmAssist": "Enable Farm Assist",

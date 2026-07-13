@@ -54,6 +54,8 @@
   "townstead.configuration.needs.thirst.enableCookWaterPurification.tooltip": "Erlaubt Köchen, bei Gelegenheit unreine Wasserflaschen in verfügbaren Küchenpfannen zu reinigen.",
   "townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles": "Flaschenabgabe in der Küche",
   "townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles.tooltip": "Bevorzugt das Ablegen leerer Flaschen im Küchenlager nach dem Trinken.",
+  "townstead.configuration.needs.thirst.preferredBackend": "Bevorzugte Durst-Mod",
+  "townstead.configuration.needs.thirst.preferredBackend.tooltip": "Welche Durst-Mod den Durst der Dorfbewohner steuert, wenn mehrere installiert sind. Auto bevorzugt Legendary Survival Overhaul, danach Thirst Was Reclaimed oder Thirst Was Taken.",
   "townstead.configuration.farming": "Ackerbau",
   "townstead.configuration.farming.tooltip": "Steuert das KI-Verhalten der Bauern-Dorfbewohner und die Hofparameter.",
   "townstead.configuration.farming.enableFarmAssist": "Hofhilfe aktivieren",

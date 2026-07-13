@@ -45,6 +45,7 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.BooleanValue THIRST_LETHAL_FALLBACK;
     public static final ModConfigSpec.BooleanValue ENABLE_COOK_WATER_PURIFICATION;
     public static final ModConfigSpec.BooleanValue PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES;
+    public static final ModConfigSpec.ConfigValue<String> PREFERRED_THIRST_BACKEND;
     public static final ModConfigSpec.BooleanValue ENABLE_FARM_ASSIST;
     public static final ModConfigSpec.BooleanValue ENABLE_WORK_SUPPLY_AUTOMATION;
     public static final ModConfigSpec.BooleanValue ENABLE_HARVEST_OUTPUT_STORAGE;
@@ -121,6 +122,7 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.BooleanValue THIRST_LETHAL_FALLBACK;
     public static final ForgeConfigSpec.BooleanValue ENABLE_COOK_WATER_PURIFICATION;
     public static final ForgeConfigSpec.BooleanValue PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES;
+    public static final ForgeConfigSpec.ConfigValue<String> PREFERRED_THIRST_BACKEND;
     public static final ForgeConfigSpec.BooleanValue ENABLE_FARM_ASSIST;
     public static final ForgeConfigSpec.BooleanValue ENABLE_WORK_SUPPLY_AUTOMATION;
     public static final ForgeConfigSpec.BooleanValue ENABLE_HARVEST_OUTPUT_STORAGE;
@@ -253,6 +255,12 @@ public final class TownsteadConfig {
                     .translation("townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles")
                     .comment("When villagers drink from bottles, prefer depositing empty bottles into kitchen storage.")
                     .define("preferKitchenStorageForEmptyBottles", true);
+            PREFERRED_THIRST_BACKEND = b
+                    .translation("townstead.configuration.needs.thirst.preferredBackend")
+                    .comment("Which thirst mod drives villager thirst when more than one is installed.",
+                             "\"auto\" prefers Legendary Survival Overhaul, then Thirst Was Reclaimed / Thirst Was Taken.",
+                             "\"legendary_survival_overhaul\" or \"thirst\" pins that backend, falling back to the other if it is not installed.")
+                    .defineInList("preferredBackend", "auto", List.of("auto", "legendary_survival_overhaul", "thirst"));
             b.pop();
         } else {
             ENABLE_SELF_INVENTORY_DRINKING = null;
@@ -263,6 +271,7 @@ public final class TownsteadConfig {
             THIRST_LETHAL_FALLBACK = null;
             ENABLE_COOK_WATER_PURIFICATION = null;
             PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES = null;
+            PREFERRED_THIRST_BACKEND = null;
         }
         // ── Fatigue ──
         b.translation("townstead.configuration.needs.fatigue").push("fatigue");
@@ -640,6 +649,16 @@ public final class TownsteadConfig {
 
     public static boolean isCookWaterPurificationEnabled() {
         return ENABLE_COOK_WATER_PURIFICATION != null && ENABLE_COOK_WATER_PURIFICATION.get();
+    }
+
+    /** Never throws: falls back to "auto" before the server config is loaded. */
+    public static String preferredThirstBackend() {
+        if (PREFERRED_THIRST_BACKEND == null) return "auto";
+        try {
+            return PREFERRED_THIRST_BACKEND.get();
+        } catch (IllegalStateException e) {
+            return "auto";
+        }
     }
 
     public static boolean isPreferKitchenStorageForEmptyBottlesEnabled() {
