@@ -109,11 +109,13 @@ public final class RootRegistry {
      * The species an assignment profile selects: its own {@code species}, else its
      * ancestry's, else its lineage ancestry's species.
      * {@code null} if none resolves. Used to gate mixing within a species.
+     * Always the {@linkplain SpeciesRegistry#canonicalId canonical} species id, so callers may
+     * compare results by equality regardless of which namespace a pack declared it under.
      */
     @Nullable
     public static ResourceLocation effectiveSpecies(@Nullable ResourceLocation id) {
         Root origin = resolveOrDefault(id);
-        return origin == null ? null : speciesOf(origin);
+        return origin == null ? null : SpeciesRegistry.canonicalId(speciesOf(origin));
     }
 
     @Nullable
@@ -179,7 +181,8 @@ public final class RootRegistry {
         int i = 0;
         for (InheritedGene ig : raw) {
             Gene gene = GeneRegistry.byId(ig.geneId());
-            Object key = gene != null && gene.locus() != null ? gene.locus() : "#" + i + ":" + ig.geneId();
+            Object key = gene != null && gene.locus() != null
+                    ? LegacyNamespace.canonical(gene.locus()) : "#" + i + ":" + ig.geneId();
             byKey.put(key, ig);
             i++;
         }

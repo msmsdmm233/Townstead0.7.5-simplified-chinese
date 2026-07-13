@@ -1,5 +1,6 @@
 package com.aetherianartificer.townstead.root.gene;
 
+import com.aetherianartificer.townstead.root.LegacyNamespace;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 
@@ -26,18 +27,24 @@ public final class Genotype {
     }
 
     public boolean has(ResourceLocation locus) {
-        return locus != null && loci.containsKey(locus);
+        return locus != null && loci.containsKey(LegacyNamespace.canonical(locus));
     }
 
     /** The two alleles at a locus, or null when the locus is absent. */
     public Allele[] at(ResourceLocation locus) {
-        Allele[] pair = loci.get(locus);
+        Allele[] pair = locus == null ? null : loci.get(LegacyNamespace.canonical(locus));
         return pair == null ? null : new Allele[]{pair[0], pair[1]};
     }
 
+    /**
+     * Locus keys are stored canonical: a legacy-namespace locus (an old save, or a pack still
+     * declaring {@code townstead_origins:}) is the same slot as its {@code townstead_roots:} twin,
+     * so both must pair — not coexist — when parents mix.
+     */
     public void set(ResourceLocation locus, Allele a, Allele b) {
         if (locus == null) return;
-        loci.put(locus, new Allele[]{a == null ? Allele.WILD : a, b == null ? Allele.WILD : b});
+        loci.put(LegacyNamespace.canonical(locus),
+                new Allele[]{a == null ? Allele.WILD : a, b == null ? Allele.WILD : b});
     }
 
     public List<ResourceLocation> loci() {

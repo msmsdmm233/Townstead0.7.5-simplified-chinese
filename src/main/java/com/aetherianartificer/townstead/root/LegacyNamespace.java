@@ -25,6 +25,16 @@ public final class LegacyNamespace {
                 RootRegistry.NAMESPACE + ":" + id.getPath());
     }
 
+    /**
+     * The id itself, with a legacy namespace folded onto {@code townstead_roots}. For ids used as
+     * plain keys (genotype loci, species comparisons) rather than registry lookups: both namespaces
+     * name the same slot, so keying must not distinguish them.
+     */
+    public static ResourceLocation canonical(ResourceLocation id) {
+        ResourceLocation remapped = remap(id);
+        return remapped == null ? id : remapped;
+    }
+
     /** The {@code townstead_roots:} form of a {@code townstead_origins:} key string, else {@code null}. */
     @Nullable
     public static String remapKey(@Nullable String key) {
