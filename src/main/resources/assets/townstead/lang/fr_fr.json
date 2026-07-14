@@ -144,6 +144,8 @@
   "townstead.configuration.debug.debugVillagerSleep": "Déboguer le sommeil des villageois",
   "townstead.configuration.debug.debugVillagerSleep.tooltip": "Active les journaux de débogage du sommeil/repos et les mises à jour d'état de débogage des villageois.",
   "townstead.configuration.debug.debugVillagerAI.tooltip": "Affiche des messages de débogage de l'IA des villageois (agriculteur, cuisinier, etc.) aux joueurs proches.",
+  "townstead.configuration.debug.debugLogging": "Journalisation de débogage",
+  "townstead.configuration.debug.debugLogging.tooltip": "Active la journalisation de diagnostic détaillée des sous-systèmes de Townstead (pont d'animation, etc.).",
   "townstead.configuration.calendar": "Calendrier",
   "townstead.configuration.calendar.tooltip": "Sélection du profil de calendrier du monde.",
   "townstead.configuration.calendar.profile": "Profil de calendrier",

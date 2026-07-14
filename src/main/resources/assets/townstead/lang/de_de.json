@@ -144,6 +144,8 @@
   "townstead.configuration.debug.debugVillagerSleep": "Dorfbewohner-Schlaf debuggen",
   "townstead.configuration.debug.debugVillagerSleep.tooltip": "Aktiviert Schlaf-/Ruhe-Debug-Logs und Aktualisierungen des Dorfbewohner-Debug-Status.",
   "townstead.configuration.debug.debugVillagerAI.tooltip": "Zeigt nahen Spielern Debug-Chatnachrichten zur Dorfbewohner-KI (Bauer, Koch usw.).",
+  "townstead.configuration.debug.debugLogging": "Debug-Protokollierung",
+  "townstead.configuration.debug.debugLogging.tooltip": "Aktiviert ausführliche Diagnoseprotokolle für Townstead-Subsysteme (Animationsbrücke usw.).",
   "townstead.configuration.calendar": "Kalender",
   "townstead.configuration.calendar.tooltip": "Auswahl des Weltkalenderprofils.",
   "townstead.configuration.calendar.profile": "Kalenderprofil",

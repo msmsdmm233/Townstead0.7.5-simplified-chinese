@@ -18,7 +18,10 @@ import net.minecraft.world.effect.MobEffect;
 *///?}
 
 /**
- * Applies a status effect to the actor.
+ * Applies a status effect to the actor. With {@code "stack":true} a re-application while
+ * the effect is already active raises the amplifier by one (capped at
+ * {@code max_amplifier}) and refreshes the duration, so repeated triggers ramp — a
+ * kill-chain bloodlust building Speed I, II, III.
  *
  * <p>JSON: {@code { "type":"pheno:apply_effect", "effect":"minecraft:speed",
  * "duration":200, "amplifier":1 }}</p>
@@ -38,15 +41,23 @@ public final class ApplyEffectActionType implements ActionType {
         if (id == null) return null;
         int duration = GsonHelper.getAsInt(json, "duration", 200);
         int amplifier = GsonHelper.getAsInt(json, "amplifier", 0);
+        boolean stack = GsonHelper.getAsBoolean(json, "stack", false);
+        int maxAmplifier = GsonHelper.getAsInt(json, "max_amplifier", 255);
         //? if neoforge {
         Holder<MobEffect> effect = BuiltInRegistries.MOB_EFFECT
                 .getHolder(ResourceKey.create(Registries.MOB_EFFECT, id)).orElse(null);
         if (effect == null) return null;
-        return ctx -> ctx.entity().addEffect(new MobEffectInstance(effect, duration, amplifier));
         //?} else {
         /*MobEffect effect = BuiltInRegistries.MOB_EFFECT.get(id);
         if (effect == null) return null;
-        return ctx -> ctx.entity().addEffect(new MobEffectInstance(effect, duration, amplifier));
         *///?}
+        return ctx -> {
+            int amp = amplifier;
+            if (stack) {
+                MobEffectInstance current = ctx.entity().getEffect(effect);
+                if (current != null) amp = Math.min(current.getAmplifier() + 1, maxAmplifier);
+            }
+            ctx.entity().addEffect(new MobEffectInstance(effect, duration, amp));
+        };
     }
 }

@@ -144,6 +144,8 @@
   "townstead.configuration.debug.debugVillagerSleep": "Налагодження сну жителів",
   "townstead.configuration.debug.debugVillagerSleep.tooltip": "Вмикає налагоджувальні логи сну/відпочинку та оновлення налагоджувального стану жителів.",
   "townstead.configuration.debug.debugVillagerAI.tooltip": "Показує налагоджувальні повідомлення чату про ШІ жителів (фермер, кухар тощо) ближнім гравцям.",
+  "townstead.configuration.debug.debugLogging": "Налагоджувальне логування",
+  "townstead.configuration.debug.debugLogging.tooltip": "Вмикає докладне діагностичне логування підсистем Townstead (міст анімацій тощо).",
   "townstead.configuration.calendar": "Календар",
   "townstead.configuration.calendar.tooltip": "Вибір профілю календаря світу.",
   "townstead.configuration.calendar.profile": "Профіль календаря",

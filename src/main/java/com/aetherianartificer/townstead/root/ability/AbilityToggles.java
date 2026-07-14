@@ -15,24 +15,48 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Per-entity on/off state for toggle-mode ability genes (transient; resets on
- * reload, like cooldowns). Flipped by the Root Ability key; read by the ability
- * ticker to decide whether a toggle ability applies this tick.
+ * Per-entity state for toggle-mode ability genes, stored as the DEVIATION from each
+ * gene's authored default (transient; a reload therefore restores the default — wings
+ * fold, darkvision comes back on). For the common default-off toggle the deviation
+ * set IS the on-set, so single-arg reads keep their historical meaning; default-on
+ * toggles must read through the default-aware overload. Flipped by the Root Ability
+ * key; read by the ability ticker to decide whether a toggle ability applies this tick.
  */
 public final class AbilityToggles {
 
-    private static final Map<UUID, Set<ResourceLocation>> ON = new ConcurrentHashMap<>();
+    private static final Map<UUID, Set<ResourceLocation>> FLIPPED = new ConcurrentHashMap<>();
 
     private AbilityToggles() {}
 
+    /** Raw deviation state — for a default-off toggle this reads as "on". */
     public static boolean isOn(LivingEntity entity, ResourceLocation geneId) {
-        Set<ResourceLocation> set = ON.get(entity.getUUID());
+        Set<ResourceLocation> set = FLIPPED.get(entity.getUUID());
         return set != null && set.contains(geneId);
     }
 
-    /** Flip a toggle ability's state; returns the new state. */
+    /** Effective state of a toggle-mode ability gene: its authored default XOR the flip. */
+    public static boolean isOn(LivingEntity entity, ResourceLocation geneId, boolean defaultOn) {
+        return defaultOn != isOn(entity, geneId);
+    }
+
+    /**
+     * Effective state resolved through the gene registry, for callers holding only the id
+     * (the {@code toggled} condition, diagnostics). Unknown / non-ability genes read as
+     * default-off (the raw deviation).
+     */
+    public static boolean isOnEffective(LivingEntity entity, ResourceLocation geneId) {
+        com.aetherianartificer.townstead.root.gene.Gene gene =
+                com.aetherianartificer.townstead.root.gene.GeneRegistry.byId(geneId);
+        boolean defaultOn = gene != null
+                && gene.instance() instanceof AbilityGeneType.Instance ability
+                && ability.mode() == AbilityGeneType.Mode.TOGGLE
+                && ability.defaultOn();
+        return defaultOn != isOn(entity, geneId);
+    }
+
+    /** Flip a toggle ability's state; returns whether it now deviates from its default. */
     public static boolean flip(LivingEntity entity, ResourceLocation geneId) {
-        Set<ResourceLocation> set = ON.computeIfAbsent(entity.getUUID(), k -> ConcurrentHashMap.newKeySet());
+        Set<ResourceLocation> set = FLIPPED.computeIfAbsent(entity.getUUID(), k -> ConcurrentHashMap.newKeySet());
         if (set.contains(geneId)) {
             set.remove(geneId);
             return false;
@@ -41,35 +65,43 @@ public final class AbilityToggles {
         return true;
     }
 
-    /** Force a toggle state (villager AI deploys and folds wings without a keybind). */
+    /**
+     * Force a toggle's deviation state (villager AI deploys and folds wings without a
+     * keybind). {@code on} is the effective state for the default-off genes this serves.
+     */
     public static void set(LivingEntity entity, ResourceLocation geneId, boolean on) {
-        Set<ResourceLocation> set = ON.computeIfAbsent(entity.getUUID(), k -> ConcurrentHashMap.newKeySet());
+        Set<ResourceLocation> set = FLIPPED.computeIfAbsent(entity.getUUID(), k -> ConcurrentHashMap.newKeySet());
         if (on) set.add(geneId);
         else set.remove(geneId);
     }
 
-    /** Whether the entity has any toggle switched on — a cheap gate for per-tick AI. */
+    /** Whether the entity has any toggle deviating from its default — a cheap gate for per-tick AI. */
     public static boolean hasAny(LivingEntity entity) {
-        Set<ResourceLocation> set = ON.get(entity.getUUID());
+        Set<ResourceLocation> set = FLIPPED.get(entity.getUUID());
         return set != null && !set.isEmpty();
     }
 
     /**
-     * Every expressed gene whose state lives in this map and is currently on: toggle-mode
-     * abilities AND standalone {@code pheno:toggle} genes. Both sync paths must use this —
-     * filtering by one gene kind silently strands the other kind's state server-side
-     * (the client gates then never fire, invisibly).
+     * Every expressed gene whose state lives in this map and is currently EFFECTIVELY on:
+     * toggle-mode abilities (default XOR flip) AND standalone {@code pheno:toggle} genes
+     * (default-off). Both sync paths must use this — filtering by one gene kind silently
+     * strands the other kind's state server-side (the client gates then never fire,
+     * invisibly). The wire carries effective state, so clients never need the defaults.
      */
     private static List<String> onSet(LivingEntity entity) {
         List<String> on = new ArrayList<>();
         for (Power gene : Powers.active(entity)) {
-            boolean toggleKind = gene.component() instanceof AbilityGeneType.Instance ability
-                    && ability.mode() == AbilityGeneType.Mode.TOGGLE
-                    || gene.component()
-                    instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance;
-            if (toggleKind && isOn(entity, gene.id())) {
-                on.add(gene.id().toString());
+            boolean state;
+            if (gene.component() instanceof AbilityGeneType.Instance ability
+                    && ability.mode() == AbilityGeneType.Mode.TOGGLE) {
+                state = isOn(entity, gene.id(), ability.defaultOn());
+            } else if (gene.component()
+                    instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance) {
+                state = isOn(entity, gene.id());
+            } else {
+                continue;
             }
+            if (state) on.add(gene.id().toString());
         }
         return on;
     }
@@ -84,8 +116,21 @@ public final class AbilityToggles {
         *///?}
     }
 
+    /**
+     * Send one entity's effective on-set to a single watcher (StartTracking / login
+     * catch-up), so default-on toggles read correctly client-side before any flip.
+     */
+    public static void syncToWatcher(ServerPlayer watcher, LivingEntity target) {
+        AbilityTogglesS2CPayload payload = new AbilityTogglesS2CPayload(target.getId(), onSet(target));
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(watcher, payload);
+        //?} else {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToPlayer(watcher, payload);
+        *///?}
+    }
+
     public static void clear(UUID uuid) {
-        ON.remove(uuid);
+        FLIPPED.remove(uuid);
     }
 
     /**

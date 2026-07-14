@@ -509,6 +509,7 @@ public class Townstead {
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
+                com.aetherianartificer.townstead.root.ability.AbilityToggles.syncTo(sp);
                 townstead$sendShiftTemplateSync(sp);
                 townstead$sendWeekPlanSync(sp);
                 PacketDistributor.sendToPlayer(sp, townstead$calendarSync(sp));
@@ -824,6 +825,7 @@ public class Townstead {
         });
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
+                com.aetherianartificer.townstead.root.ability.AbilityToggles.syncTo(sp);
                 TownsteadNetwork.sendShiftTemplateSync(sp);
                 TownsteadNetwork.sendWeekPlanSync(sp);
                 TownsteadNetwork.sendToPlayer(sp, townstead$calendarSync(sp));
@@ -1162,6 +1164,8 @@ public class Townstead {
                     new com.aetherianartificer.townstead.root.gene.types.AbilityGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.DamageModifierGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.AttackModifierGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.GlowGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
@@ -1597,6 +1601,10 @@ public class Townstead {
                 new com.aetherianartificer.townstead.pheno.action.types.TameActionType());
         com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
                 new com.aetherianartificer.townstead.pheno.action.types.SetInLoveActionType());
+        com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
+                new com.aetherianartificer.townstead.pheno.action.types.SetAttackTargetActionType());
+        com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
+                new com.aetherianartificer.townstead.pheno.action.types.DisarmActionType());
         // Entity actions (operate on the actor; some are player-only)
         com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
                 new com.aetherianartificer.townstead.pheno.action.types.AddXpActionType());
@@ -3516,6 +3524,7 @@ public class Townstead {
             /*TownsteadNetwork.sendToPlayer(sp, pSync);
             TownsteadNetwork.sendToPlayer(sp, pGenes);
             *///?}
+            com.aetherianartificer.townstead.root.ability.AbilityToggles.syncToWatcher(sp, trackedPlayer);
             return;
         }
 
@@ -3590,6 +3599,7 @@ public class Townstead {
         TownsteadNetwork.sendToPlayer(sp,
                 com.aetherianartificer.townstead.root.ExpressedGenesS2CPayload.forEntity(villager.getId(), villager));
         *///?}
+        com.aetherianartificer.townstead.root.ability.AbilityToggles.syncToWatcher(sp, villager);
     }
 
     public static HungerSyncPayload townstead$hungerSync(VillagerEntityMCA villager, CompoundTag hunger) {

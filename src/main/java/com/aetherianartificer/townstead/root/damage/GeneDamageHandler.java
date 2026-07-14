@@ -2,6 +2,7 @@ package com.aetherianartificer.townstead.root.damage;
 
 import com.aetherianartificer.townstead.root.ExpressedGenes;
 import com.aetherianartificer.townstead.pheno.condition.ConditionContext;
+import com.aetherianartificer.townstead.root.gene.types.AttackModifierGeneType;
 import com.aetherianartificer.townstead.root.gene.types.DamageModifierGeneType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -48,6 +49,18 @@ public final class GeneDamageHandler {
             result = com.aetherianartificer.townstead.root.hook.PhenoHooks.damageDealt(attacker, result);
             if (source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.Projectile) {
                 result = com.aetherianartificer.townstead.root.hook.PhenoHooks.projectileDamage(attacker, result);
+            }
+            // attack_modifier genes need the victim (bi-entity gates), so they resolve
+            // here rather than through the capability layer like damage_dealt.
+            List<AttackModifierGeneType.Instance> dealt =
+                    ExpressedGenes.instancesOf(attacker, AttackModifierGeneType.Instance.class);
+            if (!dealt.isEmpty()) {
+                ConditionContext attackerCtx = new ConditionContext(attacker);
+                for (AttackModifierGeneType.Instance gene : dealt) {
+                    if (gene.condition() != null && !gene.condition().test(attackerCtx)) continue;
+                    if (gene.bientityCondition() != null && !gene.bientityCondition().test(attacker, victim)) continue;
+                    result *= gene.modifier();
+                }
             }
         }
         return Math.max(0f, result);

@@ -144,6 +144,8 @@
   "townstead.configuration.debug.debugVillagerSleep": "Отладка сна жителей",
   "townstead.configuration.debug.debugVillagerSleep.tooltip": "Включает отладочные логи сна/отдыха и обновления отладочного состояния жителей.",
   "townstead.configuration.debug.debugVillagerAI.tooltip": "Показывает отладочные сообщения чата об ИИ жителей (фермер, повар и т. д.) ближайшим игрокам.",
+  "townstead.configuration.debug.debugLogging": "Отладочное логирование",
+  "townstead.configuration.debug.debugLogging.tooltip": "Включает подробное диагностическое логирование подсистем Townstead (мост анимаций и др.).",
   "townstead.configuration.calendar": "Календарь",
   "townstead.configuration.calendar.tooltip": "Выбор профиля календаря мира.",
   "townstead.configuration.calendar.profile": "Профиль календаря",

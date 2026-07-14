@@ -17,6 +17,7 @@ public enum Ability {
     LAVA_VISION("lava_vision", false),
     INVISIBILITY("invisibility", false),
     SWIMMING("swimming", false),
+    HIGH_JUMP("high_jump", false),
     WALK_ON_FLUID("walk_on_fluid", false),
     IGNORE_WATER("ignore_water", false),
     HOVER("hover", false),

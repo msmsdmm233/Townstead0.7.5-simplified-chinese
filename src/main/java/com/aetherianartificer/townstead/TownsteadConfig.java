@@ -97,6 +97,7 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.ConfigValue<Double> FATIGUE_NOCTURNAL_MULTIPLIER;
     public static final ModConfigSpec.ConfigValue<Double> FATIGUE_MISALIGNED_MULTIPLIER;
     public static final ModConfigSpec.BooleanValue DEBUG_VILLAGER_SLEEP;
+    public static final ModConfigSpec.BooleanValue DEBUG_LOGGING;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ROOTS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_SPECIES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ANCESTRIES;
@@ -178,6 +179,7 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.ConfigValue<Double> FATIGUE_NOCTURNAL_MULTIPLIER;
     public static final ForgeConfigSpec.ConfigValue<Double> FATIGUE_MISALIGNED_MULTIPLIER;
     public static final ForgeConfigSpec.BooleanValue DEBUG_VILLAGER_SLEEP;
+    public static final ForgeConfigSpec.BooleanValue DEBUG_LOGGING;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ROOTS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_SPECIES;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ANCESTRIES;
@@ -581,6 +583,10 @@ public final class TownsteadConfig {
                 .translation("townstead.configuration.debug.debugVillagerSleep")
                 .comment("Enable sleep/rest debug logs and villager debug state updates.")
                 .define("debugVillagerSleep", false);
+        DEBUG_LOGGING = b
+                .translation("townstead.configuration.debug.debugLogging")
+                .comment("Enable verbose Townstead diagnostic logging across subsystems (animation bridge, etc.).")
+                .define("debugLogging", false);
         b.pop();
 
         SERVER_SPEC = b.build();

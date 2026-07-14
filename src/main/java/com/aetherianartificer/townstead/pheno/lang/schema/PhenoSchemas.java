@@ -39,6 +39,8 @@ public final class PhenoSchemas {
                 .doc("Grants an innate ability (climbing, night vision, fire immunity, ...).")
                 .field(required("ability", PhenoType.STRING))
                 .field(of("mode", PhenoType.STRING).doc("passive or toggle."))
+                .field(of("default", PhenoType.STRING)
+                        .doc("Toggle-mode initial state: on or off (default off). Reload restores it."))
                 .field(of("slot", PhenoType.INT))
                 .field(of("condition", PhenoType.CONDITION)).build());
 
@@ -70,6 +72,13 @@ public final class PhenoSchemas {
                 .field(of("damage_tag", PhenoType.TAG_OR_ID))
                 .field(of("damage_type", PhenoType.ID))
                 .field(of("condition", PhenoType.CONDITION)).build());
+
+        NodeSchemas.register(NodeSchema.of("pheno:attack_modifier", NodeDomain.GENE)
+                .doc("Scales damage the bearer deals; the attacker-side twin of damage_modifier. "
+                        + "bientity_condition gates on (attacker, victim), e.g. a backstab facing check.")
+                .field(required("modifier", PhenoType.FLOAT))
+                .field(of("condition", PhenoType.CONDITION))
+                .field(of("bientity_condition", PhenoType.BIENTITY_CONDITION)).build());
 
         NodeSchemas.register(NodeSchema.of("pheno:innate_tool", NodeDomain.GENE)
                 .doc("Empty mainhand counts as this item for harvest checks and dig speed. Never "
@@ -131,6 +140,13 @@ public final class PhenoSchemas {
         NodeSchemas.register(NodeSchema.of("pheno:block_action", NodeDomain.ACTION)
                 .doc("Runs a block action at the actor's position.")
                 .field(required("block_action", PhenoType.BLOCK_ACTION)).primaryChild("block_action").build());
+        NodeSchemas.register(NodeSchema.of("pheno:set_attack_target", NodeDomain.ACTION)
+                .doc("Makes the acting mob attack the context's other entity (sets revenge target "
+                        + "and live target); optional condition filters which mobs answer.")
+                .field(of("condition", PhenoType.CONDITION)).build());
+        NodeSchemas.register(NodeSchema.of("pheno:disarm", NodeDomain.ACTION)
+                .doc("Knocks the acting mob's main-hand item to the ground; players and empty "
+                        + "hands are no-ops.").build());
         NodeSchemas.register(NodeSchema.of("pheno:equipped_item_action", NodeDomain.ACTION)
                 .doc("Runs an item action on an equipped slot.")
                 .field(of("slot", PhenoType.STRING))
@@ -148,7 +164,10 @@ public final class PhenoSchemas {
                 .doc("Applies a status effect.")
                 .field(required("effect", PhenoType.ID))
                 .field(of("duration", PhenoType.DURATION))
-                .field(of("amplifier", PhenoType.INT)).build());
+                .field(of("amplifier", PhenoType.INT))
+                .field(of("stack", PhenoType.BOOL)
+                        .doc("Re-application while active raises the amplifier by one and refreshes duration."))
+                .field(of("max_amplifier", PhenoType.INT).doc("Amplifier cap for stack mode.")).build());
         NodeSchemas.register(NodeSchema.of("pheno:item_cooldown", NodeDomain.ACTION)
                 .doc("Puts an item on cooldown.")
                 .field(of("item", PhenoType.ID))
