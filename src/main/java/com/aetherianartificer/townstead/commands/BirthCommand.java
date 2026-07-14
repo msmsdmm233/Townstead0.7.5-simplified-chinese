@@ -25,9 +25,14 @@ import java.util.List;
  * <ul>
  *   <li>{@code /townstead birth} births from the MCA villager the caller is
  *       looking at (or the nearest one within 16 blocks).
+ *   <li>{@code /townstead birth @target <father>} births from the looked-at
+ *       villager as mother with an explicit co-parent ({@code @target} is a
+ *       literal of this command, not a real entity selector).
  *   <li>{@code /townstead birth <mother>} births from an explicit mother; the
  *       co-parent is the mother's partner (villager or player), or the mother
  *       herself if unpartnered.
+ *   <li>{@code /townstead birth <mother> @target} births from an explicit
+ *       mother with the looked-at villager (never the mother herself) as father.
  *   <li>{@code /townstead birth <mother> <father>} births from two explicit
  *       parents; the father may be a villager or a player ({@code @s} to be the
  *       co-parent yourself).
@@ -49,11 +54,21 @@ public final class BirthCommand {
                 Commands.literal("townstead").then(Commands.literal("birth")
                         .requires(s -> s.hasPermission(2))
                         .executes(c -> birthAuto(c.getSource()))
+                        .then(Commands.literal("@target")
+                                .executes(c -> birthAuto(c.getSource()))
+                                .then(Commands.argument("father", EntityArgument.entity())
+                                        .executes(c -> birthLookedAt(
+                                                c.getSource(),
+                                                EntityArgument.getEntity(c, "father")))))
                         .then(Commands.argument("mother", EntityArgument.entity())
                                 .executes(c -> birthExplicit(
                                         c.getSource(),
                                         EntityArgument.getEntity(c, "mother"),
                                         null))
+                                .then(Commands.literal("@target")
+                                        .executes(c -> birthFatherLookedAt(
+                                                c.getSource(),
+                                                EntityArgument.getEntity(c, "mother"))))
                                 .then(Commands.argument("father", EntityArgument.entity())
                                         .executes(c -> birthExplicit(
                                                 c.getSource(),
@@ -67,13 +82,47 @@ public final class BirthCommand {
             source.sendFailure(Component.literal("This form must be run by a player. Supply <mother> instead."));
             return 0;
         }
-        VillagerEntityMCA mother = pickLookedAtOrNearest(player);
+        VillagerEntityMCA mother = pickLookedAtOrNearest(player, null);
         if (mother == null) {
             source.sendFailure(Component.literal("No MCA villager near your crosshair (within "
                     + (int) LOOK_RANGE + " blocks)."));
             return 0;
         }
         return birth(source, mother, null);
+    }
+
+    private static int birthLookedAt(CommandSourceStack source, Entity father) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("@target requires a player caller. Supply <mother> instead."));
+            return 0;
+        }
+        VillagerEntityMCA mother = pickLookedAtOrNearest(player, null);
+        if (mother == null) {
+            source.sendFailure(Component.literal("No MCA villager near your crosshair (within "
+                    + (int) LOOK_RANGE + " blocks)."));
+            return 0;
+        }
+        return birthExplicit(source, mother, father);
+    }
+
+    private static int birthFatherLookedAt(CommandSourceStack source, Entity mother) {
+        if (!(mother instanceof VillagerEntityMCA motherMca)) {
+            source.sendFailure(Component.literal("Mother must be an MCA villager."));
+            return 0;
+        }
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("@target requires a player caller. Supply <father> instead."));
+            return 0;
+        }
+        VillagerEntityMCA father = pickLookedAtOrNearest(player, motherMca);
+        if (father == null) {
+            source.sendFailure(Component.literal("No MCA villager other than the mother near your crosshair (within "
+                    + (int) LOOK_RANGE + " blocks)."));
+            return 0;
+        }
+        return birth(source, motherMca, father);
     }
 
     private static int birthExplicit(CommandSourceStack source, Entity mother, Entity father) {
@@ -107,13 +156,13 @@ public final class BirthCommand {
         source.sendSuccess(() -> Component.literal(parents + " gave birth to " + names + "."), true);
         if (selfParented && father == null) {
             source.sendSuccess(() -> Component.literal(
-                    "  No partner found; inherited from a single parent. Pass <father> (villager or @s) to test cross-parent inheritance."),
+                    "  No partner found; inherited from a single parent. Try /townstead birth @target @s to test cross-parent inheritance."),
                     false);
         }
         return born.size();
     }
 
-    private static VillagerEntityMCA pickLookedAtOrNearest(ServerPlayer player) {
+    private static VillagerEntityMCA pickLookedAtOrNearest(ServerPlayer player, VillagerEntityMCA exclude) {
         ServerLevel level = player.serverLevel();
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getLookAngle().normalize();
@@ -124,6 +173,7 @@ public final class BirthCommand {
         VillagerEntityMCA bestNear = null;
         double bestNearDist = Double.POSITIVE_INFINITY;
         for (VillagerEntityMCA villager : level.getEntitiesOfClass(VillagerEntityMCA.class, sweep)) {
+            if (villager == exclude) continue;
             Vec3 toVillager = villager.position().subtract(eye);
             double along = toVillager.dot(look);
             if (along > 0 && along <= LOOK_RANGE) {

@@ -107,6 +107,51 @@ public final class RootServerLogic {
     }
 
     /**
+     * Commit the editor preview's exact MCA float genes — the WYSIWYG roll an origin Apply
+     * produced on the editor dummy. A villager gets them on its synced {@code Genetics}; the
+     * player gets them written into the stored MCA player data and re-broadcast. Deliberately
+     * NOT MCA's own editor save ({@code syncVillagerData}): that path also rewrites the
+     * target's family-tree entry (gender, typed-in parents) and, for players, replaces the
+     * whole stored MCA snapshot from stale editor-buffer keys — which erased player-set parent
+     * names and broke gendered family dialogue on a root change.
+     */
+    public static void commitGenes(ServerPlayer sp, int entityId, float[] genes) {
+        if (genes == null || genes.length != RootGenes.geneCount()) return;
+        float[] clamped = new float[genes.length];
+        for (int i = 0; i < genes.length; i++) {
+            float v = genes[i];
+            clamped[i] = Float.isNaN(v) ? 0.5f : Math.max(0f, Math.min(1f, v));
+        }
+
+        if (entityId == RootSetC2SPayload.SELF) {
+            net.conczin.mca.server.world.data.PlayerSaveData data =
+                    net.conczin.mca.server.world.data.PlayerSaveData.get(sp);
+            net.minecraft.nbt.CompoundTag entityData = data.getEntityData();
+            RootGenes.writeToPlayerData(entityData, clamped);
+            data.setEntityDataSet(true);
+            data.setDirty();
+            // MCA renders players-as-villagers from this snapshot on every client; mirror its
+            // own editor-save broadcast so the change shows without a relog.
+            for (ServerPlayer p : sp.serverLevel().players()) {
+                //? if neoforge {
+                net.conczin.mca.network.Network.sendToPlayer(
+                        new net.conczin.mca.network.s2c.PlayerDataMessage(sp.getUUID(), entityData), p);
+                //?} else {
+                /*net.conczin.mca.cobalt.network.NetworkHandler.sendToPlayer(
+                        new net.conczin.mca.network.s2c.PlayerDataMessage(sp.getUUID(), entityData), p);
+                *///?}
+            }
+            return;
+        }
+
+        Entity entity = sp.serverLevel().getEntity(entityId);
+        if (!(entity instanceof VillagerEntityMCA villager)) return;
+        RootGenes.restore(villager, clamped);
+        // SIZE/WIDTH feed the hitbox; MCA's editor save refreshed it too.
+        villager.refreshDimensions();
+    }
+
+    /**
      * Pin a target's carried allele payload for one gene (the editor's variant picker and
      * size-channel sliders — {@code variantId} is a full {@link AllelePayload} encoding:
      * a variant id, channel values, or both). The variant part must name a real option;

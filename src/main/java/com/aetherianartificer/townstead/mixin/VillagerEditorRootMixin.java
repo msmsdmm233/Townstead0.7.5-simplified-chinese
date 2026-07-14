@@ -62,9 +62,10 @@ import java.util.function.IntConsumer;
  * an origin rolls its genome onto that dummy (WYSIWYG), tags it so the skin-tint
  * layer paints it, and marks the preview dirty. The original genes are snapshotted
  * on entering the page and restored whenever the user leaves the tab or MCA saves,
- * <em>unless</em> Apply ran — Apply clears the dirty flag and calls
- * {@code syncVillagerData}, committing the exact previewed genes to the real
- * villager. So browsing never commits; only Apply does.</p>
+ * <em>unless</em> Apply ran — Apply clears the dirty flag and ships the dummy's
+ * exact previewed genes to the server via Townstead's own commit packet (never
+ * MCA's full editor save, whose family-tree side effects corrupt the target).
+ * So browsing never commits; only Apply does.</p>
  */
 @Mixin(VillagerEditorScreen.class)
 public abstract class VillagerEditorRootMixin extends Screen {
@@ -72,7 +73,6 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Shadow(remap = false) @Final protected VillagerEntityMCA villager;
     @Shadow(remap = false) @Final UUID villagerUUID;
     @Shadow(remap = false) @Final UUID playerUUID;
-    @Shadow(remap = false) public abstract void syncVillagerData();
     @Shadow(remap = false) protected String page;
     @Shadow(remap = false) protected abstract void setPage(String page);
     @Shadow(remap = false) protected abstract String[] getPages();
@@ -558,7 +558,11 @@ public abstract class VillagerEditorRootMixin extends Screen {
                                                    // (which reset the dummy to baseline) and the Body picker
                                                    // both reflect it, not the origin the editor opened with
         townstead$sendRootSet(target, rootId); // sets Life.rootId on the real villager
-        syncVillagerData();                        // commits the dummy's previewed genes by UUID (WYSIWYG)
+        // Commit the dummy's previewed MCA floats directly (WYSIWYG), NOT via MCA's
+        // syncVillagerData: the editor's full save also rewrites the target's family-tree
+        // entry (gender, typed-in parents) and the player's whole MCA snapshot from stale
+        // editor-buffer keys, which erased parent names and broke gendered family dialogue.
+        townstead$sendCommitGenes(target, RootGenes.snapshot(villager));
     }
 
     @Unique
@@ -1457,6 +1461,17 @@ public abstract class VillagerEditorRootMixin extends Screen {
         //?} else if forge {
         /*com.aetherianartificer.townstead.TownsteadNetwork.sendToServer(
                 new RootSetC2SPayload(target, rootId));
+        *///?}
+    }
+
+    @Unique
+    private void townstead$sendCommitGenes(int target, float[] genes) {
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                new com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload(target, genes));
+        //?} else if forge {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToServer(
+                new com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload(target, genes));
         *///?}
     }
 }

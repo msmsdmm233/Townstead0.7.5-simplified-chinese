@@ -236,6 +236,10 @@ public final class TownsteadNetwork {
                 com.aetherianartificer.townstead.root.SetGeneVariantC2SPayload::write,
                 com.aetherianartificer.townstead.root.SetGeneVariantC2SPayload::read,
                 TownsteadNetwork::handleSetGeneVariant);
+        registerC2S(com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload.class,
+                com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload::write,
+                com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload::read,
+                TownsteadNetwork::handleCommitRootGenes);
         registerC2S(com.aetherianartificer.townstead.root.SetPersonalityC2SPayload.class,
                 com.aetherianartificer.townstead.root.SetPersonalityC2SPayload::write,
                 com.aetherianartificer.townstead.root.SetPersonalityC2SPayload::read,
@@ -322,6 +326,12 @@ public final class TownsteadNetwork {
             sendToPlayer(sp, genes);
             sendToTrackingEntity(entity, genes);
         }
+    }
+
+    private static void handleCommitRootGenes(
+            com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload payload, ServerPlayer sp) {
+        com.aetherianartificer.townstead.root.RootServerLogic.commitGenes(
+                sp, payload.entityId(), payload.genes());
     }
 
     private static void handleSetPersonality(

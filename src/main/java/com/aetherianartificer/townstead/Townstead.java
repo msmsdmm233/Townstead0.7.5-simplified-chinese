@@ -2326,6 +2326,11 @@ public class Townstead {
                 this::handleSetGeneVariant
         );
         registrar.playToServer(
+                com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload.TYPE,
+                com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload.STREAM_CODEC,
+                this::handleCommitRootGenes
+        );
+        registrar.playToServer(
                 com.aetherianartificer.townstead.root.SetPersonalityC2SPayload.TYPE,
                 com.aetherianartificer.townstead.root.SetPersonalityC2SPayload.STREAM_CODEC,
                 this::handleSetPersonality
@@ -2567,6 +2572,17 @@ public class Townstead {
                 PacketDistributor.sendToPlayer(sp, genes);
                 PacketDistributor.sendToPlayersTrackingEntity(entity, genes);
             }
+        });
+    }
+
+    private void handleCommitRootGenes(
+            com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sp)) return;
+            com.aetherianartificer.townstead.root.RootServerLogic.commitGenes(
+                    sp, payload.entityId(), payload.genes());
         });
     }
 
