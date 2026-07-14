@@ -29,6 +29,10 @@ public final class ChronotypeGeneType implements GeneType {
 
     public static final String KEY = "townstead_roots:chronotype";
 
+    // One chronotype per creature: matches the locus every pack already declares.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId("townstead_roots:chronotypes");
+
     /** Sleep window as tick-hours (0 == 6 AM), sorted and de-duplicated. */
     public record Instance(int[] sleepHours) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
@@ -42,6 +46,11 @@ public final class ChronotypeGeneType implements GeneType {
     public GeneInstance parse(JsonObject json) {
         int[] hours = tickHours(json);
         return hours == null ? null : new Instance(hours);
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 
     /**

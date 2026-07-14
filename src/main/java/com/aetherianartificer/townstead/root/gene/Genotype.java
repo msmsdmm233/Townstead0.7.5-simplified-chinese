@@ -47,6 +47,11 @@ public final class Genotype {
                 new Allele[]{a == null ? Allele.WILD : a, b == null ? Allele.WILD : b});
     }
 
+    /** Drop a locus entirely (a stale slot being relocated during migration). */
+    public void remove(ResourceLocation locus) {
+        if (locus != null) loci.remove(LegacyNamespace.canonical(locus));
+    }
+
     public List<ResourceLocation> loci() {
         return new ArrayList<>(loci.keySet());
     }

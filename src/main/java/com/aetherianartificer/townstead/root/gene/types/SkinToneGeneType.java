@@ -32,6 +32,11 @@ public final class SkinToneGeneType implements GeneType {
 
     public static final String KEY = "townstead_roots:skin_tone";
 
+    // One skin per creature: matches the locus most packs already declare, so an
+    // undeclared skin gene competes there instead of stacking a second tint.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId("townstead_roots:skin");
+
     /** Blend ordinals (shared with the skin-layer mixin): 0 multiply, 1 screen, 2 overlay. */
     public record Instance(int tint, int blend, float strength) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
@@ -50,6 +55,11 @@ public final class SkinToneGeneType implements GeneType {
         int blend = parseBlend(GsonHelper.getAsString(json, "blend", "multiply"));
         float strength = GsonHelper.getAsFloat(json, "strength", 1.0f);   // how strongly the tint applies (0–1)
         return new Instance(tint, blend, strength);
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 
     private static int parseBlend(String s) {

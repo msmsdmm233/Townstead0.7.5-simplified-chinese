@@ -19,6 +19,11 @@ public final class EyesGeneType implements GeneType {
 
     public static final String KEY = "townstead_roots:eyes";
 
+    // One eye set per creature: every eyes gene shares a locus so cross-ancestry
+    // children inherit them as competing alleles instead of stacking both.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId(KEY);
+
     public record Instance(String texture, boolean glow) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
         @Override public GeneDisplay display() { return GeneDisplay.PRESENCE; }
@@ -31,5 +36,10 @@ public final class EyesGeneType implements GeneType {
     public GeneInstance parse(JsonObject json) {
         return new Instance(GsonHelper.getAsString(json, "texture", ""),
                 GsonHelper.getAsBoolean(json, "glow", false));
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 }

@@ -121,6 +121,7 @@ public final class Heredity {
      */
     public static void migrateFounder(TownsteadVillager.Life life, ResourceLocation rootId, RandomSource random) {
         Genotype genotype = life.genotype();
+        canonicalizeLoci(genotype);
         for (InheritedGene ref : RootRegistry.effectiveInheritedGenes(rootId)) {
             Gene gene = GeneRegistry.byId(ref.geneId());
             if (gene == null || !isDiploid(gene)) continue;
@@ -139,6 +140,40 @@ public final class Heredity {
         life.setGenotype(genotype);
         if (!life.hasHeritage()) life.setHeritage(RootRegistry.seedHeritage(rootId));
         recomputeExpressed(life);
+    }
+
+    /**
+     * Relocate stale private-slot entries into the shared locus their gene now declares.
+     * A save written before a gene gained a {@code locus} keys the pair by the gene's own
+     * id; left alone, that entry would keep expressing beside a freshly rolled pair at the
+     * shared slot (double ears). When two stale pairs land on one slot (an old hybrid
+     * carrying both parents' morphs), one non-wild allele is kept from each, collapsing
+     * them into the true heterozygous pair the shared locus would have produced at birth.
+     * Returns whether anything moved.
+     */
+    public static boolean canonicalizeLoci(Genotype genotype) {
+        if (genotype == null || genotype.isEmpty()) return false;
+        boolean changed = false;
+        for (ResourceLocation key : genotype.loci()) {
+            Gene gene = GeneRegistry.byId(key);
+            if (gene == null || gene.locus() == null) continue;
+            ResourceLocation target = LegacyNamespace.canonical(gene.locus());
+            if (target.equals(key)) continue;
+            Allele[] stale = genotype.at(key);
+            genotype.remove(key);
+            Allele[] existing = genotype.at(target);
+            if (existing == null) {
+                genotype.set(target, stale[0], stale[1]);
+            } else {
+                genotype.set(target, firstNonWild(existing), firstNonWild(stale));
+            }
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static Allele firstNonWild(Allele[] pair) {
+        return !pair[0].isWild() ? pair[0] : pair[1];
     }
 
     /**
