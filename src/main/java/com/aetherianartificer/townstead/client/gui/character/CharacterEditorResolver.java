@@ -70,17 +70,31 @@ public final class CharacterEditorResolver {
     }
 
     /**
-     * Resolve the authored layout, or — when the species authored none but its origin carries
+     * Resolve the authored layout, or — when the species authored none but the character carries
      * editable Townstead genes (a sized attachment like elf ears, variant genes) — synthesize the
      * default: MCA's four native groups in canonical order, then the genes bucketed by category as
      * extra tabs. {@code null} only when there is nothing of ours to edit, keeping plain MCA
      * villagers on the untouched native Character tab.
      */
     public static Resolved resolveOrDefault(RootCatalogEntry entry) {
+        return resolveOrDefault(entry, java.util.Set.of());
+    }
+
+    /**
+     * As {@link #resolveOrDefault(RootCatalogEntry)}, but individual-first: a non-empty
+     * {@code expressedGeneIds} makes the synthesized default enumerate the genes this character
+     * actually expresses — a bred hybrid edits its real mix (the elf ears it inherited, not the
+     * root-archetype visage it didn't) and off-root genes from the other parent's side get
+     * controls too. The root's grant list only orders the tabs (stable across opens) and remains
+     * the source when nothing is synced for the entity.
+     */
+    public static Resolved resolveOrDefault(RootCatalogEntry entry, java.util.Set<String> expressedGeneIds) {
         Resolved authored = resolve(entry);
         if (authored != null) return authored;
-        if (entry == null) return null;
-        Map<String, List<Field>> byCategory = editableByCategory(entry);
+        if (entry == null && (expressedGeneIds == null || expressedGeneIds.isEmpty())) return null;
+        Map<String, List<Field>> byCategory = expressedGeneIds == null || expressedGeneIds.isEmpty()
+                ? editableByCategory(entry)
+                : editableByCategory(entry, expressedGeneIds);
         if (byCategory.isEmpty()) return null;
         List<Tab> tabs = new ArrayList<>();
         for (String g : NATIVE_ORDER) {
@@ -96,6 +110,30 @@ public final class CharacterEditorResolver {
         Map<String, List<Field>> byCategory = new LinkedHashMap<>();
         for (RootCatalogEntry.Inherited in : entry.inheritedGenes()) {
             GeneCatalogEntry g = RootCatalogClient.gene(in.geneId());
+            if (!isEditable(g)) continue;
+            byCategory.computeIfAbsent(g.category(), k -> new ArrayList<>()).add(Field.gene(g));
+        }
+        return byCategory;
+    }
+
+    /** The expressed genes bucketed by category: root-grant order first, off-root extras id-sorted. */
+    private static Map<String, List<Field>> editableByCategory(RootCatalogEntry entry,
+                                                               java.util.Set<String> expressedGeneIds) {
+        java.util.LinkedHashSet<String> ordered = new java.util.LinkedHashSet<>();
+        if (entry != null) {
+            for (RootCatalogEntry.Inherited in : entry.inheritedGenes()) {
+                if (expressedGeneIds.contains(in.geneId())) ordered.add(in.geneId());
+            }
+        }
+        List<String> extras = new ArrayList<>();
+        for (String id : expressedGeneIds) {
+            if (!ordered.contains(id)) extras.add(id);
+        }
+        java.util.Collections.sort(extras);
+        ordered.addAll(extras);
+        Map<String, List<Field>> byCategory = new LinkedHashMap<>();
+        for (String id : ordered) {
+            GeneCatalogEntry g = RootCatalogClient.gene(id);
             if (!isEditable(g)) continue;
             byCategory.computeIfAbsent(g.category(), k -> new ArrayList<>()).add(Field.gene(g));
         }

@@ -15,6 +15,7 @@ import com.aetherianartificer.townstead.compat.ModCompat;
 import com.aetherianartificer.townstead.compat.thirst.ThirstBridgeResolver;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,6 +46,7 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.BooleanValue THIRST_LETHAL_FALLBACK;
     public static final ModConfigSpec.BooleanValue ENABLE_COOK_WATER_PURIFICATION;
     public static final ModConfigSpec.BooleanValue PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES;
+    public static final ModConfigSpec.ConfigValue<String> PREFERRED_THIRST_BACKEND;
     public static final ModConfigSpec.BooleanValue ENABLE_FARM_ASSIST;
     public static final ModConfigSpec.BooleanValue ENABLE_WORK_SUPPLY_AUTOMATION;
     public static final ModConfigSpec.BooleanValue ENABLE_HARVEST_OUTPUT_STORAGE;
@@ -95,6 +97,11 @@ public final class TownsteadConfig {
     public static final ModConfigSpec.ConfigValue<Double> FATIGUE_NOCTURNAL_MULTIPLIER;
     public static final ModConfigSpec.ConfigValue<Double> FATIGUE_MISALIGNED_MULTIPLIER;
     public static final ModConfigSpec.BooleanValue DEBUG_VILLAGER_SLEEP;
+    public static final ModConfigSpec.BooleanValue DEBUG_LOGGING;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ROOTS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_SPECIES;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ANCESTRIES;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_LINEAGES;
     public static final ModConfigSpec.ConfigValue<String> CALENDAR_PROFILE;
     public static final ModConfigSpec.BooleanValue CALENDAR_REAL_CLOCK;
     public static final ModConfigSpec.DoubleValue AGING_SCALE;
@@ -121,6 +128,7 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.BooleanValue THIRST_LETHAL_FALLBACK;
     public static final ForgeConfigSpec.BooleanValue ENABLE_COOK_WATER_PURIFICATION;
     public static final ForgeConfigSpec.BooleanValue PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES;
+    public static final ForgeConfigSpec.ConfigValue<String> PREFERRED_THIRST_BACKEND;
     public static final ForgeConfigSpec.BooleanValue ENABLE_FARM_ASSIST;
     public static final ForgeConfigSpec.BooleanValue ENABLE_WORK_SUPPLY_AUTOMATION;
     public static final ForgeConfigSpec.BooleanValue ENABLE_HARVEST_OUTPUT_STORAGE;
@@ -171,6 +179,11 @@ public final class TownsteadConfig {
     public static final ForgeConfigSpec.ConfigValue<Double> FATIGUE_NOCTURNAL_MULTIPLIER;
     public static final ForgeConfigSpec.ConfigValue<Double> FATIGUE_MISALIGNED_MULTIPLIER;
     public static final ForgeConfigSpec.BooleanValue DEBUG_VILLAGER_SLEEP;
+    public static final ForgeConfigSpec.BooleanValue DEBUG_LOGGING;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ROOTS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_SPECIES;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_ANCESTRIES;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_LINEAGES;
     public static final ForgeConfigSpec.ConfigValue<String> CALENDAR_PROFILE;
     public static final ForgeConfigSpec.BooleanValue CALENDAR_REAL_CLOCK;
     public static final ForgeConfigSpec.DoubleValue AGING_SCALE;
@@ -253,6 +266,13 @@ public final class TownsteadConfig {
                     .translation("townstead.configuration.needs.thirst.preferKitchenStorageForEmptyBottles")
                     .comment("When villagers drink from bottles, prefer depositing empty bottles into kitchen storage.")
                     .define("preferKitchenStorageForEmptyBottles", true);
+            PREFERRED_THIRST_BACKEND = b
+                    .translation("townstead.configuration.needs.thirst.preferredBackend")
+                    .comment("Which thirst mod drives villager thirst when more than one is installed.",
+                             "\"auto\" prefers Legendary Survival Overhaul, then Thirst Was Reclaimed / Thirst Was Taken.",
+                             "\"legendary_survival_overhaul\" or \"thirst\" pins that backend, falling back to the other if it is not installed.")
+                    // Arrays.asList, not List.of: correct() probes missing keys with null and List.of.contains(null) throws.
+                    .defineInList("preferredBackend", "auto", Arrays.asList("auto", "legendary_survival_overhaul", "thirst"));
             b.pop();
         } else {
             ENABLE_SELF_INVENTORY_DRINKING = null;
@@ -263,6 +283,7 @@ public final class TownsteadConfig {
             THIRST_LETHAL_FALLBACK = null;
             ENABLE_COOK_WATER_PURIFICATION = null;
             PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES = null;
+            PREFERRED_THIRST_BACKEND = null;
         }
         // ── Fatigue ──
         b.translation("townstead.configuration.needs.fatigue").push("fatigue");
@@ -482,6 +503,28 @@ public final class TownsteadConfig {
             ENABLE_TOWNSTEAD_COOK = null;
         }
 
+        // ── Roots ──
+        b.translation("townstead.configuration.roots").push("roots");
+        BLOCKED_ROOTS = b
+                .translation("townstead.configuration.roots.blockedRoots")
+                .comment("Root ids to disable on this server (e.g. townstead_roots:moon_elf; entries without a namespace assume townstead_roots).",
+                         "Blocked roots are hidden from the picker and never rolled for naturally spawned villagers.",
+                         "Not retroactive: villagers and players that already have a blocked root keep it.")
+                .defineListAllowEmpty("blockedRoots", List.of(), TownsteadConfig::isValidResourceLocationString);
+        BLOCKED_SPECIES = b
+                .translation("townstead.configuration.roots.blockedSpecies")
+                .comment("Species ids to disable. Blocks every root that resolves to a listed species.")
+                .defineListAllowEmpty("blockedSpecies", List.of(), TownsteadConfig::isValidResourceLocationString);
+        BLOCKED_ANCESTRIES = b
+                .translation("townstead.configuration.roots.blockedAncestries")
+                .comment("Ancestry ids to disable. Blocks every root whose ancestry (declared directly or through its lineage) is listed.")
+                .defineListAllowEmpty("blockedAncestries", List.of(), TownsteadConfig::isValidResourceLocationString);
+        BLOCKED_LINEAGES = b
+                .translation("townstead.configuration.roots.blockedLineages")
+                .comment("Lineage ids to disable. Blocks every root that selects a listed lineage.")
+                .defineListAllowEmpty("blockedLineages", List.of(), TownsteadConfig::isValidResourceLocationString);
+        b.pop();
+
         // ── Calendar ──
         b.translation("townstead.configuration.calendar").push("calendar");
         CALENDAR_PROFILE = b
@@ -540,6 +583,10 @@ public final class TownsteadConfig {
                 .translation("townstead.configuration.debug.debugVillagerSleep")
                 .comment("Enable sleep/rest debug logs and villager debug state updates.")
                 .define("debugVillagerSleep", false);
+        DEBUG_LOGGING = b
+                .translation("townstead.configuration.debug.debugLogging")
+                .comment("Enable verbose Townstead diagnostic logging across subsystems (animation bridge, etc.).")
+                .define("debugLogging", false);
         b.pop();
 
         SERVER_SPEC = b.build();
@@ -642,6 +689,16 @@ public final class TownsteadConfig {
         return ENABLE_COOK_WATER_PURIFICATION != null && ENABLE_COOK_WATER_PURIFICATION.get();
     }
 
+    /** Never throws: falls back to "auto" before the server config is loaded. */
+    public static String preferredThirstBackend() {
+        if (PREFERRED_THIRST_BACKEND == null) return "auto";
+        try {
+            return PREFERRED_THIRST_BACKEND.get();
+        } catch (IllegalStateException e) {
+            return "auto";
+        }
+    }
+
     public static boolean isPreferKitchenStorageForEmptyBottlesEnabled() {
         return PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES != null && PREFER_KITCHEN_STORAGE_FOR_EMPTY_BOTTLES.get();
     }
@@ -675,6 +732,42 @@ public final class TownsteadConfig {
 
     public static boolean isVillagerSleepDebugEnabled() {
         return DEBUG_VILLAGER_SLEEP.get();
+    }
+
+    /** Never throws: empty before the server config is loaded. */
+    public static List<? extends String> blockedRootIds() {
+        try {
+            return BLOCKED_ROOTS.get();
+        } catch (IllegalStateException | NullPointerException e) {
+            return List.of();
+        }
+    }
+
+    /** Never throws: empty before the server config is loaded. */
+    public static List<? extends String> blockedSpeciesIds() {
+        try {
+            return BLOCKED_SPECIES.get();
+        } catch (IllegalStateException | NullPointerException e) {
+            return List.of();
+        }
+    }
+
+    /** Never throws: empty before the server config is loaded. */
+    public static List<? extends String> blockedAncestryIds() {
+        try {
+            return BLOCKED_ANCESTRIES.get();
+        } catch (IllegalStateException | NullPointerException e) {
+            return List.of();
+        }
+    }
+
+    /** Never throws: empty before the server config is loaded. */
+    public static List<? extends String> blockedLineageIds() {
+        try {
+            return BLOCKED_LINEAGES.get();
+        } catch (IllegalStateException | NullPointerException e) {
+            return List.of();
+        }
     }
 
     public static String getCalendarProfile() {

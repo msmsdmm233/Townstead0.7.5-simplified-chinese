@@ -33,9 +33,6 @@ public final class TraitEffects {
         if (villager == null || IMMORTAL_TRAIT_IDS.isEmpty()) return false;
         for (String id : IMMORTAL_TRAIT_IDS) {
             if (villager.getTraits().hasTrait(id)) return true;
-            // New-MCA-1.20.1 grants store the uppercase alias id (see TraitJsonLoader).
-            String upper = id.toUpperCase(java.util.Locale.ROOT);
-            if (!upper.equals(id) && villager.getTraits().hasTrait(upper)) return true;
         }
         return false;
     }

@@ -7,7 +7,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.conczin.mca.Config;
-import net.conczin.mca.entity.ai.Traits;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -88,23 +87,16 @@ public final class TraitJsonLoader extends SimpleJsonResourceReloadListener {
     }
 
     /**
-     * Register a set of data-pack traits into MCA's registry, then ask MCA to enable all
-     * registered traits via {@code Config.autocomplete()} (so the editor lists them). Wrapped
-     * defensively: an MCA API change must never abort the data-pack reload.
+     * Register a set of data-pack traits into MCA's registry (casing handled by
+     * {@link TraitBridge}), then ask MCA to enable all registered traits via
+     * {@code Config.autocomplete()} (so the editor lists them). Wrapped defensively:
+     * an MCA API change must never abort the data-pack reload.
      */
     public static void registerWithMca(Iterable<DataTrait> traits) {
         boolean any = false;
         for (DataTrait t : traits) {
             try {
-                Traits.registerTrait(t.id(), t.chance(), t.inherit(), t.usableOnPlayer());
-                // New-MCA-1.20.1 (7.6.28+) uppercases Trait.valueOf lookups (legacy enum-era
-                // NBT compat), so a lowercase-only registration resolves to the UNKNOWN
-                // sentinel there. Register an uppercase alias too; old MCA's case-exact
-                // valueOf keeps hitting the raw id.
-                String upper = t.id().toUpperCase(java.util.Locale.ROOT);
-                if (!upper.equals(t.id())) {
-                    Traits.registerTrait(upper, t.chance(), t.inherit(), t.usableOnPlayer());
-                }
+                TraitBridge.register(t.id(), t.chance(), t.inherit(), t.usableOnPlayer());
                 any = true;
             } catch (Throwable e) {
                 LOGGER.warn("Could not register trait {} with MCA: {}", t.id(), e.toString());

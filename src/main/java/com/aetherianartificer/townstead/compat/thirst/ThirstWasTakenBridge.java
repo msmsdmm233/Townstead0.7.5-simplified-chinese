@@ -237,6 +237,13 @@ public final class ThirstWasTakenBridge implements ThirstCompatBridge {
             return;
         }
         try {
+            // Thirst Was Reclaimed reuses the "thirst" mod id and ships a dev.ghen
+            // shim, but relocates its real API; ThirstWasReclaimedBridge handles it.
+            Class.forName("cn.mlus.thirst.api.ThirstHelper");
+            active = false;
+            return;
+        } catch (ClassNotFoundException ignored) {}
+        try {
             Class<?> thirstHelper = Class.forName("dev.ghen.thirst.api.ThirstHelper");
             commonConfigClass = Class.forName("dev.ghen.thirst.foundation.config.CommonConfig");
             itemRestoresThirstMethod = thirstHelper.getMethod("itemRestoresThirst", ItemStack.class);

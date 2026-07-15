@@ -209,6 +209,7 @@ public final class McaAnimationBridge {
             List<AnimationTransform> transforms,
             McaModelPartApplier.ApplyStats stats
     ) {
+        if (!com.aetherianartificer.townstead.TownsteadConfig.DEBUG_LOGGING.get()) return;
         if (!"emf".equals(sourceId) && !("emotes".equals(sourceId) && !transforms.isEmpty())) return;
         long tick = entity.level().getGameTime();
         if (tick - lastDiagnosticTick < 120L) return;

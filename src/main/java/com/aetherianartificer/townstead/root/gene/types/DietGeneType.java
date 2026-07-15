@@ -21,6 +21,10 @@ public final class DietGeneType implements GeneType {
     /** The diet value that means "does not eat", switching off the hunger need. */
     public static final String NONE = "none";
 
+    // One diet per creature: matches the locus every pack already declares.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId(KEY);
+
     public record Instance(String diet) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
 
@@ -43,5 +47,10 @@ public final class DietGeneType implements GeneType {
         if (diet.isBlank()) return null;
         return new Instance(diet);
         // TODO(effects): gate which foods nourish the villager by this diet.
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 }

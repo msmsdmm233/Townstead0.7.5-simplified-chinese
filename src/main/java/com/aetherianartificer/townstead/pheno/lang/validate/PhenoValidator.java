@@ -43,6 +43,7 @@ public final class PhenoValidator {
                     "Check the type id and that the providing mod is loaded.");
         }
         validateResources(root, diag);
+        validateCompanions(root, diag);
         // A variants block holds per-variant config objects (each governed by the gene's own
         // type); descend each in place. Otherwise the behavior tree starts at the root and the
         // gene's required fields are checked against its schema.
@@ -91,6 +92,37 @@ public final class PhenoValidator {
             }
             checkFields(entry, type, path, diag);
             descend(entry, NodeDomain.GENE, path, diag);
+        }
+    }
+
+    /**
+     * Validate a gene's root {@code companions} section: an object of named components, each a
+     * full gene node of an explicit type (the loader peels the block into companion genes that
+     * ride along the parent's expression).
+     */
+    private static void validateCompanions(JsonObject root, Diagnostics diag) {
+        if (!root.has("companions")) return;
+        JsonPath base = JsonPath.ROOT.field("companions");
+        JsonElement block = root.get("companions");
+        if (!block.isJsonObject()) {
+            diag.error(base, "Expected an object of named companion components.",
+                    "Use { \"name\": { \"type\": \"pheno:...\", ... } }.");
+            return;
+        }
+        for (Map.Entry<String, JsonElement> e : block.getAsJsonObject().entrySet()) {
+            JsonPath path = base.field(e.getKey());
+            if (!e.getValue().isJsonObject()) {
+                diag.error(path, "Expected a companion component object.",
+                        "Use { \"type\": \"pheno:...\", ... }.");
+                continue;
+            }
+            JsonObject entry = e.getValue().getAsJsonObject();
+            if (!entry.has("type")) {
+                diag.error(path.field("type"), "Companion components must declare a gene type.",
+                        "Add a \"type\" field (e.g. \"pheno:trigger\").");
+                continue;
+            }
+            validateTyped(entry, NodeDomain.GENE, path, diag);
         }
     }
 

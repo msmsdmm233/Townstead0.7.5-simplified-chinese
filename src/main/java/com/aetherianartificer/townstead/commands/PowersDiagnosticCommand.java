@@ -64,7 +64,7 @@ public final class PowersDiagnosticCommand {
                     && ability.mode() == AbilityGeneType.Mode.TOGGLE
                     || power.component() instanceof com.aetherianartificer.townstead.root.gene.types.ToggleGeneType.Instance;
             if (toggleKind) {
-                out.append(AbilityToggles.isOn(player, power.id()) ? "  [toggle ON]" : "  [toggle off]");
+                out.append(AbilityToggles.isOnEffective(player, power.id()) ? "  [toggle ON]" : "  [toggle off]");
             }
             out.append('\n');
         }

@@ -30,7 +30,7 @@ public final class OverlayHudOverlay {
         for (String geneId : active) {
             GeneCatalogEntry gene = RootCatalogClient.gene(geneId);
             if (gene == null || !gene.isOverlay()) continue;
-            ResourceLocation texture = DataPackLang.parseId(gene.overlayTexture());
+            ResourceLocation texture = resolveTexture(gene.overlayTexture());
             if (texture == null) continue;
             RenderSystem.enableBlend();
             RenderSystem.setShaderColor(1f, 1f, 1f, gene.overlayAlpha());
@@ -40,5 +40,17 @@ public final class OverlayHudOverlay {
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             RenderSystem.disableBlend();
         }
+    }
+
+    /**
+     * A data-pack-synced named texture ({@code "ns:textures/overlay/x.png"} under
+     * {@code data/<ns>/textures/}) when one is synced, else a plain client-resource id
+     * (mod assets / resource pack) — the same fallback chain as {@code SkinOverlayLayer}.
+     */
+    private static ResourceLocation resolveTexture(String id) {
+        if (id == null || id.isEmpty()) return null;
+        ResourceLocation synced =
+                com.aetherianartificer.townstead.client.attachment.AttachmentClient.namedTexture(id);
+        return synced != null ? synced : DataPackLang.parseId(id);
     }
 }

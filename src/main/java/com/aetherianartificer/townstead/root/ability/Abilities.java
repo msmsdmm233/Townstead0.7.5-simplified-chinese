@@ -21,7 +21,7 @@ public final class Abilities {
                 continue;
             }
             if (instance.mode() == AbilityGeneType.Mode.TOGGLE) {
-                if (AbilityToggles.isOn(entity, gene.id())) return true;
+                if (AbilityToggles.isOn(entity, gene.id(), instance.defaultOn())) return true;
             } else {
                 return true;
             }

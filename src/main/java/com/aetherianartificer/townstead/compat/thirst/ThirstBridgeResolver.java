@@ -1,11 +1,12 @@
 package com.aetherianartificer.townstead.compat.thirst;
 
+import com.aetherianartificer.townstead.TownsteadConfig;
 import com.aetherianartificer.townstead.compat.ModCompat;
 
 import javax.annotation.Nullable;
 
 public final class ThirstBridgeResolver {
-    private static volatile boolean resolved;
+    private static volatile String resolvedPreference;
     private static @Nullable ThirstCompatBridge cachedBridge;
 
     private ThirstBridgeResolver() {}
@@ -19,8 +20,11 @@ public final class ThirstBridgeResolver {
     }
 
     public static @Nullable ThirstCompatBridge get() {
-        if (!resolved) {
-            resolve();
+        // Re-resolve when the configured preference changes (server config loads
+        // after mod init and can differ per world).
+        String preference = TownsteadConfig.preferredThirstBackend();
+        if (!preference.equals(resolvedPreference)) {
+            resolve(preference);
         }
         return cachedBridge;
     }
@@ -29,16 +33,20 @@ public final class ThirstBridgeResolver {
         return get() != null;
     }
 
-    private static synchronized void resolve() {
-        if (resolved) return;
-        // Priority: LSO > TWP
-        if (LSOBridge.INSTANCE.isActive()) {
-            cachedBridge = LSOBridge.INSTANCE;
-        } else if (ThirstWasTakenBridge.INSTANCE.isActive()) {
-            cachedBridge = ThirstWasTakenBridge.INSTANCE;
-        } else {
-            cachedBridge = null;
-        }
-        resolved = true;
+    private static synchronized void resolve(String preference) {
+        if (preference.equals(resolvedPreference)) return;
+        // TWR and TWP share the "thirst" mod id, so at most one of them can be
+        // installed; TWR is checked first because its presence makes TWP's init
+        // fail with a warning.
+        ThirstCompatBridge lso = LSOBridge.INSTANCE.isActive() ? LSOBridge.INSTANCE : null;
+        ThirstCompatBridge thirst = ThirstWasReclaimedBridge.INSTANCE.isActive()
+                ? ThirstWasReclaimedBridge.INSTANCE
+                : ThirstWasTakenBridge.INSTANCE.isActive() ? ThirstWasTakenBridge.INSTANCE : null;
+        cachedBridge = switch (preference) {
+            case "thirst" -> thirst != null ? thirst : lso;
+            // "auto" prefers LSO, matching pre-config behavior
+            default -> lso != null ? lso : thirst;
+        };
+        resolvedPreference = preference;
     }
 }

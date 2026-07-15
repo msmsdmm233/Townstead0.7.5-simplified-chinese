@@ -4,6 +4,7 @@ import com.aetherianartificer.townstead.client.animation.AnimationTargetMap;
 import com.aetherianartificer.townstead.client.attachment.geo.AttachmentGeo;
 import com.aetherianartificer.townstead.client.root.RootCatalogClient;
 import com.aetherianartificer.townstead.client.root.RootClientStore;
+import com.aetherianartificer.townstead.client.species.InvisFade;
 import com.aetherianartificer.townstead.client.species.RigModels;
 import com.aetherianartificer.townstead.client.species.RigSkinTone;
 import com.aetherianartificer.townstead.root.GeneCatalogEntry;
@@ -48,7 +49,11 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
     public void render(PoseStack pose, MultiBufferSource buffers, int light, T entity,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
-        if (entity.isInvisible()) return;
+        // Attachments fade with the body instead of vanilla's hard cut on the invisible
+        // flag, so ears/tails/wings ghost out together with the skin they grow from.
+        float fade = InvisFade.alpha(entity, partialTick);
+        if (fade <= 0f) return;
+        int fadeAlpha = Math.round(fade * 255f);
         List<Expressed> attachments = resolve(entity);
         if (attachments.isEmpty()) return;
 
@@ -89,7 +94,8 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
                     vertexTint = 0xFFFFFF;
                 }
             }
-            RenderType renderType = def.translucent()
+            // The cutout type ignores vertex alpha, so a fading attachment must go translucent.
+            RenderType renderType = (def.translucent() || fade < 1f)
                     ? RenderType.entityTranslucent(drawTexture)
                     : RenderType.entityCutoutNoCull(drawTexture);
             ResourceLocation emissive = def.emissiveSha1().isEmpty()
@@ -164,7 +170,7 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
                 List<SavedScale> scaled = animSample == null ? List.of()
                         : applyBoneScales(geo, animSample.scales());
                 VertexConsumer buffer = buffers.getBuffer(renderType);
-                geo.render(pose, buffer, light, OverlayTexture.NO_OVERLAY, 0xFF000000 | vertexTint);
+                geo.render(pose, buffer, light, OverlayTexture.NO_OVERLAY, (fadeAlpha << 24) | vertexTint);
                 // The emissive layer re-draws the same posed geometry full-bright, so
                 // glowing markings ride every morph, pose, clip, and physics swing of the
                 // base pass. entityTranslucentEmissive (the warden's glow type) draws the
@@ -172,7 +178,7 @@ public class AttachmentRenderLayer<T extends LivingEntity, M extends HumanoidMod
                 // additive eyes type washes out against a sunlit base texture.
                 if (emissive != null) {
                     geo.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(emissive)),
-                            light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+                            light, OverlayTexture.NO_OVERLAY, (fadeAlpha << 24) | 0xFFFFFF);
                 }
                 for (SavedScale savedScale : scaled) savedScale.restore();
                 for (SavedOffset savedOffset : offset) savedOffset.restore();

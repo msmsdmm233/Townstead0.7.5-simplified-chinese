@@ -25,6 +25,16 @@ public final class LegacyNamespace {
                 RootRegistry.NAMESPACE + ":" + id.getPath());
     }
 
+    /**
+     * The id itself, with a legacy namespace folded onto {@code townstead_roots}. For ids used as
+     * plain keys (genotype loci, species comparisons) rather than registry lookups: both namespaces
+     * name the same slot, so keying must not distinguish them.
+     */
+    public static ResourceLocation canonical(ResourceLocation id) {
+        ResourceLocation remapped = remap(id);
+        return remapped == null ? id : remapped;
+    }
+
     /** The {@code townstead_roots:} form of a {@code townstead_origins:} key string, else {@code null}. */
     @Nullable
     public static String remapKey(@Nullable String key) {
@@ -32,5 +42,19 @@ public final class LegacyNamespace {
         String prefix = LEGACY + ":";
         if (!key.startsWith(prefix)) return null;
         return RootRegistry.NAMESPACE + ":" + key.substring(prefix.length());
+    }
+
+    /**
+     * The {@code townstead_roots} form of a dotted lang key whose namespace segment is the legacy
+     * one (e.g. {@code origin.townstead_origins.stage.adult}), else {@code null}. Old data packs
+     * reference mod-owned keys under the legacy segment; the mod's lang files only define the
+     * renamed keys, so lookups fall back through this the same way registry ids do.
+     */
+    @Nullable
+    public static String remapLangKey(@Nullable String key) {
+        if (key == null) return null;
+        String segment = "." + LEGACY + ".";
+        if (!key.contains(segment)) return null;
+        return key.replace(segment, "." + RootRegistry.NAMESPACE + ".");
     }
 }

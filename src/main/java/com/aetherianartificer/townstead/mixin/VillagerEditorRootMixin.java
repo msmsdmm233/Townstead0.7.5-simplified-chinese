@@ -62,9 +62,10 @@ import java.util.function.IntConsumer;
  * an origin rolls its genome onto that dummy (WYSIWYG), tags it so the skin-tint
  * layer paints it, and marks the preview dirty. The original genes are snapshotted
  * on entering the page and restored whenever the user leaves the tab or MCA saves,
- * <em>unless</em> Apply ran — Apply clears the dirty flag and calls
- * {@code syncVillagerData}, committing the exact previewed genes to the real
- * villager. So browsing never commits; only Apply does.</p>
+ * <em>unless</em> Apply ran — Apply clears the dirty flag and ships the dummy's
+ * exact previewed genes to the server via Townstead's own commit packet (never
+ * MCA's full editor save, whose family-tree side effects corrupt the target).
+ * So browsing never commits; only Apply does.</p>
  */
 @Mixin(VillagerEditorScreen.class)
 public abstract class VillagerEditorRootMixin extends Screen {
@@ -72,7 +73,6 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Shadow(remap = false) @Final protected VillagerEntityMCA villager;
     @Shadow(remap = false) @Final UUID villagerUUID;
     @Shadow(remap = false) @Final UUID playerUUID;
-    @Shadow(remap = false) public abstract void syncVillagerData();
     @Shadow(remap = false) protected String page;
     @Shadow(remap = false) protected abstract void setPage(String page);
     @Shadow(remap = false) protected abstract String[] getPages();
@@ -115,7 +115,8 @@ public abstract class VillagerEditorRootMixin extends Screen {
                     : villagerUUID.equals(playerUUID) ? RootSetC2SPayload.SELF
                     : townstead$resolveVillagerEntityId(villagerUUID);
             CharacterEditorResolver.Resolved layout = CharacterEditorResolver.resolveOrDefault(
-                    com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(target)));
+                    com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(target)),
+                    townstead$expressedOf(target));
             if (layout != null && !townstead$customTabs(layout).isEmpty()) {
                 pages = townstead$insertAfter(pages, "head", TOWNSTEAD_LEGACY_PAGE);
             }
@@ -192,6 +193,27 @@ public abstract class VillagerEditorRootMixin extends Screen {
         return null;
     }
 
+    /** The expressed gene ids of the real character being edited (empty when unresolvable/unsynced). */
+    @Unique
+    private java.util.Set<String> townstead$expressedOfTarget() {
+        net.minecraft.world.entity.LivingEntity real = townstead$previewSubject();
+        return real == null ? java.util.Set.of() : RootClientStore.expressedGenes(real);
+    }
+
+    /** As {@link #townstead$expressedOfTarget}, for a raw target id (getPages runs before priming). */
+    @Unique
+    private java.util.Set<String> townstead$expressedOf(int target) {
+        if (target == RootSetC2SPayload.SELF) {
+            net.minecraft.world.entity.player.Player self = Minecraft.getInstance().player;
+            return self == null ? java.util.Set.of() : RootClientStore.expressedGenes(self);
+        }
+        net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
+        if (level != null && level.getEntity(target) instanceof net.minecraft.world.entity.LivingEntity living) {
+            return RootClientStore.expressedGenes(living);
+        }
+        return java.util.Set.of();
+    }
+
     // Leaving any page (or rebuilding one) drops an un-applied preview first, so a
     // browsed origin can't leak into another tab or get saved by MCA's Done.
     @Inject(method = "setPage", remap = false, at = @At("HEAD"))
@@ -235,13 +257,17 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // attachment gene's default style (a Braided or Clean-shaven dwarf previews Full).
         // Seed every carried variant from the real target so the preview matches the game.
         townstead$seedCarriedVariants();
+        townstead$mirrorRealState();
 
-        // Data-pack-driven Character layout: when the species declares one (or its origin carries
-        // editable Townstead genes, which synthesizes the default layout — native groups + gene
-        // tabs), replace MCA's fixed subpage bar with our scrollable strip and render gene fields
-        // ourselves. null = nothing of ours to edit, so MCA's native Character tab stays untouched.
+        // Data-pack-driven Character layout: when the species declares one (or the character
+        // carries editable Townstead genes, which synthesizes the default layout — native groups +
+        // gene tabs), replace MCA's fixed subpage bar with our scrollable strip and render gene
+        // fields ourselves. null = nothing of ours to edit, so MCA's native Character tab stays
+        // untouched. Individual-first: the synthesized tabs enumerate the genes this character
+        // actually expresses, so a bred hybrid edits its real mix, not the root archetype's.
         CharacterEditorResolver.Resolved charLayout = CharacterEditorResolver.resolveOrDefault(
-                com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target)));
+                com.aetherianartificer.townstead.client.root.RootCatalogClient.origin(RootClientStore.get(townstead$target)),
+                townstead$expressedOfTarget());
         // On the new 1.21.1 editor the strip replaces MCA's subpage bar under its Character hub. On the
         // old editor (separate Body/Head top pages) the gene tabs get their own top-level Character page
         // instead (inserted by the getPages hook): jamming them into Head/Body overflowed a control-heavy
@@ -384,7 +410,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // Fit the column above the Done button: shrink any tone swatch(es) when a tab is field-heavy.
         int tones = 0, rows = 0;
         for (CharacterEditorResolver.Field f : tab.fields()) {
-            if (f.gene() == null || townstead$geneGatedOff(f.gene())) continue;
+            if (f.gene() == null || townstead$geneGatedOff(f.gene()) || townstead$geneNotCarried(f.gene())) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) tones++;
             else rows += townstead$fieldRows(f);   // a cycler row plus one row per size channel
         }
@@ -402,7 +428,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         townstead$column = column;
         int y = yStart;
         for (CharacterEditorResolver.Field f : tab.fields()) {
-            if (f.gene() == null || townstead$geneGatedOff(f.gene())) continue;
+            if (f.gene() == null || townstead$geneGatedOff(f.gene()) || townstead$geneNotCarried(f.gene())) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) {
                 y += townstead$buildToneField(f.gene(), x, y, w, swatch);
             } else if (f.kind() == CharacterEditorResolver.Field.Kind.CYCLER) {
@@ -547,6 +573,9 @@ public abstract class VillagerEditorRootMixin extends Screen {
         villager.getGenetics().randomize();
         RootGenes.apply(villager, ranges, villager.getRandom());
         RootClientStore.set(villager.getId(), entry.id());   // so the skin-tint layer paints the preview
+        // Browsing previews the root's typical kit: drop the mirrored real expressed set so
+        // the attachment layer falls back to this origin's grant list (restored on revert).
+        RootClientStore.clearExpressed(villager.getId());
         townstead$previewDirty = true;
     }
 
@@ -558,7 +587,11 @@ public abstract class VillagerEditorRootMixin extends Screen {
                                                    // (which reset the dummy to baseline) and the Body picker
                                                    // both reflect it, not the origin the editor opened with
         townstead$sendRootSet(target, rootId); // sets Life.rootId on the real villager
-        syncVillagerData();                        // commits the dummy's previewed genes by UUID (WYSIWYG)
+        // Commit the dummy's previewed MCA floats directly (WYSIWYG), NOT via MCA's
+        // syncVillagerData: the editor's full save also rewrites the target's family-tree
+        // entry (gender, typed-in parents) and the player's whole MCA snapshot from stale
+        // editor-buffer keys, which erased parent names and broke gendered family dialogue.
+        townstead$sendCommitGenes(target, RootGenes.snapshot(villager));
     }
 
     @Unique
@@ -566,6 +599,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         if (!townstead$previewDirty) return;
         RootGenes.restore(villager, townstead$geneSnapshot);
         RootClientStore.set(villager.getId(), townstead$baseRootId);   // back to the real origin's tint
+        townstead$mirrorRealState();   // back to the real individual's expressed genes
         townstead$previewDirty = false;
     }
 
@@ -726,6 +760,26 @@ public abstract class VillagerEditorRootMixin extends Screen {
             if (!payload.isEmpty()) {
                 RootClientStore.setCarriedVariant(villager.getId(), geneId, payload);
             }
+        }
+    }
+
+    /**
+     * WYSIWYG for the individual, not the archetype: mirror the real target's expressed
+     * gene set onto the dummy's id (so the preview wears the genes this villager actually
+     * inherited, not the origin-typical kit the empty-set fallback renders) and its life
+     * stage (so a baby previews without the attachments its stages hide — an orc's tusks
+     * grow in at child stage). Browsing a different root clears the mirror so the picker
+     * still previews that root's typical kit; the revert path restores it. Senior stage
+     * keys off the life sync by real entity id and stays un-mirrored: a senior previews
+     * as a plain adult, the closest stage the editor can show.
+     */
+    @Unique
+    private void townstead$mirrorRealState() {
+        net.minecraft.world.entity.LivingEntity real = townstead$previewSubject();
+        if (real == null) return;
+        RootClientStore.mirrorExpressed(real, villager.getId());
+        if (real instanceof net.conczin.mca.entity.VillagerEntityMCA realMca) {
+            villager.setAgeState(realMca.getAgeState());
         }
     }
 
@@ -1173,9 +1227,26 @@ public abstract class VillagerEditorRootMixin extends Screen {
         for (com.aetherianartificer.townstead.root.RootCatalogEntry.Inherited inh : origin.inheritedGenes()) {
             GeneCatalogEntry g = com.aetherianartificer.townstead.client.root.RootCatalogClient.gene(inh.geneId());
             if (g != null && !g.isVariants() && !g.channels().isEmpty()
-                    && !townstead$geneGatedOff(g)) out.add(g);
+                    && !townstead$geneGatedOff(g) && !townstead$geneNotCarried(g)) out.add(g);
         }
         return out;
+    }
+
+    /**
+     * True when the target individual does not actually carry this gene — it appears in
+     * the layout only because the root's archetype grants it, but inheritance left this
+     * character without it (a hybrid whose orc parent passed the wild visage copy). The
+     * control would present the gene as worn and edit something the character does not
+     * have, so the group hides — matching the render, which shows the individual's real
+     * genes. An empty expressed sync (legacy villager, vanilla-model player, not yet
+     * synced) hides nothing, mirroring the render layer's origin-kit fallback. Pinning a
+     * gene onto such a villager stays possible via {@code /townstead gene grant} or a
+     * root re-apply.
+     */
+    @Unique
+    private boolean townstead$geneNotCarried(GeneCatalogEntry gene) {
+        java.util.Set<String> expressed = townstead$expressedOfTarget();
+        return !expressed.isEmpty() && !expressed.contains(gene.id());
     }
 
     /**
@@ -1224,7 +1295,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
     @Unique
     private String townstead$carriedRaw(String geneId) {
         String raw = RootClientStore.carriedVariants(villager.getId()).get(geneId);
-        if (raw == null || raw.isEmpty()) raw = townstead$carriedRaw(geneId);
+        if (raw == null || raw.isEmpty()) raw = RootClientStore.carriedVariants(townstead$target).get(geneId);
         if (raw == null || raw.isEmpty()) {
             net.minecraft.world.entity.LivingEntity real = townstead$previewSubject();
             if (real != null) raw = RootClientStore.resolveCarriedVariant(real, geneId);
@@ -1457,6 +1528,17 @@ public abstract class VillagerEditorRootMixin extends Screen {
         //?} else if forge {
         /*com.aetherianartificer.townstead.TownsteadNetwork.sendToServer(
                 new RootSetC2SPayload(target, rootId));
+        *///?}
+    }
+
+    @Unique
+    private void townstead$sendCommitGenes(int target, float[] genes) {
+        //? if neoforge {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                new com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload(target, genes));
+        //?} else if forge {
+        /*com.aetherianartificer.townstead.TownsteadNetwork.sendToServer(
+                new com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload(target, genes));
         *///?}
     }
 }

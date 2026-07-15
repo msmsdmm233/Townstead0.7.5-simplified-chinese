@@ -69,6 +69,23 @@ public final class RootGenes {
         for (int i = 0; i < ORDERED.length; i++) genetics.setGene(ORDERED[i], snapshot[i]);
     }
 
+    /** Number of MCA float genes a {@link #snapshot} carries. */
+    public static int geneCount() {
+        return ORDERED.length;
+    }
+
+    /**
+     * Write a {@link #snapshot}'s floats into a player's stored MCA data under MCA's own gene
+     * keys (the keys the dummy's save would use), leaving every other key untouched; no-op on
+     * a null/mismatched array.
+     */
+    public static void writeToPlayerData(net.minecraft.nbt.CompoundTag entityData, float[] snapshot) {
+        if (entityData == null || snapshot == null || snapshot.length != ORDERED.length) return;
+        for (int i = 0; i < ORDERED.length; i++) {
+            entityData.putFloat(ORDERED[i].key(), snapshot[i]);
+        }
+    }
+
     /** Normalize an author-supplied gene key to the form used as a map key. */
     public static String normalizeKey(String raw) {
         if (raw == null) return "";

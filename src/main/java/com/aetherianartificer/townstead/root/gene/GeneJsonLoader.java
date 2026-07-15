@@ -8,6 +8,7 @@ import com.aetherianartificer.townstead.pheno.lang.compile.Diagnostics;
 import com.aetherianartificer.townstead.pheno.lang.compile.Severity;
 import com.aetherianartificer.townstead.pheno.lang.normalize.PhenoNormalizer;
 import com.aetherianartificer.townstead.pheno.lang.validate.PhenoValidator;
+import com.aetherianartificer.townstead.root.gene.types.ResourceGeneType;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -99,9 +100,10 @@ public final class GeneJsonLoader extends SimpleJsonResourceReloadListener {
     }
 
     /**
-     * Register a gene's inline companion resources as real {@code pheno:resource} genes keyed by
-     * the derived id {@code <parentId>/<name>}, and record the parent->companions link so they
-     * ride along the parent's expression. Skipped silently when a config is invalid.
+     * Register a gene's inline companions (its {@code resources} meters and {@code companions}
+     * components) as real genes keyed by the derived id {@code <parentId>/<name>}, and record the
+     * parent->companions link so they ride along the parent's expression. Skipped with a warning
+     * when a config is invalid.
      */
     private static void registerCompanions(ResourceLocation parent, Map<ResourceLocation, JsonObject> configs,
                                            Map<String, String> lang, Map<ResourceLocation, Gene> parsed,
@@ -111,20 +113,22 @@ public final class GeneJsonLoader extends SimpleJsonResourceReloadListener {
         for (Map.Entry<ResourceLocation, JsonObject> e : configs.entrySet()) {
             ResourceLocation id = e.getKey();
             JsonObject config = e.getValue();
-            Optional<GeneType> type = GeneTypes.get(GsonHelper.getAsString(config, "type", ""));
+            String typeKey = GsonHelper.getAsString(config, "type", "");
+            Optional<GeneType> type = GeneTypes.get(typeKey);
             if (type.isEmpty()) {
-                LOGGER.warn("Gene {} — companion resource '{}' has unknown type, skipping", parent, id);
+                LOGGER.warn("Gene {} — companion '{}' has unknown type '{}', skipping", parent, id, typeKey);
                 continue;
             }
             GeneInstance instance = type.get().parse(config, lang);
             if (instance == null) {
-                LOGGER.warn("Gene {} — companion resource '{}' has invalid config, skipping", parent, id);
+                LOGGER.warn("Gene {} — companion '{}' has invalid config, skipping", parent, id);
                 continue;
             }
             String shortName = id.getPath().substring(id.getPath().lastIndexOf('/') + 1);
             Component name = Component.literal(shortName);
             ResourceLocation locus = type.get().defaultLocus(instance);
-            parsed.put(id, new Gene(id, name, null, "resource", Dominance.fromString("recessive"),
+            String category = ResourceGeneType.KEY.equals(typeKey) ? "resource" : "companion";
+            parsed.put(id, new Gene(id, name, null, category, Dominance.fromString("recessive"),
                     locus, 1, List.of(new GeneVariant(shortName, name, 1, instance))));
             ids.add(id);
         }

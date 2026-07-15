@@ -46,12 +46,8 @@ public final class RootCatalogClient {
         boolean any = false;
         for (com.aetherianartificer.townstead.root.TraitCatalogEntry t : payload.traits()) {
             try {
-                net.conczin.mca.entity.ai.Traits.registerTrait(t.id(), t.chance(), t.inherit(), t.usableOnPlayer());
-                // Uppercase alias for new-MCA-1.20.1's uppercased valueOf, matching TraitJsonLoader.
-                String upper = t.id().toUpperCase(java.util.Locale.ROOT);
-                if (!upper.equals(t.id())) {
-                    net.conczin.mca.entity.ai.Traits.registerTrait(upper, t.chance(), t.inherit(), t.usableOnPlayer());
-                }
+                com.aetherianartificer.townstead.root.trait.TraitBridge.register(
+                        t.id(), t.chance(), t.inherit(), t.usableOnPlayer());
                 any = true;
             } catch (Throwable ignored) {
                 // Older/newer MCA without this exact signature — skip; trait just won't list.

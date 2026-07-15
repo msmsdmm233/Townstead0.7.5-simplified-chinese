@@ -37,7 +37,8 @@ public final class RusticDelightThirstCompat {
         if (ModCompat.isLoaded("legendarysurvivaloverhaul")) return;
 
         try {
-            Class<?> thirstHelper = Class.forName("dev.ghen.thirst.api.ThirstHelper");
+            Class<?> thirstHelper = resolveThirstHelper();
+            if (thirstHelper == null) return;
             Field drinksField = thirstHelper.getField("VALID_DRINKS");
             Object raw = drinksField.get(null);
             if (!(raw instanceof Map<?, ?> map)) return;
@@ -52,11 +53,21 @@ public final class RusticDelightThirstCompat {
                 added++;
             }
             if (added > 0) {
-                Townstead.LOGGER.info("Registered {} Rustic Delight drink(s) with Thirst Was Taken.", added);
+                Townstead.LOGGER.info("Registered {} Rustic Delight drink(s) with the thirst mod.", added);
             }
         } catch (Exception e) {
-            Townstead.LOGGER.warn("Failed to register Rustic Delight drinks with Thirst Was Taken.", e);
+            Townstead.LOGGER.warn("Failed to register Rustic Delight drinks with the thirst mod.", e);
         }
+    }
+
+    /** Thirst Was Reclaimed relocates the API; Thirst Was Taken uses the dev.ghen package. */
+    private static Class<?> resolveThirstHelper() {
+        for (String name : new String[]{"cn.mlus.thirst.api.ThirstHelper", "dev.ghen.thirst.api.ThirstHelper"}) {
+            try {
+                return Class.forName(name);
+            } catch (ClassNotFoundException ignored) {}
+        }
+        return null;
     }
 
     private static Item resolveItem(String itemId) {

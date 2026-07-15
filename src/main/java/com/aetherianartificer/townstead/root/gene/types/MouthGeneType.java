@@ -18,6 +18,11 @@ public final class MouthGeneType implements GeneType {
 
     public static final String KEY = "townstead_roots:mouth";
 
+    // One mouth per creature: shared locus so mixed-ancestry children inherit
+    // competing alleles instead of stacking both parents' mouths.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId(KEY);
+
     public record Instance(String texture) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
         @Override public GeneDisplay display() { return GeneDisplay.PRESENCE; }
@@ -29,5 +34,10 @@ public final class MouthGeneType implements GeneType {
     @Override
     public GeneInstance parse(JsonObject json) {
         return new Instance(GsonHelper.getAsString(json, "texture", ""));
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 }

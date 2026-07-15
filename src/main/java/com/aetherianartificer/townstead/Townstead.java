@@ -439,6 +439,7 @@ public class Townstead {
                 com.aetherianartificer.townstead.calendar.AgeableCatchup.onEntityJoin(e.getEntity(), sl.getServer());
                 if (e.getEntity() instanceof VillagerEntityMCA villager) {
                     com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
+                    com.aetherianartificer.townstead.root.trait.TraitBridge.migrate(villager);
                 }
             }
         });
@@ -488,8 +489,10 @@ public class Townstead {
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
                 townstead$seedBuildingRecognition(e.getServer()));
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
-                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) -> {
+                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer());
+                com.aetherianartificer.townstead.village.VillageSanitizer.sanitizeServer(e.getServer());
+        });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent e) ->
                 ShiftTemplateRegistry.setServer(e.getServer()));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent e) ->
@@ -506,6 +509,7 @@ public class Townstead {
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
+                com.aetherianartificer.townstead.root.ability.AbilityToggles.syncTo(sp);
                 townstead$sendShiftTemplateSync(sp);
                 townstead$sendWeekPlanSync(sp);
                 PacketDistributor.sendToPlayer(sp, townstead$calendarSync(sp));
@@ -675,11 +679,14 @@ public class Townstead {
             else e.setAmount(scaled);
         });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerEvent.BreakSpeed e) ->
-                e.setNewSpeed(com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
-                        com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed()))));
+                e.setNewSpeed(com.aetherianartificer.townstead.root.harvest.InnateTool.breakSpeed(e.getEntity(), e.getState(),
+                        com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
+                                com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed())))));
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerEvent.HarvestCheck e) -> {
-            if (!e.canHarvest() && com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
-                    e.getEntity(), e.getTargetBlock())) {
+            if (!e.canHarvest() && (com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
+                    e.getEntity(), e.getTargetBlock())
+                    || com.aetherianartificer.townstead.root.harvest.InnateTool.allowsHarvest(
+                            e.getEntity(), e.getTargetBlock()))) {
                 e.setCanHarvest(true);
             }
         });
@@ -755,6 +762,7 @@ public class Townstead {
                 com.aetherianartificer.townstead.calendar.AgeableCatchup.onEntityJoin(e.getEntity(), sl.getServer());
                 if (e.getEntity() instanceof VillagerEntityMCA villager) {
                     com.aetherianartificer.townstead.villager.TownsteadVillagerState.root(villager);
+                    com.aetherianartificer.townstead.root.trait.TraitBridge.migrate(villager);
                 }
             }
         });
@@ -797,8 +805,10 @@ public class Townstead {
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
                 townstead$seedBuildingRecognition(e.getServer()));
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
-                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer()));
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) -> {
+                com.aetherianartificer.townstead.village.TownsteadVillageMigration.migrateServerIfNeeded(e.getServer());
+                com.aetherianartificer.townstead.village.VillageSanitizer.sanitizeServer(e.getServer());
+        });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStartedEvent e) ->
                 ShiftTemplateRegistry.setServer(e.getServer()));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerStoppingEvent e) ->
@@ -815,6 +825,7 @@ public class Townstead {
         });
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer sp) {
+                com.aetherianartificer.townstead.root.ability.AbilityToggles.syncTo(sp);
                 TownsteadNetwork.sendShiftTemplateSync(sp);
                 TownsteadNetwork.sendWeekPlanSync(sp);
                 TownsteadNetwork.sendToPlayer(sp, townstead$calendarSync(sp));
@@ -1001,11 +1012,14 @@ public class Townstead {
             else e.setAmount(scaled);
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerEvent.BreakSpeed e) ->
-                e.setNewSpeed(com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
-                        com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed()))));
+                e.setNewSpeed(com.aetherianartificer.townstead.root.harvest.InnateTool.breakSpeed(e.getEntity(), e.getState(),
+                        com.aetherianartificer.townstead.root.ability.GeneAbilityTicker.aerialBreakSpeed(e.getEntity(),
+                                com.aetherianartificer.townstead.root.hook.PhenoHooks.breakSpeed(e.getEntity(), e.getNewSpeed())))));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerEvent.HarvestCheck e) -> {
-            if (!e.canHarvest() && com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
-                    e.getEntity(), e.getTargetBlock())) {
+            if (!e.canHarvest() && (com.aetherianartificer.townstead.root.harvest.ModifyHarvest.allows(
+                    e.getEntity(), e.getTargetBlock())
+                    || com.aetherianartificer.townstead.root.harvest.InnateTool.allowsHarvest(
+                            e.getEntity(), e.getTargetBlock()))) {
                 e.setCanHarvest(true);
             }
         });
@@ -1151,7 +1165,11 @@ public class Townstead {
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.DamageModifierGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.AttackModifierGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.GlowGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.OpacityGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.HideFeatureGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
@@ -1218,6 +1236,10 @@ public class Townstead {
                     new com.aetherianartificer.townstead.root.gene.types.InventoryGeneType());
             com.aetherianartificer.townstead.root.gene.GeneTypes.register(
                     new com.aetherianartificer.townstead.root.gene.types.RecipeGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.InnateToolGeneType());
+            com.aetherianartificer.townstead.root.gene.GeneTypes.register(
+                    new com.aetherianartificer.townstead.root.gene.types.BlockBreakSpeedGeneType());
 
             // Condition types that gate conditioned genes (Apoli entity-condition subset)
             registerConditionTypes();
@@ -1579,6 +1601,10 @@ public class Townstead {
                 new com.aetherianartificer.townstead.pheno.action.types.TameActionType());
         com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
                 new com.aetherianartificer.townstead.pheno.action.types.SetInLoveActionType());
+        com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
+                new com.aetherianartificer.townstead.pheno.action.types.SetAttackTargetActionType());
+        com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
+                new com.aetherianartificer.townstead.pheno.action.types.DisarmActionType());
         // Entity actions (operate on the actor; some are player-only)
         com.aetherianartificer.townstead.pheno.action.ActionTypes.register(
                 new com.aetherianartificer.townstead.pheno.action.types.AddXpActionType());
@@ -2300,6 +2326,11 @@ public class Townstead {
                 this::handleSetGeneVariant
         );
         registrar.playToServer(
+                com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload.TYPE,
+                com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload.STREAM_CODEC,
+                this::handleCommitRootGenes
+        );
+        registrar.playToServer(
                 com.aetherianartificer.townstead.root.SetPersonalityC2SPayload.TYPE,
                 com.aetherianartificer.townstead.root.SetPersonalityC2SPayload.STREAM_CODEC,
                 this::handleSetPersonality
@@ -2541,6 +2572,17 @@ public class Townstead {
                 PacketDistributor.sendToPlayer(sp, genes);
                 PacketDistributor.sendToPlayersTrackingEntity(entity, genes);
             }
+        });
+    }
+
+    private void handleCommitRootGenes(
+            com.aetherianartificer.townstead.root.CommitRootGenesC2SPayload payload,
+            IPayloadContext context
+    ) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sp)) return;
+            com.aetherianartificer.townstead.root.RootServerLogic.commitGenes(
+                    sp, payload.entityId(), payload.genes());
         });
     }
 
@@ -3498,6 +3540,7 @@ public class Townstead {
             /*TownsteadNetwork.sendToPlayer(sp, pSync);
             TownsteadNetwork.sendToPlayer(sp, pGenes);
             *///?}
+            com.aetherianartificer.townstead.root.ability.AbilityToggles.syncToWatcher(sp, trackedPlayer);
             return;
         }
 
@@ -3572,6 +3615,7 @@ public class Townstead {
         TownsteadNetwork.sendToPlayer(sp,
                 com.aetherianartificer.townstead.root.ExpressedGenesS2CPayload.forEntity(villager.getId(), villager));
         *///?}
+        com.aetherianartificer.townstead.root.ability.AbilityToggles.syncToWatcher(sp, villager);
     }
 
     public static HungerSyncPayload townstead$hungerSync(VillagerEntityMCA villager, CompoundTag hunger) {

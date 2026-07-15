@@ -21,6 +21,10 @@ public final class HydrationGeneType implements GeneType {
     /** The liquid value that means "does not drink", switching off the thirst need. */
     public static final String NONE = "none";
 
+    // One hydration source per creature: matches the locus every pack already declares.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId(KEY);
+
     public record Instance(String liquid) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
 
@@ -43,5 +47,10 @@ public final class HydrationGeneType implements GeneType {
         if (liquid.isBlank()) return null;
         return new Instance(liquid);
         // TODO(effects): gate which liquids quench thirst by this value.
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 }

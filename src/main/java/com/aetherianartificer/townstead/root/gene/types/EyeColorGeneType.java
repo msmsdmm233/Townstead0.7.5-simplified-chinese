@@ -19,6 +19,11 @@ public final class EyeColorGeneType implements GeneType {
 
     public static final String KEY = "townstead_roots:eye_color";
 
+    // One eye colour per creature: shared locus so mixed-ancestry children inherit
+    // competing colour alleles instead of stacking both parents' tints.
+    private static final net.minecraft.resources.ResourceLocation LOCUS =
+            com.aetherianartificer.townstead.data.DataPackLang.parseId(KEY);
+
     public record Instance(int tint) implements GeneInstance {
         @Override public String typeKey() { return KEY; }
         @Override public GeneDisplay display() { return GeneDisplay.color(tint, 0, 1.0f); }
@@ -30,6 +35,11 @@ public final class EyeColorGeneType implements GeneType {
     @Override
     public GeneInstance parse(JsonObject json) {
         return new Instance(parseHex(GsonHelper.getAsString(json, "tint", ""), 0xFFFFFF));
+    }
+
+    @Override
+    public net.minecraft.resources.ResourceLocation defaultLocus(GeneInstance instance) {
+        return LOCUS;
     }
 
     /** Parse {@code #RRGGBB} / {@code RRGGBB} / {@code #RGB}; fall back on anything malformed. */

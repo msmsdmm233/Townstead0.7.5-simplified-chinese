@@ -254,7 +254,7 @@ public final class GeneAbilityTicker {
                                      AbilityGeneType.Instance gene, boolean isPlayer, ConditionContext ctx) {
         if (gene.ability().playerOnly() && !isPlayer) return;
         boolean active = gene.mode() == AbilityGeneType.Mode.TOGGLE
-                ? AbilityToggles.isOn(entity, geneId)
+                ? AbilityToggles.isOn(entity, geneId, gene.defaultOn())
                 : gene.condition() == null || gene.condition().test(ctx);
         if (active) {
             apply(entity, gene.ability());
@@ -269,6 +269,7 @@ public final class GeneAbilityTicker {
     private static void clear(LivingEntity entity, Ability ability) {
         switch (ability) {
             case NIGHT_VISION, LAVA_VISION -> removeHidden(entity, MobEffects.NIGHT_VISION);
+            case HIGH_JUMP -> removeHidden(entity, MobEffects.JUMP);
             case WATER_BREATHING -> removeHidden(entity, MobEffects.WATER_BREATHING);
             case SLOW_FALL -> removeHidden(entity, MobEffects.SLOW_FALLING);
             case INVISIBILITY -> removeHidden(entity, MobEffects.INVISIBILITY);
@@ -392,6 +393,9 @@ public final class GeneAbilityTicker {
     private static void apply(LivingEntity entity, Ability ability) {
         switch (ability) {
             case NIGHT_VISION -> entity.addEffect(hidden(MobEffects.NIGHT_VISION));
+            // Jump Boost II: a vanilla effect, so the owning client's jump physics picks it
+            // up through the normal effect sync (no client mirror needed).
+            case HIGH_JUMP -> entity.addEffect(hidden(MobEffects.JUMP, 1));
             case WATER_BREATHING -> {
                 if (entity.isUnderWater()) entity.addEffect(hidden(MobEffects.WATER_BREATHING));
             }
@@ -453,6 +457,17 @@ public final class GeneAbilityTicker {
             /*net.minecraft.world.effect.MobEffect effect
             *///?}
     ) {
-        return new MobEffectInstance(effect, EFFECT_DURATION, 0, true, false, false);
+        return hidden(effect, 0);
+    }
+
+    private static MobEffectInstance hidden(
+            //? if neoforge {
+            net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect,
+            //?} else {
+            /*net.minecraft.world.effect.MobEffect effect,
+            *///?}
+            int amplifier
+    ) {
+        return new MobEffectInstance(effect, EFFECT_DURATION, amplifier, true, false, false);
     }
 }

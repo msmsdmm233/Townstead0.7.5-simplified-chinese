@@ -54,6 +54,7 @@ public final class TownsteadClient {
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onClientDisconnect);
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onGatherTooltipComponents);
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onClientTick);
+            NeoForge.EVENT_BUS.addListener(TownsteadClient::onRenderNameTag);
             NeoForge.EVENT_BUS.addListener(FishermanLineRenderer::onRenderLevel);
             NeoForge.EVENT_BUS.addListener(
                     com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPre);
@@ -74,6 +75,7 @@ public final class TownsteadClient {
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientConnect);
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientDisconnect);
             MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onClientTick);
+            MinecraftForge.EVENT_BUS.addListener(TownsteadClient::onRenderNameTag);
             MinecraftForge.EVENT_BUS.addListener(FishermanLineRenderer::onRenderLevel);
             MinecraftForge.EVENT_BUS.addListener(
                     com.aetherianartificer.townstead.client.species.ClimbRender::onRenderLivingPre);
@@ -139,7 +141,31 @@ public final class TownsteadClient {
         clearClientStore("com.aetherianartificer.townstead.profession.ProfessionClientStore");
         clearClientStore("com.aetherianartificer.townstead.village.VillageResidentClientStore");
         clearClientStore("com.aetherianartificer.townstead.calendar.CalendarStampClientStore");
+        clearClientStore("com.aetherianartificer.townstead.client.species.InvisFade");
     }
+
+    /**
+     * Hides an invisible player's nameplate (vanilla renders it regardless). Players only:
+     * MCA villagers already hide theirs, and invisible name-flagged armor stands are the
+     * standard hologram technique, which must keep rendering.
+     */
+    //? if neoforge {
+    private static void onRenderNameTag(net.neoforged.neoforge.client.event.RenderNameTagEvent event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player
+                && net.minecraft.client.Minecraft.getInstance().player != null
+                && player.isInvisibleTo(net.minecraft.client.Minecraft.getInstance().player)) {
+            event.setCanRender(net.neoforged.neoforge.common.util.TriState.FALSE);
+        }
+    }
+    //?} else if forge {
+    /*private static void onRenderNameTag(net.minecraftforge.client.event.RenderNameTagEvent event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player
+                && net.minecraft.client.Minecraft.getInstance().player != null
+                && player.isInvisibleTo(net.minecraft.client.Minecraft.getInstance().player)) {
+            event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+        }
+    }
+    *///?}
 
     private static void clearClientStore(String className) {
         try {
@@ -157,6 +183,7 @@ public final class TownsteadClient {
         FishermanLineRenderer.onClientTick();
         tryWarmSpiritIndex();
         com.aetherianartificer.townstead.client.species.ClimbState.tick();
+        com.aetherianartificer.townstead.client.species.InvisFade.tick();
         com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge.ensureRegistered();
     }
     //?} else if forge {
@@ -166,6 +193,7 @@ public final class TownsteadClient {
         FishermanLineRenderer.onClientTick();
         tryWarmSpiritIndex();
         com.aetherianartificer.townstead.client.species.ClimbState.tick();
+        com.aetherianartificer.townstead.client.species.InvisFade.tick();
         com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge.ensureRegistered();
     }
     *///?}
@@ -190,9 +218,33 @@ public final class TownsteadClient {
         boolean villagerMoodPath = path.startsWith("villager.")
                 && (path.contains(".laugh") || path.contains(".cry") || path.contains(".celebrate"));
         boolean directClipPath = path.contains("/laugh/") || path.contains("/cry/") || path.contains("/celebrate/");
-        if (villagerMoodPath || directClipPath) {
-            event.setSound(null);
+        if (!villagerMoodPath && !directClipPath) return;
+        if (isBabyVoice(event.getSound())) return;
+        event.setSound(null);
+    }
+
+    /**
+     * True when the matched mood clip comes from a baby-stage villager (nearest MCA villager to the
+     * sound position — the event carries no emitter). Babies keep cooing under the mute: MCA's baby
+     * ambient is {@code villager.baby.laugh}, which the path match would otherwise swallow.
+     */
+    private static boolean isBabyVoice(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        net.minecraft.client.multiplayer.ClientLevel level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) return false;
+        double x = sound.getX(), y = sound.getY(), z = sound.getZ();
+        net.conczin.mca.entity.VillagerEntityMCA nearest = null;
+        double best = Double.MAX_VALUE;
+        for (net.conczin.mca.entity.VillagerEntityMCA v : level.getEntitiesOfClass(
+                net.conczin.mca.entity.VillagerEntityMCA.class,
+                new net.minecraft.world.phys.AABB(x - 2, y - 2, z - 2, x + 2, y + 2, z + 2))) {
+            double d = v.distanceToSqr(x, y, z);
+            if (d < best) {
+                best = d;
+                nearest = v;
+            }
         }
+        return nearest != null
+                && com.aetherianartificer.townstead.root.LifeStageProgression.isBabyStage(nearest);
     }
 
     //? if forge {

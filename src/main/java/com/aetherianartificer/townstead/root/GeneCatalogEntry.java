@@ -286,6 +286,16 @@ public record GeneCatalogEntry(
         return isOverlay() ? Math.max(0f, Math.min(1f, min)) : 1f;
     }
 
+    /** True when this gene sets a conditional body render opacity (alpha rides in {@code min}). */
+    public boolean isOpacity() {
+        return displayKind == GeneDisplay.Kind.OPACITY.ordinal();
+    }
+
+    /** For OPACITY genes, the render alpha 0–1 (rides in {@code min}); 1 otherwise. */
+    public float opacityAlpha() {
+        return isOpacity() ? Math.max(0f, Math.min(1f, min)) : 1f;
+    }
+
     /** Whether a HIDE_FEATURE gene hides the given part group ({@code head}/{@code body}/{@code arms}/{@code legs}). */
     public boolean hidesPart(String group) {
         if (targetId == null || targetId.isEmpty()) return false;
@@ -410,6 +420,31 @@ public record GeneCatalogEntry(
             }
         }
         return out;
+    }
+
+    /** True when this gene makes the empty mainhand act as a tool (item id rides in {@code targetId}). */
+    public boolean isInnateTool() {
+        return displayKind == GeneDisplay.Kind.INNATE_TOOL.ordinal();
+    }
+
+    /** An INNATE_TOOL gene's item id; empty otherwise. */
+    public String innateToolItem() {
+        return isInnateTool() && targetId != null ? targetId : "";
+    }
+
+    /** True when this gene scales dig speed against a block filter ({@code "#tag"} or block id in {@code targetId}). */
+    public boolean isBlockBreakSpeed() {
+        return displayKind == GeneDisplay.Kind.BLOCK_BREAK_SPEED.ordinal();
+    }
+
+    /** A BLOCK_BREAK_SPEED gene's block filter spec; empty otherwise. */
+    public String breakSpeedFilter() {
+        return isBlockBreakSpeed() && targetId != null ? targetId : "";
+    }
+
+    /** A BLOCK_BREAK_SPEED gene's speed multiplier (rides in {@code amount}); 1 otherwise. */
+    public float breakSpeedValue() {
+        return isBlockBreakSpeed() ? amount : 1f;
     }
 
     public boolean isRecessive() {

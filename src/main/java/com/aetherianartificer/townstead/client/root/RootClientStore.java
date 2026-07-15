@@ -158,6 +158,30 @@ public final class RootClientStore {
         return ids;
     }
 
+    /**
+     * Mirror a source entity's expressed-gene set onto a client-local dummy id (the villager
+     * editor's preview entity), resolved through the same synced-then-snapshot path the world
+     * render uses — so the preview wears THIS individual's genetics rather than the
+     * origin-typical kit the empty-set fallback shows. An empty resolution clears the mirror
+     * instead, leaving the fallback in place (a never-synced legacy villager).
+     */
+    public static void mirrorExpressed(LivingEntity source, int targetId) {
+        if (source == null || source.getId() == targetId) return;
+        Set<String> ids = expressedGenes(source);
+        if (ids.isEmpty()) {
+            EXPRESSED.remove(targetId);
+            return;
+        }
+        Set<String> copy = ConcurrentHashMap.newKeySet();
+        copy.addAll(ids);
+        EXPRESSED.put(targetId, copy);
+    }
+
+    /** Drop an id's mirrored expressed set, so a browsed root previews its typical kit again. */
+    public static void clearExpressed(int entityId) {
+        EXPRESSED.remove(entityId);
+    }
+
     /** The entity's rolled variant id per variant-gene id, or an empty map if not yet synced. */
     public static Map<String, String> carriedVariants(int entityId) {
         return VARIANTS.getOrDefault(entityId, Map.of());

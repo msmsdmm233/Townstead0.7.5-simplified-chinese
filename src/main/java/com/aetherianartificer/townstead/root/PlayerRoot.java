@@ -75,7 +75,12 @@ public final class PlayerRoot {
     /** The player's stored genotype (empty if none rolled yet). */
     public static Genotype getGenotype(Player player) {
         CompoundTag tag = data(player);
-        return tag.contains(GENOTYPE_KEY) ? Genotype.fromTag(tag.getCompound(GENOTYPE_KEY)) : new Genotype();
+        if (!tag.contains(GENOTYPE_KEY)) return new Genotype();
+        Genotype genotype = Genotype.fromTag(tag.getCompound(GENOTYPE_KEY));
+        // Players have no load-time migrate pass, so stale private-slot entries (a gene
+        // that has since gained a shared locus) are relocated here and persisted.
+        if (Heredity.canonicalizeLoci(genotype)) setGenotype(player, genotype);
+        return genotype;
     }
 
     public static void setGenotype(Player player, Genotype genotype) {

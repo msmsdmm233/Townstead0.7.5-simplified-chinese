@@ -129,7 +129,8 @@ public final class RootPicker {
         list.rebuild();
         String current = list.currentRootId();
         for (RootCatalogEntry e : RootCatalogClient.origins()) {
-            if (e.id().equals(current)) {
+            // A blocked current root has no row to select; the target keeps it until a new pick applies.
+            if (e.id().equals(current) && !e.blocked()) {
                 list.choose(e);
                 break;
             }

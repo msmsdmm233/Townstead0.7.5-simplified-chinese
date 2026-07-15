@@ -29,11 +29,12 @@ public final class ToggledConditionType implements ConditionType {
     public Condition parse(JsonObject json) {
         ResourceLocation geneId = DataPackLang.parseId(GsonHelper.getAsString(json, "gene", ""));
         if (geneId == null) return null;
-        // Side-aware: the live map is server-side; clients (attachment gates, pose
-        // conditions) read the synced per-entity toggle set instead.
+        // Side-aware: the live map is server-side (read default-aware, so a default-on
+        // toggle tests true untouched); clients (attachment gates, pose conditions) read
+        // the synced per-entity toggle set, which already carries effective state.
         return ctx -> ctx.entity().level().isClientSide()
                 ? ClientToggleState.isOn(ctx.entity(), geneId)
-                : AbilityToggles.isOn(ctx.entity(), geneId);
+                : AbilityToggles.isOnEffective(ctx.entity(), geneId);
     }
 
     /** Client-only store access, isolated so dedicated servers never load it. */
