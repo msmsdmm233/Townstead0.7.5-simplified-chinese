@@ -60,6 +60,7 @@ public final class McaAnimationBridge {
 
     /** Drop cached CEM programs so the next render reloads from the current pack stack. */
     public static void onResourcesReloaded() {
+        EmfCompat.register();
         EMF_ADAPTER.invalidate();
         EmoteReflection.invalidate();
         EMOTE_ADAPTER.invalidate();
