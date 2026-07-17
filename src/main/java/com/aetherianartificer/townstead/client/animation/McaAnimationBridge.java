@@ -5,6 +5,7 @@ import com.aetherianartificer.townstead.client.animation.emote.EmoteRegistry;
 import com.aetherianartificer.townstead.client.animation.emote.EmotecraftAnimationSourceAdapter;
 import com.aetherianartificer.townstead.client.animation.emote.loader.EmoteReflection;
 import com.aetherianartificer.townstead.client.animation.emote.loader.EmotecraftEventBridge;
+import com.aetherianartificer.townstead.mixin.accessor.VillagerEditorScreenAccessor;
 import net.conczin.mca.client.gui.VillagerEditorScreen;
 import net.conczin.mca.client.model.PlayerEntityExtendedModel;
 import net.conczin.mca.client.model.VillagerEntityModelMCA;
@@ -18,6 +19,8 @@ import net.minecraft.world.entity.LivingEntity;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 public final class McaAnimationBridge {
@@ -35,6 +38,17 @@ public final class McaAnimationBridge {
             ROOT_ADAPTER,
             EMOTE_ADAPTER
     );
+
+    // MCA 7.7+ bakes its villager/player models' animation parent from the vanilla PLAYER
+    // layer, so an installed EMF animates MCA models natively at render time. Running our
+    // CEM evaluator on the same bones double-drives them with a different clock (and EMF
+    // re-poses at render anyway, stomping what we write). Custom rigs stay ours: they are
+    // baked EMF-free (RigModels.bakeLayer) so only our evaluator can animate them.
+    //? if neoforge {
+    private static final boolean MCA_NATIVE_EMF = true;
+    //?} else {
+    /*private static final boolean MCA_NATIVE_EMF = false;
+    *///?}
 
     private static final float BREAST_BASE_X_ROT = (float) Math.PI * 0.3f;
     private static final float BREAST_TILT_DAMPING = 0.5f;
@@ -144,7 +158,8 @@ public final class McaAnimationBridge {
         McaRigScale rigScale = McaRigScale.from(entity, model);
         AnimationSourceContext<T> context = new AnimationSourceContext<>(
                 entity, model, parameters, rigScale, limbAngle, limbDistance, animationProgress, headYaw, headPitch);
-        AnimationTargetMap<T> targets = (rigRoot != null && rigDef != null)
+        boolean rigTargets = rigRoot != null && rigDef != null;
+        AnimationTargetMap<T> targets = rigTargets
                 ? AnimationTargetMap.forRig(rigRoot, rigDef)
                 : AnimationTargetMap.forMcaModel(model);
 
@@ -181,6 +196,7 @@ public final class McaAnimationBridge {
 
         boolean anyAvailable = false;
         for (AnimationSourceAdapter source : SOURCES) {
+            if (source == EMF_ADAPTER && MCA_NATIVE_EMF && !rigTargets) continue;
             if (!source.isAvailable()) continue;
             anyAvailable = true;
             List<AnimationTransform> transforms = source.collectTransforms(context);
@@ -296,10 +312,42 @@ public final class McaAnimationBridge {
     }
 
     private static boolean isEditorPreview(LivingEntity entity) {
+        // New MCA wraps GUI preview renders (editor, skin library) in PreviewEntityAnimation,
+        // swapping the entity's tickCount to wall-clock so EMF/CEM animates while paused. Any
+        // render inside that window has a corrupted CEM clock, whichever preview entity is drawn.
+        if (PreviewClock.isActive()) return true;
         Minecraft client = Minecraft.getInstance();
         if (client == null) return false;
         Screen screen = client.screen;
-        return screen instanceof VillagerEditorScreen editor && editor.getVillager() == entity;
+        if (!(screen instanceof VillagerEditorScreen editor)) return false;
+        // Identity fallback for MCA builds without PreviewEntityAnimation. The editor renders two
+        // entities: the main preview and villagerVisualization (preset compare + selection grids).
+        return editor.getVillager() == entity
+                || ((VillagerEditorScreenAccessor) editor).townstead$getVillagerVisualization() == entity;
+    }
+
+    // Reflective: the compile jar may lag behind the runtime MCA (and the 1.20.1 build's package
+    // remap rewrites the literal to a class old MCA doesn't have). Absent => identity check only.
+    private static final class PreviewClock {
+        private static final MethodHandle GET_ACTIVE_PARTIAL_TICK = resolve();
+
+        private static MethodHandle resolve() {
+            try {
+                Class<?> clazz = Class.forName("net.conczin.mca.client.gui.PreviewEntityAnimation");
+                return MethodHandles.publicLookup().unreflect(clazz.getMethod("getActivePartialTick"));
+            } catch (ReflectiveOperationException ignored) {
+                return null;
+            }
+        }
+
+        static boolean isActive() {
+            if (GET_ACTIVE_PARTIAL_TICK == null) return false;
+            try {
+                return GET_ACTIVE_PARTIAL_TICK.invoke() != null;
+            } catch (Throwable ignored) {
+                return false;
+            }
+        }
     }
 
     private static ModelPart breastsPart(HumanoidModel<?> model) {

@@ -81,6 +81,7 @@
     "accessor.BlueprintScreenAccessor",
     "accessor.ColorPickerWidgetAccessor",
     "accessor.InteractScreenAccessor",
+    "accessor.VillagerEditorScreenAccessor",
     "client.FishingHookRendererMixin",
     "client.HairLayerSeniorMixin",
     "client.LivingEntityGlideTiltMixin",

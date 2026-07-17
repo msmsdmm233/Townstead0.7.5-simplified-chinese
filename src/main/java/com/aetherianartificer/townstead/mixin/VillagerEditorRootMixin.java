@@ -1499,14 +1499,48 @@ public abstract class VillagerEditorRootMixin extends Screen {
         com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.clear();
     }
 
+    // The editor's preview dummies are created and never ticked, so they keep spawn-default
+    // air state (onGround false). Since MCA models became EMF-interceptable, animation packs
+    // (Fresh Animations) read that state during preview renders and play their falling/flail
+    // animation, which reads as violent twitching. Ground the dummy before every preview
+    // render so packs see a calm standing entity. Old MCA has no renderPreviewEntity and no
+    // EMF interception, so require = 0 skips it there.
+    //? if neoforge {
+    @Inject(method = "renderPreviewEntity", remap = false, require = 0, at = @At("HEAD"))
+    private void townstead$calmPreviewEntity(
+            GuiGraphics context, int x0, int y0, int x1, int y1, int size,
+            float mouseX, float mouseY, net.minecraft.world.entity.LivingEntity entity,
+            float rotationOffset, CallbackInfo ci
+    ) {
+        entity.setOnGround(true);
+        entity.fallDistance = 0f;
+        entity.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        // The dummy is loaded to the real villager's coordinates but never ticked, so its
+        // position interpolation history keeps the spawn position. EMF lerps pos_y from
+        // prev to current with the preview's wall-clock partial tick, so a stale prev makes
+        // pos_y sawtooth 0->y every frame; FA's landing detector reads each reset as a fall
+        // and replays the landing squash in a loop. MCA's renderPreviewEntity syncs the
+        // rotation history (yBodyRotO/yRotO/xRotO) but not position, so sync it here.
+        entity.xo = entity.getX();
+        entity.yo = entity.getY();
+        entity.zo = entity.getZ();
+        entity.xOld = entity.getX();
+        entity.yOld = entity.getY();
+        entity.zOld = entity.getZ();
+        com.aetherianartificer.townstead.client.animation.EmfVariableDebug.seedLandingSettled(entity);
+        com.aetherianartificer.townstead.client.animation.EmfVariableDebug.logPreviewEntity(entity);
+    }
+    //?}
+
     // Camera auto-zoom: scale + re-center MCA's preview render toward the body region
-    // being edited (EditorPreviewFocus eases in while dragging, back out after). The
-    // name-only INVOKE target matches the single 1.21.1 renderEntityInInventory; the
-    // old-editor MCA (1.20.1) has no renderPreviewEntity, so require = 0 skips it there.
+    // being edited (EditorPreviewFocus eases in while dragging, back out after). New MCA
+    // routes the preview through PreviewEntityAnimation (same 8-arg shape as the old
+    // InventoryScreen call); the old-editor MCA (1.20.1) has no renderPreviewEntity, so
+    // require = 0 skips it there.
     //? if neoforge {
     @ModifyArgs(method = "renderPreviewEntity", remap = false, require = 0,
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/screens/inventory/InventoryScreen;renderEntityInInventory"))
+                    target = "Lnet/conczin/mca/client/gui/PreviewEntityAnimation;renderEntityInInventory"))
     private void townstead$zoomPreview(Args args) {
         float zoom = com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.zoomNow();
         float height = com.aetherianartificer.townstead.client.gui.character.EditorPreviewFocus.heightNow();
