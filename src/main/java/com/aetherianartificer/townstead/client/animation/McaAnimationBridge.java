@@ -371,7 +371,7 @@ public final class McaAnimationBridge {
             villagerModel.leftArmwear.copyFrom(villagerModel.leftArm);
             villagerModel.rightArmwear.copyFrom(villagerModel.rightArm);
             villagerModel.bodyWear.copyFrom(villagerModel.body);
-            applyRigidBreastsAttachment(breasts, model.body, localOffsetX, localOffsetY, localOffsetZ);
+            syncBreasts(breasts, model.body, localOffsetX, localOffsetY, localOffsetZ);
             villagerModel.breastsWear.copyFrom(villagerModel.breasts);
         } else if (model instanceof PlayerEntityExtendedModel<?> playerModel) {
             playerModel.leftPants.copyFrom(playerModel.leftLeg);
@@ -379,15 +379,30 @@ public final class McaAnimationBridge {
             playerModel.leftSleeve.copyFrom(playerModel.leftArm);
             playerModel.rightSleeve.copyFrom(playerModel.rightArm);
             playerModel.jacket.copyFrom(playerModel.body);
-            applyRigidBreastsAttachment(breasts, model.body, localOffsetX, localOffsetY, localOffsetZ);
+            syncBreasts(breasts, model.body, localOffsetX, localOffsetY, localOffsetZ);
             playerModel.breastsWear.copyFrom(playerModel.breasts);
         }
+    }
+
+    // New MCA (7.7.23+) keeps the breast transform body-local (applyVillagerDimensions sets it each
+    // frame) and composes the torso pose at render in CommonVillagerModel.renderCommon
+    // (getBodyPart().translateAndRotate before drawing the chest). Re-attaching the breasts to the
+    // body here would apply the torso transform a SECOND time — visible as the chest sliding off the
+    // body during emotes that move the torso a lot. So on new MCA we leave the breasts at the
+    // body-local rest pose MCA already set. Old MCA (1.20.1) renders the chest at the model root
+    // without composing the torso, so it still needs the manual rigid attachment.
+    @SuppressWarnings("unused")
+    private static void syncBreasts(ModelPart breasts, ModelPart body, float lox, float loy, float loz) {
+        //? if forge {
+        /*applyRigidBreastsAttachment(breasts, body, lox, loy, loz);
+        *///?}
     }
 
     // Treats breasts as a virtual child of body. Body's rotation rotates the captured rest-pose
     // local offset around body's pivot, and body's rotation composes with the chest's local
     // forward tilt so the chest band stays glued to the rotated/twisted torso instead of
     // floating in front of it.
+    @SuppressWarnings("unused") // called only on the forge (old-MCA) branch of syncBreasts
     private static void applyRigidBreastsAttachment(
             ModelPart breasts,
             ModelPart body,

@@ -63,9 +63,6 @@ public abstract class VillagerLayerBendMixin<T extends LivingEntity, M extends H
         // Without bendylib on the classpath, EmoteReflection.applyBend no-ops
         // — there's no real bend to re-apply, so skip the work.
         if (!EmoteReflection.isBendylibAvailable()) return;
-        if (com.aetherianartificer.townstead.TownsteadConfig.DEBUG_LOGGING.get()) {
-            townstead$logBendDebug(entity);
-        }
         if (model instanceof VillagerEntityModelMCA<?> mcaModel) {
             applyStoredBend(entity, "left_arm", mcaModel.leftArmwear);
             applyStoredBend(entity, "right_arm", mcaModel.rightArmwear);
@@ -89,31 +86,6 @@ public abstract class VillagerLayerBendMixin<T extends LivingEntity, M extends H
             applyStoredBend(entity, "left_leg", playerModel.leftLeg);
             applyStoredBend(entity, "right_leg", playerModel.rightLeg);
         }
-    }
-
-    @org.spongepowered.asm.mixin.Unique
-    private static long townstead$lastBendLog;
-
-    // DEBUG_LOGGING: one line per ~2s showing whether bend state exists for this entity
-    // and whether the layer model's right arm actually carries a bendylib mutator on a
-    // vanilla cube (an EMF cube class here means mesh bend cannot render).
-    @org.spongepowered.asm.mixin.Unique
-    private void townstead$logBendDebug(LivingEntity entity) {
-        long now = System.nanoTime();
-        if (now - townstead$lastBendLog < 2_000_000_000L) return;
-        townstead$lastBendLog = now;
-        BendStateRegistry.State state = BendStateRegistry.get(entity.getUUID(), "right_arm");
-        com.aetherianartificer.townstead.Townstead.LOGGER.info(
-                "[BendDebug] layer={} entity={} rightArmBend={} innerArm={} wearArm={}",
-                model.getClass().getSimpleName(),
-                entity.getUUID().toString().substring(0, 8),
-                state == null ? "none" : state.axis() + "/" + state.angle(),
-                EmoteReflection.describeBendState(model.rightArm),
-                model instanceof VillagerEntityModelMCA<?> v
-                        ? EmoteReflection.describeBendState(v.rightArmwear)
-                        : (model instanceof net.conczin.mca.client.model.PlayerEntityExtendedModel<?> p
-                                ? EmoteReflection.describeBendState(p.rightSleeve)
-                                : "n/a"));
     }
 
     private static void applyStoredBend(LivingEntity entity, String partName, Object part) {

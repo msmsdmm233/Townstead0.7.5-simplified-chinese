@@ -169,27 +169,6 @@ public final class EmoteReflection {
         return bendHelperInstance == null ? null : bendHelperInstance.get(null);
     }
 
-    /**
-     * DEBUG_LOGGING probe: reports a part's cube-0 class and whether the bendylib "bend"
-     * mutator is registered on it. EMF's custom cubes override Cube.compile without super,
-     * which silently skips bendylib's render mixin — the cube class here tells that story.
-     */
-    public static String describeBendState(Object modelPart) {
-        if (!isBendylibAvailable()) return "bendylib-unavailable";
-        try {
-            Class<?> accessor = Class.forName("io.github.kosmx.bendylib.ModelPartAccessor");
-            Object optional = accessor.getMethod("optionalGetCuboid",
-                            net.minecraft.client.model.geom.ModelPart.class, int.class)
-                    .invoke(null, modelPart, 0);
-            if (!(optional instanceof java.util.Optional<?> cuboid) || cuboid.isEmpty()) return "no-cube0";
-            Object cube = cuboid.get();
-            Object hasBend = cube.getClass().getMethod("hasMutator", String.class).invoke(cube, "bend");
-            return cube.getClass().getSimpleName() + " bendMutator=" + hasBend;
-        } catch (Throwable t) {
-            return "probe-failed:" + t.getClass().getSimpleName();
-        }
-    }
-
     @SuppressWarnings("unchecked")
     static List<Object> invokeReadData(InputStream stream, String fileName) throws Throwable {
         return (List<Object>) readData.invoke(null, stream, fileName);

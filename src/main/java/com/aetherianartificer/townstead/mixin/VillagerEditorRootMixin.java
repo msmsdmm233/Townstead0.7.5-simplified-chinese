@@ -1527,8 +1527,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         entity.xOld = entity.getX();
         entity.yOld = entity.getY();
         entity.zOld = entity.getZ();
-        com.aetherianartificer.townstead.client.animation.EmfVariableDebug.seedLandingSettled(entity);
-        com.aetherianartificer.townstead.client.animation.EmfVariableDebug.logPreviewEntity(entity);
+        com.aetherianartificer.townstead.client.animation.EmfPreviewSeed.seedLandingSettled(entity);
     }
     //?}
 
