@@ -136,7 +136,10 @@ public abstract class VillagerEditorRootMixin extends Screen {
     private static List<CharacterEditorResolver.Tab> townstead$customTabs(CharacterEditorResolver.Resolved layout) {
         List<CharacterEditorResolver.Tab> out = new ArrayList<>();
         for (CharacterEditorResolver.Tab t : layout.tabs()) {
-            if (CharacterEditorResolver.isCustomPage(t.pageId())) out.add(t);
+            // The Height/Width scale tab is a new-editor stand-in for MCA's body-page sliders; the
+            // old editor keeps its top-level body page, so those sliders are already reachable there.
+            if (CharacterEditorResolver.isCustomPage(t.pageId())
+                    && !CharacterEditorResolver.SIZE_PAGE.equals(t.pageId())) out.add(t);
         }
         return out;
     }
@@ -410,6 +413,7 @@ public abstract class VillagerEditorRootMixin extends Screen {
         // Fit the column above the Done button: shrink any tone swatch(es) when a tab is field-heavy.
         int tones = 0, rows = 0;
         for (CharacterEditorResolver.Field f : tab.fields()) {
+            if (f.kind() == CharacterEditorResolver.Field.Kind.SCALE) { rows += 2; continue; }   // Height + Width
             if (f.gene() == null || townstead$geneGatedOff(f.gene()) || townstead$geneNotCarried(f.gene())) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) tones++;
             else rows += townstead$fieldRows(f);   // a cycler row plus one row per size channel
@@ -428,6 +432,10 @@ public abstract class VillagerEditorRootMixin extends Screen {
         townstead$column = column;
         int y = yStart;
         for (CharacterEditorResolver.Field f : tab.fields()) {
+            if (f.kind() == CharacterEditorResolver.Field.Kind.SCALE) {
+                y += townstead$buildScaleFields(x, y, w, rowH);
+                continue;
+            }
             if (f.gene() == null || townstead$geneGatedOff(f.gene()) || townstead$geneNotCarried(f.gene())) continue;
             if (f.kind() == CharacterEditorResolver.Field.Kind.TONE) {
                 y += townstead$buildToneField(f.gene(), x, y, w, swatch);
@@ -444,6 +452,53 @@ public abstract class VillagerEditorRootMixin extends Screen {
             }
         }
         townstead$column = null;
+    }
+
+    /**
+     * The always-on Height/Width section: two sliders driving MCA's SIZE (vertical) and WIDTH
+     * (horizontal) scale genes on the editor dummy. These are the universal scale controls that
+     * normally live on MCA's body page, surfaced here so a custom rig whose species hides the human
+     * body group can still be sized (a wide spider). The whole entity — including a rig layer —
+     * renders inside MCA's {@code scale(width, height, width)}, so both apply to any rig.
+     */
+    @Unique
+    private int townstead$buildScaleFields(int x, int y, int w, int rowH) {
+        int used = 0;
+        used += townstead$scaleSlider(Genetics.SIZE,
+                Component.translatable("townstead.editor.height"), x, y + used, w, rowH);
+        used += townstead$scaleSlider(Genetics.WIDTH,
+                Component.translatable("townstead.editor.width"), x, y + used, w, rowH);
+        return used;
+    }
+
+    /**
+     * One MCA float-gene scale slider: seeds from the dummy's current gene, previews live (setGene +
+     * refreshDimensions, exactly like MCA's own size slider), and commits the whole gene snapshot to
+     * the real target. Returns the vertical space consumed.
+     */
+    @Unique
+    private int townstead$scaleSlider(Genetics.GeneType gene, Component label, int x, int y, int w, int rowH) {
+        Genetics genetics = villager.getGenetics();
+        townstead$addControl(new GeneSliderWidget(x, y, w, rowH, label, genetics.getGene(gene), v -> {
+            genetics.setGene(gene, v.floatValue());
+            villager.refreshDimensions();
+            townstead$commitScale();
+        }));
+        return rowH + 2;
+    }
+
+    /**
+     * Persist the dummy's current MCA float genes (carrying the just-dragged SIZE/WIDTH) to the real
+     * target via Townstead's gene-commit packet — never MCA's editor save, whose family-tree side
+     * effects corrupt the target. The dummy loaded the real villager's genes on open, so this ships
+     * the intended scale without disturbing the rest. Rebase the revert baseline so a later
+     * origin-browse revert keeps the new size instead of snapping back to the open-time scale.
+     */
+    @Unique
+    private void townstead$commitScale() {
+        float[] snap = RootGenes.snapshot(villager);
+        townstead$sendCommitGenes(townstead$target, snap);
+        townstead$geneSnapshot = snap;
     }
 
     /** A gene group's section header: its display name, with the randomize dice at the right. */

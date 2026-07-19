@@ -89,7 +89,7 @@ public final class SpeciesVoice {
     private static MutableComponent format(String line, Player target, Object[] params) {
         if (line.indexOf('%') < 0) return Component.literal(line);
         Object[] args = new Object[(params == null ? 0 : params.length) + 1];
-        args[0] = target == null ? "" : target.getName().getString();
+        args[0] = McaPlayerName.of(target);
         if (params != null) System.arraycopy(params, 0, args, 1, params.length);
         try {
             return Component.literal(String.format(line, args));

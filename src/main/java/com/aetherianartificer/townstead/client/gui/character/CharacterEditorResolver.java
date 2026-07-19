@@ -25,6 +25,13 @@ import java.util.Map;
 public final class CharacterEditorResolver {
     private CharacterEditorResolver() {}
 
+    /**
+     * Synthetic page id for the always-on Height/Width scale tab we render ourselves. MCA's
+     * size/width sliders live on its native {@code body} subpage; a species that hides that group
+     * ({@code "native": []}) would lose them, so this tab surfaces them independently.
+     */
+    public static final String SIZE_PAGE = "townstead_char:__size__";
+
     /** Canonical left-to-right order for kept native groups. */
     private static final String[] NATIVE_ORDER = {
             CharacterEditorLayout.NATIVE_BODY, CharacterEditorLayout.NATIVE_CLOTHES,
@@ -37,8 +44,10 @@ public final class CharacterEditorResolver {
      * or a SLIDER (a sized attachment gene → its size roll over the gene's range).
      */
     public record Field(Kind kind, String nativeGroup, GeneCatalogEntry gene) {
-        public enum Kind { NATIVE, CYCLER, TONE, SLIDER }
+        public enum Kind { NATIVE, CYCLER, TONE, SLIDER, SCALE }
         static Field nativeGroup(String g) { return new Field(Kind.NATIVE, g, null); }
+        /** The Height/Width scale field: no gene, drives MCA's SIZE/WIDTH float genes directly. */
+        static Field scale() { return new Field(Kind.SCALE, null, null); }
         static Field gene(GeneCatalogEntry g) {
             // A variant gene is a cycler even when its options carry size channels (the
             // builder appends the channel sliders under it); a channel-only gene is sliders.
@@ -102,6 +111,20 @@ public final class CharacterEditorResolver {
         }
         for (Map.Entry<String, List<Field>> e : byCategory.entrySet()) {
             tabs.add(new Tab(tabPageId(e.getKey()), Component.literal(e.getKey()), e.getValue()));
+        }
+        return finish(tabs);
+    }
+
+    /**
+     * Append the always-on Height/Width scale tab unless a native {@code body} tab is already
+     * present (MCA renders the size/width sliders there itself). This restores the pre-1.21 parity
+     * where those universal scale controls were always reachable — the old editor kept {@code body}
+     * as a top-level page — for custom rigs whose species hide the human body group. No-op on an
+     * empty tab list, so a plain MCA villager (nothing of ours took over) is left untouched.
+     */
+    private static Resolved finish(List<Tab> tabs) {
+        if (!tabs.isEmpty() && tabs.stream().noneMatch(t -> t.pageId().equals(mcaSubpage(CharacterEditorLayout.NATIVE_BODY)))) {
+            tabs.add(new Tab(SIZE_PAGE, Component.translatable("townstead.editor.size"), List.of(Field.scale())));
         }
         return new Resolved(tabs);
     }
@@ -179,7 +202,7 @@ public final class CharacterEditorResolver {
                 }
             }
         }
-        return new Resolved(tabs);
+        return finish(tabs);
     }
 
     /** True for the editor true-name pages we render ourselves (vs delegating to MCA). */

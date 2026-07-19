@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "com.aetherianartificer.townstead.mixin",
+  "plugin": "com.aetherianartificer.townstead.TownsteadMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "BabyItemInheritanceMixin",
@@ -74,6 +75,9 @@
     "compat.travelerstitles.TitleRendererSubtitleClearMixin",
     "compat.timekeeper.TimekeeperReturnTimeMixin",
     "BlueprintScreenMixin",
+    "BlueprintScreenLegacyIconMixin",
+    "WidgetUtilsBuildingIconMixin",
+    "BlueprintMapRendererIconMixin",
     "ChatListenerMixin",
     "ClientHandlerImplMixin",
     "LegacyImageButtonMixin",

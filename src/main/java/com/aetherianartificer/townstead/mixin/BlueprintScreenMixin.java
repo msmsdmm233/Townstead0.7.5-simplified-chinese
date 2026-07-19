@@ -16,7 +16,6 @@ import com.aetherianartificer.townstead.compat.ModCompat;
 import net.conczin.mca.MCA;
 import net.conczin.mca.client.gui.BlueprintScreen;
 import net.conczin.mca.client.gui.widget.TooltipButtonWidget;
-import net.conczin.mca.client.gui.widget.WidgetUtils;
 import net.conczin.mca.resources.BuildingTypes;
 import net.conczin.mca.resources.data.BuildingType;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -39,7 +38,6 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.tags.TagKey;
-import net.minecraft.core.BlockPos;
 //? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
 //?}
@@ -78,9 +76,6 @@ public abstract class BlueprintScreenMixin extends Screen {
     @Shadow(remap = false)
     private void setPage(String page) {
     }
-
-    @Shadow(remap = false)
-    protected abstract void drawBuildingIcon(GuiGraphics context, ResourceLocation texture, int x, int y, int u, int v);
 
     @Unique
     private static final String TOWNSTEAD_CATALOG_PAGE = "townstead_catalog";
@@ -376,46 +371,6 @@ public abstract class BlueprintScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "renderMap", remap = false, at = @At("TAIL"))
-    private void townstead$renderCustomIconBuildingBorders(GuiGraphics context, CallbackInfo ci) {
-        if (!"map".equals(this.page) || this.village == null) {
-            return;
-        }
-
-        int mapSize = 75;
-        int y = this.height / 2 + 8;
-        float sc = Math.min((float) mapSize / (this.village.getBox().getMaxBlockCount() + 3) * 2, 2.0f);
-
-        context.pose().pushPose();
-        context.pose().translate(this.width / 2.0, y, 0);
-        context.pose().scale(sc, sc, 0.0f);
-        context.pose().translate(-this.village.getCenter().getX(), -this.village.getCenter().getZ(), 0);
-
-        for (Building building : this.village.getBuildings().values()) {
-            if (!building.isComplete()) {
-                continue;
-            }
-            BuildingType bt = building.getBuildingType();
-            if (!bt.isIcon() || townstead$nodeItemForType(bt.name()).isEmpty()) {
-                continue;
-            }
-
-            BlockPos p0 = building.getPos0();
-            BlockPos p1 = building.getPos1();
-            WidgetUtils.drawRectangle(context, p0.getX(), p0.getZ(), p1.getX(), p1.getZ(), bt.getColor());
-
-            // Item rendering is handled by townstead$drawCompatBuildingIcon
-            // (HEAD-injected on drawBuildingIcon): it resolves the node item
-            // by (iconU, iconV) and cancels MCA's atlas draw. Here we just
-            // call drawBuildingIcon so the inject runs with the right UV, and
-            // it takes over if a node item is configured for this type.
-            BlockPos c = building.getCenter();
-            drawBuildingIcon(context, MCA_BUILDING_ICONS, c.getX(), c.getZ(), bt.iconU(), bt.iconV());
-        }
-
-        context.pose().popPose();
-    }
-
     //? if neoforge {
     @Inject(method = "render", at = @At("TAIL"))
     //?} else {
@@ -693,43 +648,11 @@ public abstract class BlueprintScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "drawBuildingIcon", remap = false, at = @At("HEAD"), cancellable = true)
-    private void townstead$drawCompatBuildingIcon(
-            GuiGraphics context,
-            ResourceLocation texture,
-            int x,
-            int y,
-            int u,
-            int v,
-            CallbackInfo ci) {
-        Optional<ResourceLocation> itemId = townstead$nodeItemForIconUv(u, v);
-        if (itemId.isEmpty() || !BuiltInRegistries.ITEM.containsKey(itemId.get()))
-            return;
-        Item item = BuiltInRegistries.ITEM.get(itemId.get());
-        if (item == null)
-            return;
-        ItemStack stack = new ItemStack(item);
-        if (stack.isEmpty())
-            return;
-        // Forge 1.20.1 can leave the replacement item render competing with the
-        // map border quad at the same depth. Push only the Forge render forward
-        // so it matches the 1.21.1 layering, with the icon clearly above its frame.
-        context.pose().pushPose();
-        //? if forge {
-        /*context.pose().translate(x - 6.0, y - 6.0, 200.0);
-        *///?} else {
-        context.pose().translate(x - 6.0, y - 6.0, 0.0);
-        //?}
-        context.pose().scale(0.75f, 0.75f, 1.0f);
-        context.renderItem(stack, 0, 0);
-        context.pose().popPose();
-        ci.cancel();
-    }
-
-    @Unique
-    private Optional<ResourceLocation> townstead$nodeItemForIconUv(int u, int v) {
-        return BuildingIconResolver.nodeItemForIconUv(u, v);
-    }
+    // Building-icon replacement (swap MCA's atlas sprite for a townsteadNodeItem)
+    // is applied at MCA's icon-draw choke points, which differ by MCA version:
+    //   - new floor-system API: WidgetUtilsBuildingIconMixin + BlueprintMapRendererIconMixin
+    //   - legacy 7.7.x API:     BlueprintScreenLegacyIconMixin (drawBuildingIcon)
+    // TownsteadMixinPlugin applies the pair matching the runtime MCA.
 
     //? if neoforge {
     @Override
@@ -1340,7 +1263,7 @@ public abstract class BlueprintScreenMixin extends Screen {
             context.pose().pushPose();
             context.pose().translate(centerX, centerY, 0);
             context.pose().scale(iconScale, iconScale, 1.0f);
-            this.drawBuildingIcon(context, MCA_BUILDING_ICONS, 0, 0, type.iconU(), type.iconV());
+            townstead$blitAtlasIcon(context, MCA_BUILDING_ICONS, type.iconU(), type.iconV());
             context.pose().popPose();
             return;
         }
@@ -1351,6 +1274,21 @@ public abstract class BlueprintScreenMixin extends Screen {
         context.pose().translate(centerX, centerY, 0);
         context.pose().scale(iconScale, iconScale, 1.0f);
         context.renderItem(icon, -8, -8);
+        context.pose().popPose();
+    }
+
+    /**
+     * Blits a 20x20 building sprite from MCA's atlas at the current pose origin.
+     * Inlined from MCA's {@code WidgetUtils.drawBuildingIcon} so the Townstead
+     * catalog fallback stays version-independent: MCA's floor-system rebuild
+     * removed {@code BlueprintScreen.drawBuildingIcon}, and we no longer shadow it.
+     */
+    @Unique
+    private void townstead$blitAtlasIcon(GuiGraphics context, ResourceLocation texture, int u, int v) {
+        context.pose().pushPose();
+        context.pose().translate(-6.6, -6.6, 0);
+        context.pose().scale(0.66f, 0.66f, 0.66f);
+        context.blit(texture, 0, 0, u, v, 20, 20);
         context.pose().popPose();
     }
 

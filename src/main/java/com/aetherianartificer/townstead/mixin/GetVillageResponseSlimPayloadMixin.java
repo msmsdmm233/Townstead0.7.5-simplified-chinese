@@ -24,6 +24,12 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
  * client decode cap as a belt-and-suspenders measure in case the slim payload
  * still grows large (many residents, many tasks, many building types).</p>
  *
+ * <p><b>Legacy MCA only.</b> {@code TownsteadMixinPlugin} disables this mixin on
+ * the floor-system build: that map renderer rebuilds building geometry from the
+ * real {@code blocks2} coordinates, so stripping them empties the map (no icons
+ * or outlines) and spams {@code BlockPos.CODEC} "Not a list: {}" decode errors.
+ * There the raised decode cap alone carries the full payload.</p>
+ *
  * <p>On 1.20.1 Forge, MCA encodes this payload through the legacy
  * {@code SimpleChannel}/{@code NbtDataMessage} path, so the Forge branch
  * slims the {@code CompoundTag} handed to {@code NbtDataMessage}'s
