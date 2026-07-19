@@ -120,6 +120,8 @@
   "townstead.configuration.caregiving.tooltip": "Управляет тем, как жители кормят малышей и детей.",
   "townstead.configuration.caregiving.enableFeedingYoung": "Кормить малышей и детей",
   "townstead.configuration.caregiving.enableFeedingYoung.tooltip": "Позволяет взрослым кормить голодных младенцев, малышей и детей.",
+  "townstead.configuration.caregiving.enableHydratingYoung": "Приносить напитки малышам и детям",
+  "townstead.configuration.caregiving.enableHydratingYoung.tooltip": "Позволяет взрослым приносить напитки жаждущим младенцам, малышам и детям.",
   "townstead.configuration.caregiving.enableNonParentCaregivers": "Разрешить опекунов не из родителей",
   "townstead.configuration.caregiving.enableNonParentCaregivers.tooltip": "Позволяет ближайшим жителям, не являющимся родителями, кормить юных жителей в отсутствие родителей.",
   "townstead.configuration.storage": "Хранилище",

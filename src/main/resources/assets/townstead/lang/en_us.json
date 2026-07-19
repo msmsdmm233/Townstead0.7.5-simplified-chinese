@@ -123,6 +123,8 @@
   "townstead.configuration.caregiving.tooltip": "Controls how villagers feed babies and children.",
   "townstead.configuration.caregiving.enableFeedingYoung": "Feed Babies And Children",
   "townstead.configuration.caregiving.enableFeedingYoung.tooltip": "Allow adults to feed hungry babies, toddlers, and children.",
+  "townstead.configuration.caregiving.enableHydratingYoung": "Bring Drinks To Babies And Children",
+  "townstead.configuration.caregiving.enableHydratingYoung.tooltip": "Allow adults to bring drinks to thirsty babies, toddlers, and children.",
   "townstead.configuration.caregiving.enableNonParentCaregivers": "Allow Non-Parent Caregivers",
   "townstead.configuration.caregiving.enableNonParentCaregivers.tooltip": "Allow nearby non-parent villagers to feed young villagers when parents are absent.",
   "townstead.configuration.storage": "Storage",
