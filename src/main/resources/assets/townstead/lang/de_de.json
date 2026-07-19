@@ -253,8 +253,6 @@
   "townstead.blueprint.farming.tier.label": "Stufe",
   "townstead.blueprint.farming.tier.auto": "Stufe: Auto (Bauern-Fortschritt)",
   "townstead.blueprint.farming.tier": "Stufe %s",
-  "townstead.blueprint.upgradeBuilding": "Gebäude aufwerten",
-  "townstead.blueprint.upgradeBuilding.tooltip": "Wertet das Gebäude, in dem du stehst, auf die höchste verfügbare Stufe auf, die du derzeit erfüllst.",
   "townstead.farming.family.starter_rows": "Anfängerreihen",
   "townstead.farming.family.compact_plots": "Kompakte Beete",
   "townstead.farming.family.market_garden": "Marktgarten",

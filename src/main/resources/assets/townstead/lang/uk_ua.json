@@ -253,8 +253,6 @@
   "townstead.blueprint.farming.tier.label": "Рівень",
   "townstead.blueprint.farming.tier.auto": "Рівень: авто (прогрес фермера)",
   "townstead.blueprint.farming.tier": "Рівень %s",
-  "townstead.blueprint.upgradeBuilding": "Покращити будівлю",
-  "townstead.blueprint.upgradeBuilding.tooltip": "Покращує будівлю, у якій ви стоїте, до найвищого доступного рівня, якому ви зараз відповідаєте.",
   "townstead.farming.family.starter_rows": "Початкові грядки",
   "townstead.farming.family.compact_plots": "Компактні ділянки",
   "townstead.farming.family.market_garden": "Товарний город",

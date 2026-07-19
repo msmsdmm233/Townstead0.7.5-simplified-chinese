@@ -253,8 +253,6 @@
   "townstead.blueprint.farming.tier.label": "Palier",
   "townstead.blueprint.farming.tier.auto": "Palier : Auto (progression de l'agriculteur)",
   "townstead.blueprint.farming.tier": "Palier %s",
-  "townstead.blueprint.upgradeBuilding": "Améliorer le bâtiment",
-  "townstead.blueprint.upgradeBuilding.tooltip": "Améliore le bâtiment où vous vous trouvez au palier disponible le plus élevé que vous satisfaites actuellement.",
   "townstead.farming.family.starter_rows": "Rangées de départ",
   "townstead.farming.family.compact_plots": "Parcelles compactes",
   "townstead.farming.family.market_garden": "Jardin maraîcher",
