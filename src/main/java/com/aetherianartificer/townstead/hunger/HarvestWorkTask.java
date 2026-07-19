@@ -626,7 +626,10 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
             case HARVEST -> townstead$isHarvestTargetValid(level, targetPos, state);
             case PLANT -> townstead$isPlantTargetValid(level, targetPos, state);
             case TILL -> townstead$isPlannedSoil(targetPos) && townstead$isTillable(level, targetPos, gameTime);
-            case GROOM -> townstead$isPlannedOrAdjacentSoil(targetPos.below()) && townstead$isRemovableWeed(state);
+            // Weeds usually stand on a planned cell (check below), but a dead water crop sits IN
+            // the planned WATER cell itself — accept both placements.
+            case GROOM -> (townstead$isPlannedOrAdjacentSoil(targetPos.below()) || townstead$isPlannedSoil(targetPos))
+                    && townstead$isRemovableWeed(state);
             case FETCH_WATER -> level.getFluidState(targetPos).is(FluidTags.WATER)
                     && townstead$findEmptyBucketSlot(villager.getInventory()) >= 0;
             case PLACE_WATER -> townstead$canPlaceWaterAt(level, targetPos);
@@ -694,9 +697,12 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
             return;
         }
 
-        boolean isMatureCrop = state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state);
+        boolean isMatureCrop = (state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state))
+                || HarvestWorkIndex.isGenericMatureCrop(state);
         ItemStack tool = townstead$getPreferredHarvestTool(villager.getInventory(), state);
-        List<ItemStack> drops = Block.getDrops(state, level, targetPos, null, villager, tool);
+        // Pass the block entity: BE-backed crops (TFC) compute yield from it in their loot
+        // functions — with null they roll the minimum, which is zero product.
+        List<ItemStack> drops = Block.getDrops(state, level, targetPos, level.getBlockEntity(targetPos), villager, tool);
         level.destroyBlock(targetPos, false, villager);
         for (ItemStack drop : drops) {
             if (!drop.isEmpty()) villager.getInventory().addItem(drop);
@@ -721,6 +727,9 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
             return townstead$hasPlannedSoilBelow(pos, 2) && crop.isMaxAge(state);
         }
         if (FarmerCropCompatRegistry.shouldPartialHarvest(state)) {
+            return townstead$hasPlannedSoilBelow(pos, 2);
+        }
+        if (HarvestWorkIndex.isGenericMatureCrop(state)) {
             return townstead$hasPlannedSoilBelow(pos, 2);
         }
         if (state.is(Blocks.MELON) || state.is(Blocks.PUMPKIN)) {
@@ -944,7 +953,7 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
     }
 
     private void townstead$doGroom(ServerLevel level, VillagerEntityMCA villager, BlockPos topPos, long gameTime) {
-        if (!townstead$isPlannedOrAdjacentSoil(topPos.below())) return;
+        if (!townstead$isPlannedOrAdjacentSoil(topPos.below()) && !townstead$isPlannedSoil(topPos)) return;
         BlockState state = level.getBlockState(topPos);
         if (!townstead$isRemovableWeed(state)) return;
         ItemStack tool = townstead$getPreferredHarvestTool(villager.getInventory(), state);
@@ -1365,12 +1374,32 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
 
     private BlockPos townstead$findAlternateWorkAnchor(ServerLevel level, VillagerEntityMCA villager, @Nullable BlockPos excludeAnchor) {
         List<BlockPos> composters = HarvestWorkIndex.nearbyComposters(level, villager, ANCHOR_SEARCH_RADIUS, VERTICAL_RADIUS);
+        // Coverage-aware selection: if any candidate composter sits inside a Field Post's radius,
+        // only covered composters may anchor. Without this, a farm with no pending work (e.g. all
+        // cells occupied by still-growing crops) collapses the anchor onto whatever composter is
+        // nearest — often a village-generated one with no post — and the farmer falsely requests
+        // a Field Post he already has.
+        boolean anyCovered = excludeAnchor != null
+                && level.getBlockState(excludeAnchor).getBlock() instanceof ComposterBlock
+                && townstead$isPostCovered(level, excludeAnchor);
+        if (!anyCovered) {
+            for (BlockPos composter : composters) {
+                if (level.getBlockState(composter).getBlock() instanceof ComposterBlock
+                        && townstead$isPostCovered(level, composter)) {
+                    anyCovered = true;
+                    break;
+                }
+            }
+        }
         BlockPos fallback = null;
         for (BlockPos composter : composters) {
             if (excludeAnchor != null && excludeAnchor.equals(composter)) {
                 continue;
             }
             if (!(level.getBlockState(composter).getBlock() instanceof ComposterBlock)) {
+                continue;
+            }
+            if (anyCovered && !townstead$isPostCovered(level, composter)) {
                 continue;
             }
             if (fallback == null) {
@@ -1381,10 +1410,15 @@ public class HarvestWorkTask extends Behavior<VillagerEntityMCA> implements Work
             }
         }
         if (excludeAnchor != null
-                && level.getBlockState(excludeAnchor).getBlock() instanceof ComposterBlock) {
+                && level.getBlockState(excludeAnchor).getBlock() instanceof ComposterBlock
+                && (!anyCovered || townstead$isPostCovered(level, excludeAnchor))) {
             return excludeAnchor;
         }
         return fallback;
+    }
+
+    private boolean townstead$isPostCovered(ServerLevel level, BlockPos anchor) {
+        return com.aetherianartificer.townstead.block.FieldPostIndex.findBestForAnchor(level, anchor) != null;
     }
 
     private Iterable<BlockPos> townstead$iterateSoilCells(ServerLevel level) {

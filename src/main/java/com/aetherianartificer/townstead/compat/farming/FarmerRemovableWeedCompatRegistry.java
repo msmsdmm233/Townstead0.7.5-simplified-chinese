@@ -7,7 +7,8 @@ import java.util.List;
 
 public final class FarmerRemovableWeedCompatRegistry {
     private static final List<FarmerRemovableWeedCompat> PROVIDERS = List.of(
-            new FarmersDelightRemovableWeedCompat()
+            new FarmersDelightRemovableWeedCompat(),
+            new TfcRemovableWeedCompat()
     );
 
     private FarmerRemovableWeedCompatRegistry() {}

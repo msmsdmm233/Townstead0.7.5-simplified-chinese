@@ -1707,7 +1707,10 @@ public class FieldPostScreen extends Screen {
             if (key == 256) { searchBox.setFocused(false); return true; }
             return super.keyPressed(key, scan, mods);
         }
-        if (key == 256) { onClose(); return true; }
+        // ESC applies, matching vanilla GUI convention (chest/inventory edits persist on ESC).
+        // Discarding here silently threw away the player's painting — the cancel (✗) button
+        // remains the explicit discard path.
+        if (key == 256) { applyAndClose(); return true; }
         // Ctrl+Z = undo, Ctrl+Y = redo
         if (key == 90 && hasControlDown()) { undo(); return true; }  // Z
         if (key == 89 && hasControlDown()) { redo(); return true; }  // Y

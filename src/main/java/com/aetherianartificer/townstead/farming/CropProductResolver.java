@@ -116,7 +116,9 @@ public final class CropProductResolver {
             queryState = crop.getStateForAge(crop.getMaxAge());
         }
 
-        List<ItemStack> drops = Block.getDrops(queryState, level, pos, null);
+        // Pass the block entity when present: BE-backed crops (TFC) roll zero product without it,
+        // which would misidentify the seed as the primary product.
+        List<ItemStack> drops = Block.getDrops(queryState, level, pos, level.getBlockEntity(pos));
 
         // Find the primary non-seed drop
         Item seedItem = block.asItem();
