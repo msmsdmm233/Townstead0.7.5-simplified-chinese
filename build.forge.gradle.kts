@@ -81,6 +81,18 @@ tasks.withType<ProcessResources> {
               .replace("\"LegacyImageButtonMixin\",\n", "")
               .replace("\"LegacyImageButtonMixin\",", "")
               .replace(",\n    \"LegacyImageButtonMixin\"", "")
+              // These three icon mixins are neoforge-only (stonecutter collapses
+              // them to empty, @Mixin-less classes on Forge); drop them so Forge
+              // doesn't try to load them. See BlueprintScreenLegacyIconMixin.
+              .replace("\"BlueprintScreenLegacyIconMixin\",\n", "")
+              .replace("\"BlueprintScreenLegacyIconMixin\",", "")
+              .replace(",\n    \"BlueprintScreenLegacyIconMixin\"", "")
+              .replace("\"WidgetUtilsBuildingIconMixin\",\n", "")
+              .replace("\"WidgetUtilsBuildingIconMixin\",", "")
+              .replace(",\n    \"WidgetUtilsBuildingIconMixin\"", "")
+              .replace("\"BlueprintMapRendererIconMixin\",\n", "")
+              .replace("\"BlueprintMapRendererIconMixin\",", "")
+              .replace(",\n    \"BlueprintMapRendererIconMixin\"", "")
         }
     }
     // Use correct pack format for 1.20.1
