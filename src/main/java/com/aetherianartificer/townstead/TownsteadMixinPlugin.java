@@ -46,12 +46,12 @@ public class TownsteadMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.endsWith("BlueprintScreenLegacyIconMixin")) {
             return !isNewApi();
         }
-        // The floor-system map renderer rebuilds building geometry from real block
-        // positions (Building.blocks2), so the wire snapshot must keep them. On
-        // legacy MCA the client only read List<BlockPos>.size(), so slimming the
-        // positions to save bandwidth was safe there. Applying the slimmer on the
-        // new build strips the coordinates the renderer needs → empty map (no icons
-        // or outlines) + "Not a list: {}" decode spam. Legacy only.
+        // Legacy MCA only. On the floor-system build the payload bloat is already
+        // prevented at the source (BuildingTypeSyntheticBlockMixin stops houses
+        // recording their walls) and the decode-cap raise
+        // (GetVillageResponseLargePacketMixin) covers any legacy save data, so the
+        // slimmer is unnecessary there — and keeping it off that version avoids the
+        // wire-rewrite touching the block geometry the new map renderer reads.
         if (mixinClassName.endsWith("GetVillageResponseSlimPayloadMixin")) {
             return !isNewApi();
         }
