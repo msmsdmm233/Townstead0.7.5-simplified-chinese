@@ -277,6 +277,15 @@ public final class NearbyItemSources {
                     || "stove".equals(path)
                     || "cutting_board".equals(path);
         }
+        if ("farm_and_charm".equals(ns)) {
+            // The feeding trough is an animal feeder, not villager storage.
+            // Its block entity mirrors the slot-0 item count into a blockstate
+            // SIZE property capped at 4, so any setChanged() while the count
+            // exceeds 4 throws from updateBlockState -> setValue(SIZE, count).
+            // Extracting from it via our path triggers exactly that crash;
+            // keep villagers from reading or depositing into it.
+            return "feeding_trough".equals(path);
+        }
         if ("butchery".equals(ns)) {
             // Butchery's MCreator-generated blocks all ship with internal
             // item slots, regardless of whether the block actually uses
