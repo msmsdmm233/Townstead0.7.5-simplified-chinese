@@ -60,20 +60,32 @@ public abstract class VillagerLayerBendMixin<T extends LivingEntity, M extends H
             float headPitch,
             CallbackInfo ci
     ) {
-        if (!(model instanceof VillagerEntityModelMCA<?> mcaModel)) return;
         // Without bendylib on the classpath, EmoteReflection.applyBend no-ops
         // — there's no real bend to re-apply, so skip the work.
         if (!EmoteReflection.isBendylibAvailable()) return;
-        applyStoredBend(entity, "left_arm", mcaModel.leftArmwear);
-        applyStoredBend(entity, "right_arm", mcaModel.rightArmwear);
-        applyStoredBend(entity, "left_leg", mcaModel.leftLegwear);
-        applyStoredBend(entity, "right_leg", mcaModel.rightLegwear);
-        // Inner parts also need re-bend on the LAYER model because
-        // copyPropertiesTo's per-part copyFrom may not have propagated bend.
-        applyStoredBend(entity, "left_arm", mcaModel.leftArm);
-        applyStoredBend(entity, "right_arm", mcaModel.rightArm);
-        applyStoredBend(entity, "left_leg", mcaModel.leftLeg);
-        applyStoredBend(entity, "right_leg", mcaModel.rightLeg);
+        if (model instanceof VillagerEntityModelMCA<?> mcaModel) {
+            applyStoredBend(entity, "left_arm", mcaModel.leftArmwear);
+            applyStoredBend(entity, "right_arm", mcaModel.rightArmwear);
+            applyStoredBend(entity, "left_leg", mcaModel.leftLegwear);
+            applyStoredBend(entity, "right_leg", mcaModel.rightLegwear);
+            // Inner parts also need re-bend on the LAYER model because
+            // copyPropertiesTo's per-part copyFrom may not have propagated bend.
+            applyStoredBend(entity, "left_arm", mcaModel.leftArm);
+            applyStoredBend(entity, "right_arm", mcaModel.rightArm);
+            applyStoredBend(entity, "left_leg", mcaModel.leftLeg);
+            applyStoredBend(entity, "right_leg", mcaModel.rightLeg);
+        } else if (model instanceof net.conczin.mca.client.model.PlayerEntityExtendedModel<?> playerModel) {
+            // Players in villager-render mode use PlayerEntityExtendedModel layers;
+            // their wear parts need the same re-bend the villager layers get.
+            applyStoredBend(entity, "left_arm", playerModel.leftSleeve);
+            applyStoredBend(entity, "right_arm", playerModel.rightSleeve);
+            applyStoredBend(entity, "left_leg", playerModel.leftPants);
+            applyStoredBend(entity, "right_leg", playerModel.rightPants);
+            applyStoredBend(entity, "left_arm", playerModel.leftArm);
+            applyStoredBend(entity, "right_arm", playerModel.rightArm);
+            applyStoredBend(entity, "left_leg", playerModel.leftLeg);
+            applyStoredBend(entity, "right_leg", playerModel.rightLeg);
+        }
     }
 
     private static void applyStoredBend(LivingEntity entity, String partName, Object part) {

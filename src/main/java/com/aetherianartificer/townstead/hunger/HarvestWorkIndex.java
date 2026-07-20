@@ -140,13 +140,22 @@ public final class HarvestWorkIndex {
                 // at soilPos+1), harvest the upper block when it matures — breaking the base early
                 // destroys the whole plant while the top is still growing.
                 if (hasCrop) {
+                    // Dead crops (e.g. TFC's flooded dead_crop/* in rice paddies) are BushBlocks
+                    // with no harvestable state — route them to groom so the cell can replant,
+                    // mirroring how the land path clears dead crops via the weed scan.
+                    if (isRemovableWeed(soilState)) {
+                        if (groomSeen.add(soilPos.asLong()) && !blueprint.isProtected(soilPos)) {
+                            groomTargets.add(soilPos.immutable());
+                        }
+                        continue;
+                    }
                     BlockState above = level.getBlockState(soilPos.above());
                     boolean upperIsCrop = above.getBlock() instanceof CropBlock || above.getBlock() instanceof net.minecraft.world.level.block.BushBlock;
 
                     if (upperIsCrop) {
                         if (above.getBlock() instanceof CropBlock upperCrop && upperCrop.isMaxAge(above)) {
                             harvestTargets.add(soilPos.above().immutable());
-                        } else if (FarmerCropCompatRegistry.shouldPartialHarvest(above)) {
+                        } else if (FarmerCropCompatRegistry.shouldPartialHarvest(above) || isGenericMatureCrop(above)) {
                             harvestTargets.add(soilPos.above().immutable());
                         }
                         // Upper crop not mature yet — leave the whole plant alone.
@@ -156,7 +165,7 @@ public final class HarvestWorkIndex {
                         // growing" (they normally spawn an upper block at max age).
                         if (soilState.getBlock() instanceof CropBlock crop && crop.isMaxAge(soilState)) {
                             harvestTargets.add(soilPos.immutable());
-                        } else if (FarmerCropCompatRegistry.shouldPartialHarvest(soilState)) {
+                        } else if (FarmerCropCompatRegistry.shouldPartialHarvest(soilState) || isGenericMatureCrop(soilState)) {
                             harvestTargets.add(soilPos.immutable());
                         }
                     }
@@ -172,9 +181,16 @@ public final class HarvestWorkIndex {
                     boolean surfaceIsCrop = surface.getBlock() instanceof CropBlock
                             || surface.getBlock() instanceof net.minecraft.world.level.block.BushBlock;
                     if (surfaceIsCrop) {
+                        if (isRemovableWeed(surface)) {
+                            BlockPos surfacePos = soilPos.above();
+                            if (groomSeen.add(surfacePos.asLong()) && !blueprint.isProtected(surfacePos)) {
+                                groomTargets.add(surfacePos.immutable());
+                            }
+                            continue;
+                        }
                         if (surface.getBlock() instanceof CropBlock crop && crop.isMaxAge(surface)) {
                             harvestTargets.add(soilPos.above().immutable());
-                        } else if (FarmerCropCompatRegistry.shouldPartialHarvest(surface)) {
+                        } else if (FarmerCropCompatRegistry.shouldPartialHarvest(surface) || isGenericMatureCrop(surface)) {
                             harvestTargets.add(soilPos.above().immutable());
                         }
                         // Surface crop present (growing, or harvested and regrowing) — leave it be.
@@ -365,8 +381,40 @@ public final class HarvestWorkIndex {
         if (FarmerCropCompatRegistry.shouldPartialHarvest(state)) {
             return findPlannedSoilBelow(blueprint, pos, 2) != null;
         }
+        if (isGenericMatureCrop(state)) {
+            return findPlannedSoilBelow(blueprint, pos, 2) != null;
+        }
         if (state.is(Blocks.MELON) || state.is(Blocks.PUMPKIN)) {
             return isPlannedOrAdjacentSoil(blueprint, pos.below()) && hasAdjacentStem(level, pos);
+        }
+        return false;
+    }
+
+    /**
+     * Generic fallback for modded crops with no compat provider (TFC, Farm & Charm, ...): any
+     * block with an integer "age" property at its max value counts as a mature, fully-harvestable
+     * crop. Only consulted for blocks over planned cells, so the plan scoping keeps this away from
+     * wild vegetation. Blocks whose age property doesn't mean ripeness (stems, column plants,
+     * fire, chorus) are excluded; vanilla CropBlocks and compat partial-harvest crops are decided
+     * by their own paths before this one.
+     */
+    static boolean isGenericMatureCrop(BlockState state) {
+        Block block = state.getBlock();
+        if (block instanceof CropBlock || block instanceof StemBlock || block instanceof AttachedStemBlock) return false;
+        if (state.is(Blocks.SUGAR_CANE) || state.is(Blocks.CACTUS)
+                || state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING)
+                || state.is(Blocks.KELP) || state.is(Blocks.TWISTING_VINES) || state.is(Blocks.WEEPING_VINES)
+                || state.is(Blocks.CAVE_VINES) || state.is(Blocks.CHORUS_FLOWER)
+                || state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
+            return false;
+        }
+        for (net.minecraft.world.level.block.state.properties.Property<?> property : state.getProperties()) {
+            if (property instanceof net.minecraft.world.level.block.state.properties.IntegerProperty age
+                    && "age".equals(age.getName())) {
+                int max = 0;
+                for (Integer v : age.getPossibleValues()) max = Math.max(max, v);
+                return max > 0 && state.getValue(age) >= max;
+            }
         }
         return false;
     }

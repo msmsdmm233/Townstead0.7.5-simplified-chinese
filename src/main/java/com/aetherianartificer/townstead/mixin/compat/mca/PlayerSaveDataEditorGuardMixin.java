@@ -58,9 +58,22 @@ public abstract class PlayerSaveDataEditorGuardMixin {
 
     @org.spongepowered.asm.mixin.Unique
     private static int townstead$gender(CompoundTag nbt) {
-        int g = nbt.getInt("gender");
+        //? if neoforge {
+        // 1.21.1: the editor patch delivers the toggled gender in MCAData.Gender only (createEditorPatch
+        // nests all MCA keys there; top-level Gender is never in the patch), and MCA's flattenMcaData
+        // treats MCAData as authoritative on load (it overwrites the top-level copy). Reading the STALE
+        // top-level Gender first picks the pre-toggle value and mirrors it back over MCAData.Gender,
+        // reverting the editor's gender toggle for self-edits — read MCAData first to match MCA's own
+        // precedence. Falls through to the top-level keys for the UNASSIGNED-collapse heal this guard exists for.
+        int g = nbt.contains("MCAData", 10) ? nbt.getCompound("MCAData").getInt("Gender") : 0;
+        if (g == 0) g = nbt.getInt("Gender");
+        if (g == 0) g = nbt.getInt("gender");
+        return g;
+        //?} else {
+        /*int g = nbt.getInt("gender");
         if (g == 0) g = nbt.getInt("Gender");
         if (g == 0 && nbt.contains("MCAData", 10)) g = nbt.getCompound("MCAData").getInt("Gender");
         return g;
+        *///?}
     }
 }

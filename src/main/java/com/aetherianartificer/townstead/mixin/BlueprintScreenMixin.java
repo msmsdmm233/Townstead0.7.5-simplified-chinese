@@ -16,14 +16,6 @@ import com.aetherianartificer.townstead.compat.ModCompat;
 import net.conczin.mca.MCA;
 import net.conczin.mca.client.gui.BlueprintScreen;
 import net.conczin.mca.client.gui.widget.TooltipButtonWidget;
-import net.conczin.mca.client.gui.widget.WidgetUtils;
-//? if neoforge {
-import net.conczin.mca.network.Network;
-//?} else {
-/*import net.conczin.mca.cobalt.network.NetworkHandler;
-*///?}
-import net.conczin.mca.network.c2s.GetVillageRequest;
-import net.conczin.mca.network.c2s.ReportBuildingMessage;
 import net.conczin.mca.resources.BuildingTypes;
 import net.conczin.mca.resources.data.BuildingType;
 import net.conczin.mca.entity.VillagerEntityMCA;
@@ -36,7 +28,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -47,8 +38,6 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.tags.TagKey;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.state.BlockState;
 //? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
 //?}
@@ -87,9 +76,6 @@ public abstract class BlueprintScreenMixin extends Screen {
     @Shadow(remap = false)
     private void setPage(String page) {
     }
-
-    @Shadow(remap = false)
-    protected abstract void drawBuildingIcon(GuiGraphics context, ResourceLocation texture, int x, int y, int u, int v);
 
     @Unique
     private static final String TOWNSTEAD_CATALOG_PAGE = "townstead_catalog";
@@ -164,8 +150,6 @@ public abstract class BlueprintScreenMixin extends Screen {
     @Unique
     private Button townstead$catalogNeedsNextButton;
     @Unique
-    private Button townstead$upgradeBuildingButton;
-    @Unique
     private String townstead$catalogReturnPage = "map";
 
     @Unique
@@ -214,12 +198,6 @@ public abstract class BlueprintScreenMixin extends Screen {
     private ResourceLocation townstead$catalogBackgroundTexture = null;
     @Unique
     private boolean townstead$catalogBackgroundAvailable = false;
-    @Unique
-    private BlockPos townstead$cachedUpgradePlayerPos = null;
-    @Unique
-    private String townstead$cachedUpgradeTargetType = null;
-    @Unique
-    private long townstead$nextUpgradeScanGameTime = Long.MIN_VALUE;
     /**
      * Resolved building-display-name cache. Keys are buildingType ids. Values
      * survive across blueprint opens because the language manager is
@@ -361,8 +339,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 townstead$pendingCatalogBuildingType = null;
             }
         } else if ("map".equals(this.page)) {
-            townstead$invalidateUpgradeTargetCache();
-            townstead$addUpgradeBuildingControl();
             townstead$setNavVisible(true);
         } else if ("rank".equals(this.page)) {
             townstead$addSpiritButtonOnStatusPage();
@@ -383,7 +359,6 @@ public abstract class BlueprintScreenMixin extends Screen {
             townstead$catalogNeedsPrevButton = null;
             townstead$catalogNeedsNextButton = null;
             townstead$catalogNeedsPage = 0;
-            townstead$upgradeBuildingButton = null;
             townstead$profSelectedVillager = null;
             townstead$setNavVisible(true);
         }
@@ -394,58 +369,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 b.active = !TOWNSTEAD_CATALOG_PAGE.equals(this.page);
             }
         }
-    }
-
-    //? if neoforge {
-    @Inject(method = "render", at = @At("TAIL"))
-    //?} else {
-    /*@Inject(method = "m_88315_", remap = false, at = @At("TAIL"))
-    *///?}
-    private void townstead$refreshMapUpgradeButton(GuiGraphics context, int mouseX, int mouseY, float partialTicks,
-            CallbackInfo ci) {
-        if (!"map".equals(this.page) || townstead$upgradeBuildingButton == null)
-            return;
-        townstead$upgradeBuildingButton.active = townstead$cachedUpgradeTargetTypeAtPlayer() != null;
-    }
-
-    @Inject(method = "renderMap", remap = false, at = @At("TAIL"))
-    private void townstead$renderCustomIconBuildingBorders(GuiGraphics context, CallbackInfo ci) {
-        if (!"map".equals(this.page) || this.village == null) {
-            return;
-        }
-
-        int mapSize = 75;
-        int y = this.height / 2 + 8;
-        float sc = Math.min((float) mapSize / (this.village.getBox().getMaxBlockCount() + 3) * 2, 2.0f);
-
-        context.pose().pushPose();
-        context.pose().translate(this.width / 2.0, y, 0);
-        context.pose().scale(sc, sc, 0.0f);
-        context.pose().translate(-this.village.getCenter().getX(), -this.village.getCenter().getZ(), 0);
-
-        for (Building building : this.village.getBuildings().values()) {
-            if (!building.isComplete()) {
-                continue;
-            }
-            BuildingType bt = building.getBuildingType();
-            if (!bt.isIcon() || townstead$nodeItemForType(bt.name()).isEmpty()) {
-                continue;
-            }
-
-            BlockPos p0 = building.getPos0();
-            BlockPos p1 = building.getPos1();
-            WidgetUtils.drawRectangle(context, p0.getX(), p0.getZ(), p1.getX(), p1.getZ(), bt.getColor());
-
-            // Item rendering is handled by townstead$drawCompatBuildingIcon
-            // (HEAD-injected on drawBuildingIcon): it resolves the node item
-            // by (iconU, iconV) and cancels MCA's atlas draw. Here we just
-            // call drawBuildingIcon so the inject runs with the right UV, and
-            // it takes over if a node item is configured for this type.
-            BlockPos c = building.getCenter();
-            drawBuildingIcon(context, MCA_BUILDING_ICONS, c.getX(), c.getZ(), bt.iconU(), bt.iconV());
-        }
-
-        context.pose().popPose();
     }
 
     //? if neoforge {
@@ -725,43 +648,11 @@ public abstract class BlueprintScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "drawBuildingIcon", remap = false, at = @At("HEAD"), cancellable = true)
-    private void townstead$drawCompatBuildingIcon(
-            GuiGraphics context,
-            ResourceLocation texture,
-            int x,
-            int y,
-            int u,
-            int v,
-            CallbackInfo ci) {
-        Optional<ResourceLocation> itemId = townstead$nodeItemForIconUv(u, v);
-        if (itemId.isEmpty() || !BuiltInRegistries.ITEM.containsKey(itemId.get()))
-            return;
-        Item item = BuiltInRegistries.ITEM.get(itemId.get());
-        if (item == null)
-            return;
-        ItemStack stack = new ItemStack(item);
-        if (stack.isEmpty())
-            return;
-        // Forge 1.20.1 can leave the replacement item render competing with the
-        // map border quad at the same depth. Push only the Forge render forward
-        // so it matches the 1.21.1 layering, with the icon clearly above its frame.
-        context.pose().pushPose();
-        //? if forge {
-        /*context.pose().translate(x - 6.0, y - 6.0, 200.0);
-        *///?} else {
-        context.pose().translate(x - 6.0, y - 6.0, 0.0);
-        //?}
-        context.pose().scale(0.75f, 0.75f, 1.0f);
-        context.renderItem(stack, 0, 0);
-        context.pose().popPose();
-        ci.cancel();
-    }
-
-    @Unique
-    private Optional<ResourceLocation> townstead$nodeItemForIconUv(int u, int v) {
-        return BuildingIconResolver.nodeItemForIconUv(u, v);
-    }
+    // Building-icon replacement (swap MCA's atlas sprite for a townsteadNodeItem)
+    // is applied at MCA's icon-draw choke points, which differ by MCA version:
+    //   - new floor-system API: WidgetUtilsBuildingIconMixin + BlueprintMapRendererIconMixin
+    //   - legacy 7.7.x API:     BlueprintScreenLegacyIconMixin (drawBuildingIcon)
+    // TownsteadMixinPlugin applies the pair matching the runtime MCA.
 
     //? if neoforge {
     @Override
@@ -1057,22 +948,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 }));
     }
 
-    @Unique
-    private void townstead$addUpgradeBuildingControl() {
-        int bx = this.width / 2 + 180 - 64 - 16;
-        int by = this.height / 2 - 56 + 22 * 6;
-        townstead$upgradeBuildingButton = addRenderableWidget(new TooltipButtonWidget(
-                bx,
-                by,
-                96,
-                20,
-                Component.translatable("townstead.blueprint.upgradeBuilding"),
-                Component.translatable("townstead.blueprint.upgradeBuilding.tooltip"),
-                b -> townstead$tryUpgradeCurrentBuilding()));
-        String next = townstead$upgradeTargetTypeAtPlayer();
-        townstead$upgradeBuildingButton.active = next != null;
-    }
-
     /**
      * Adds the Community Spirit entry button to MCA's "Rank" (renamed
      * "Status" in our lang override) page. The status page is the natural
@@ -1090,159 +965,6 @@ public abstract class BlueprintScreenMixin extends Screen {
                 Component.translatable("gui.blueprint.spirit"),
                 Component.translatable("gui.blueprint.spirit.tooltip"),
                 b -> setPage(TOWNSTEAD_SPIRIT_PAGE)));
-    }
-
-    @Unique
-    private void townstead$tryUpgradeCurrentBuilding() {
-        String nextType = townstead$cachedUpgradeTargetTypeAtPlayer();
-        if (nextType == null) return;
-        //? if neoforge {
-        Network.sendToServer(new ReportBuildingMessage(ReportBuildingMessage.Action.FORCE_TYPE, nextType));
-        Network.sendToServer(new GetVillageRequest());
-        //?} else {
-        /*NetworkHandler.sendToServer(new ReportBuildingMessage(ReportBuildingMessage.Action.FORCE_TYPE, nextType));
-        NetworkHandler.sendToServer(new GetVillageRequest());
-        *///?}
-        BlueprintScreenAccessor accessor = (BlueprintScreenAccessor) (Object) this;
-        townstead$invalidateUpgradeTargetCache();
-        accessor.townstead$invokeSetPage("map");
-    }
-
-    @Unique
-    private String townstead$cachedUpgradeTargetTypeAtPlayer() {
-        if (this.minecraft == null || this.minecraft.player == null || this.minecraft.level == null)
-            return null;
-        BlockPos pos = this.minecraft.player.blockPosition();
-        long gameTime = this.minecraft.level.getGameTime();
-        if (pos.equals(townstead$cachedUpgradePlayerPos) && gameTime < townstead$nextUpgradeScanGameTime) {
-            return townstead$cachedUpgradeTargetType;
-        }
-        townstead$cachedUpgradePlayerPos = pos;
-        townstead$cachedUpgradeTargetType = townstead$upgradeTargetTypeAtPlayer();
-        // 60-tick TTL (3s). The block-state walk inside `upgradeTargetTypeAtPlayer`
-        // and `highestSatisfiable` is the costly part; the cache is also
-        // explicitly invalidated when the player upgrades a building or
-        // switches to/from the map page.
-        townstead$nextUpgradeScanGameTime = gameTime + 60L;
-        return townstead$cachedUpgradeTargetType;
-    }
-
-    @Unique
-    private void townstead$invalidateUpgradeTargetCache() {
-        townstead$cachedUpgradePlayerPos = null;
-        townstead$cachedUpgradeTargetType = null;
-        townstead$nextUpgradeScanGameTime = Long.MIN_VALUE;
-    }
-
-    @Unique
-    private String townstead$upgradeTargetTypeAtPlayer() {
-        if (this.minecraft == null || this.minecraft.player == null)
-            return null;
-        BlueprintScreenAccessor accessor = (BlueprintScreenAccessor) (Object) this;
-        if (accessor.townstead$getVillage() == null)
-            return null;
-        BlockPos pos = this.minecraft.player.blockPosition();
-        for (Building building : accessor.townstead$getVillage().getBuildings().values()) {
-            if (!building.containsPos(pos))
-                continue;
-            return townstead$highestSatisfiableUpgradeType(building);
-        }
-        return null;
-    }
-
-    @Unique
-    private String townstead$highestSatisfiableUpgradeType(Building building) {
-        String current = building.getType();
-        if (current == null)
-            return null;
-        int idx = current.lastIndexOf("_l");
-        if (idx < 0 || idx >= current.length() - 2)
-            return null;
-        String tierText = current.substring(idx + 2);
-        if (!tierText.chars().allMatch(Character::isDigit))
-            return null;
-
-        int startTier;
-        try {
-            startTier = Integer.parseInt(tierText);
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
-        if (startTier <= 0)
-            return null;
-
-        String prefix = current.substring(0, idx + 2);
-        String best = null;
-        for (int tier = startTier + 1; tier < startTier + 20; tier++) {
-            String candidateType = prefix + tier;
-            if (!BuildingTypes.getInstance().getBuildingTypes().containsKey(candidateType))
-                break;
-            BuildingType candidate = BuildingTypes.getInstance().getBuildingType(candidateType);
-            if (candidate == null)
-                break;
-            if (townstead$buildingMeetsRequirements(building, candidate)) {
-                best = candidateType;
-            } else {
-                break;
-            }
-        }
-        return best;
-    }
-
-    @Unique
-    private boolean townstead$buildingMeetsRequirements(Building building, BuildingType targetType) {
-        if (building == null || targetType == null)
-            return false;
-        Map<ResourceLocation, Integer> liveCounts = townstead$collectLiveBlockCounts(building);
-        for (Map.Entry<ResourceLocation, Integer> req : targetType.getGroups().entrySet()) {
-            int have = townstead$countMatchingRequirementBlocks(liveCounts, req.getKey());
-            if (have < req.getValue())
-                return false;
-        }
-        return true;
-    }
-
-    @Unique
-    private Map<ResourceLocation, Integer> townstead$collectLiveBlockCounts(Building building) {
-        Map<ResourceLocation, Integer> counts = new HashMap<>();
-        if (this.minecraft == null)
-            return counts;
-        ClientLevel level = this.minecraft.level;
-        if (level == null)
-            return counts;
-
-        BlockPos p0 = building.getPos0();
-        BlockPos p1 = building.getPos1();
-        for (BlockPos pos : BlockPos.betweenClosed(p0, p1)) {
-            BlockState state = level.getBlockState(pos);
-            if (state.isAir())
-                continue;
-            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-            if (id == null)
-                continue;
-            counts.merge(id, 1, Integer::sum);
-        }
-        return counts;
-    }
-
-    @Unique
-    private int townstead$countMatchingRequirementBlocks(Map<ResourceLocation, Integer> presentCounts,
-            ResourceLocation requirement) {
-        if (BuiltInRegistries.BLOCK.containsKey(requirement)) {
-            return presentCounts.getOrDefault(requirement, 0);
-        }
-        TagKey<Block> blockTag = TagKey.create(Registries.BLOCK, requirement);
-        int total = 0;
-        for (Map.Entry<ResourceLocation, Integer> entry : presentCounts.entrySet()) {
-            ResourceLocation blockId = entry.getKey();
-            if (!BuiltInRegistries.BLOCK.containsKey(blockId))
-                continue;
-            Block block = BuiltInRegistries.BLOCK.get(blockId);
-            if (!block.defaultBlockState().is(blockTag))
-                continue;
-            total += entry.getValue();
-        }
-        return total;
     }
 
     @Unique
@@ -1541,7 +1263,7 @@ public abstract class BlueprintScreenMixin extends Screen {
             context.pose().pushPose();
             context.pose().translate(centerX, centerY, 0);
             context.pose().scale(iconScale, iconScale, 1.0f);
-            this.drawBuildingIcon(context, MCA_BUILDING_ICONS, 0, 0, type.iconU(), type.iconV());
+            townstead$blitAtlasIcon(context, MCA_BUILDING_ICONS, type.iconU(), type.iconV());
             context.pose().popPose();
             return;
         }
@@ -1552,6 +1274,21 @@ public abstract class BlueprintScreenMixin extends Screen {
         context.pose().translate(centerX, centerY, 0);
         context.pose().scale(iconScale, iconScale, 1.0f);
         context.renderItem(icon, -8, -8);
+        context.pose().popPose();
+    }
+
+    /**
+     * Blits a 20x20 building sprite from MCA's atlas at the current pose origin.
+     * Inlined from MCA's {@code WidgetUtils.drawBuildingIcon} so the Townstead
+     * catalog fallback stays version-independent: MCA's floor-system rebuild
+     * removed {@code BlueprintScreen.drawBuildingIcon}, and we no longer shadow it.
+     */
+    @Unique
+    private void townstead$blitAtlasIcon(GuiGraphics context, ResourceLocation texture, int u, int v) {
+        context.pose().pushPose();
+        context.pose().translate(-6.6, -6.6, 0);
+        context.pose().scale(0.66f, 0.66f, 0.66f);
+        context.blit(texture, 0, 0, u, v, 20, 20);
         context.pose().popPose();
     }
 
@@ -2285,7 +2022,7 @@ public abstract class BlueprintScreenMixin extends Screen {
     private void townstead$initSpiritPage() {
         // Ask MCA for a fresh snapshot only when the client does not already
         // have spirit state for this village. Building changes still refresh
-        // via MCA's normal village requests after report/upgrade actions.
+        // via MCA's normal village requests after report actions.
         net.conczin.mca.server.world.data.Village currentVillage =
                 ((BlueprintScreenAccessor) (Object) this).townstead$getVillage();
         boolean hasCache = currentVillage != null

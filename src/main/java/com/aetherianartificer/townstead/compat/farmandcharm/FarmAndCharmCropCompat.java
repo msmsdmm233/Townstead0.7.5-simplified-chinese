@@ -72,8 +72,11 @@ public final class FarmAndCharmCropCompat implements FarmerCropCompat {
     @Override
     public boolean shouldPartialHarvest(BlockState state) {
         ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
+        // Strawberries mirror the mod's own pick interaction (useWithoutItem at max age drops
+        // 1-2 berries and resets to age 1) — destroy-harvesting would waste the perennial.
         if (!ModCompat.matchesLoadedModPath(key, MOD_ID, "tomato_crop")
-                && !ModCompat.matchesLoadedModPath(key, MOD_ID, "tomato_crop_body")) {
+                && !ModCompat.matchesLoadedModPath(key, MOD_ID, "tomato_crop_body")
+                && !ModCompat.matchesLoadedModPath(key, MOD_ID, "strawberry_crop")) {
             return false;
         }
         return isMatureAge(state);
@@ -88,15 +91,17 @@ public final class FarmAndCharmCropCompat implements FarmerCropCompat {
         BlockState reset = state.setValue(ageProp, 1);
         level.setBlock(pos, reset, Block.UPDATE_ALL);
 
+        ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
+        String productPath = key.getPath().startsWith("strawberry") ? "strawberry" : "tomato";
         List<ItemStack> drops = new ArrayList<>();
         //? if >=1.21 {
-        ResourceLocation tomatoId = ResourceLocation.fromNamespaceAndPath(MOD_ID, "tomato");
+        ResourceLocation productId = ResourceLocation.fromNamespaceAndPath(MOD_ID, productPath);
         //?} else {
-        /*ResourceLocation tomatoId = new ResourceLocation(MOD_ID, "tomato");
+        /*ResourceLocation productId = new ResourceLocation(MOD_ID, productPath);
         *///?}
-        BuiltInRegistries.ITEM.getOptional(tomatoId).ifPresent(tomato -> {
+        BuiltInRegistries.ITEM.getOptional(productId).ifPresent(product -> {
             int count = 1 + level.random.nextInt(2);
-            drops.add(new ItemStack(tomato, count));
+            drops.add(new ItemStack(product, count));
         });
         return drops;
     }

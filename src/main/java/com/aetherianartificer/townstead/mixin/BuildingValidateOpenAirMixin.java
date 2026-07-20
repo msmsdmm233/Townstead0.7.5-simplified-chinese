@@ -1,6 +1,6 @@
 package com.aetherianartificer.townstead.mixin;
 
-import com.aetherianartificer.townstead.enclosure.EnclosureTypeIndex;
+import com.aetherianartificer.townstead.compat.mca.SyntheticBuildingTypes;
 import net.conczin.mca.server.world.data.Building;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -34,10 +34,7 @@ public abstract class BuildingValidateOpenAirMixin {
     private void townstead$openAirValidate(Level world, Set<BlockPos> blocked,
                                            CallbackInfoReturnable<Building.validationResult> cir) {
         Building self = (Building) (Object) this;
-        String type = self.getType();
-        if (type == null) return;
-        boolean isOpenAir = type.startsWith("dock_") || EnclosureTypeIndex.isEnclosureType(type);
-        if (!isOpenAir) return;
+        if (!SyntheticBuildingTypes.isSynthetic(self.getType())) return;
         self.validateBlocks(world);
         Building.validationResult result = self.getBlockPosStream().findAny().isEmpty()
                 ? Building.validationResult.TOO_SMALL

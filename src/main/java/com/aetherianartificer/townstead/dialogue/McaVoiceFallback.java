@@ -23,9 +23,9 @@ public final class McaVoiceFallback {
 
     public static MutableComponent build(VillagerEntityMCA villager, Player target, String phraseId, Object[] params) {
         try {
-            // Player name for %1$s. MCA prefers a family-tree nickname via Messenger.getName, but that
-            // static isn't on every MCA compile jar (forge libs lag), so use the display name on both.
-            String targetName = target.getName().getString();
+            // Player name for %1$s: the family-tree name the player set in MCA, matching MCA's own
+            // Messenger.getName (mirrored in McaPlayerName to dodge the compile-jar drift on that static).
+            String targetName = McaPlayerName.of(target);
             String genderString = "";
             if (target instanceof ServerPlayer serverPlayer) {
                 genderString = "#G" + PlayerSaveData.get(serverPlayer).getGender().name().toLowerCase(Locale.ROOT) + ".";

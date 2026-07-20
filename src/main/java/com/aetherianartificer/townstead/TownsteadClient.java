@@ -47,7 +47,22 @@ public final class TownsteadClient {
     public static void registerConfigScreen(ModContainer modContainer) {
         //? if neoforge {
         modContainer.registerExtensionPoint(IConfigScreenFactory.class,
-                (IConfigScreenFactory) (container, parent) -> new ConfigurationScreen(container, parent));
+                (IConfigScreenFactory) (container, parent) -> new ConfigurationScreen(container, parent,
+                        (screen, type, config, title) -> new ConfigurationScreen.ConfigurationSectionScreen(
+                                screen, type, config, title) {
+                            @Override
+                            protected Element createSection(String key,
+                                    com.electronwill.nightconfig.core.UnmodifiableConfig subconfig,
+                                    com.electronwill.nightconfig.core.UnmodifiableConfig subsection) {
+                                // The roots blocklists are server-admin lists of
+                                // resource-location ids, managed in the config file;
+                                // the GUI list editor is not a usable surface for them.
+                                if ("roots".equals(key)) {
+                                    return null;
+                                }
+                                return super.createSection(key, subconfig, subsection);
+                            }
+                        }));
         if (!hooksRegistered) {
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onPlaySound);
             NeoForge.EVENT_BUS.addListener(TownsteadClient::onClientConnect);

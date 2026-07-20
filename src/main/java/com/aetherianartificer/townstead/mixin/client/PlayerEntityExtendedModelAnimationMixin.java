@@ -1,7 +1,9 @@
 package com.aetherianartificer.townstead.mixin.client;
 
 import com.aetherianartificer.townstead.client.animation.McaAnimationBridge;
+import com.aetherianartificer.townstead.client.animation.emote.loader.EmoteReflection;
 import net.conczin.mca.client.model.PlayerEntityExtendedModel;
+import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -10,6 +12,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PlayerEntityExtendedModel.class)
 public abstract class PlayerEntityExtendedModelAnimationMixin<T extends LivingEntity> {
+    // Runs BEFORE super.setupAnim (which is where playerAnim applies emote bend). playerAnim's
+    // BipedEntityModelMixin registers bend mutators on this model's parts once, at construction.
+    // When EMF is active it wraps the parts and swaps each one's active cube per model variant —
+    // and EmfCompat forces EMF's vanilla variant during emotes, so the cube playerAnim registered
+    // on is no longer the active one. playerAnim's own emote bend then calls
+    // getAndActivateMutator("bend") on a cube with no mutator and NPEs (crash-2026-07-17_11.15.27).
+    // Re-register on whichever cube is active this frame; idempotent, no-op without bendylib.
+    // This is the same self-healing re-init Townstead's own applyBend does for villager layers.
+    //? if neoforge {
+    @Inject(method = "setupAnim", remap = false, at = @At("HEAD"))
+    //?} else {
+    /*@Inject(method = "m_6973_", remap = false, at = @At("HEAD"))
+    *///?}
+    private void townstead$ensureBendMutators(
+            T player,
+            float limbAngle,
+            float limbDistance,
+            float animationProgress,
+            float headYaw,
+            float headPitch,
+            CallbackInfo ci
+    ) {
+        if (!EmoteReflection.isBendylibAvailable()) return;
+        HumanoidModel<?> model = (HumanoidModel<?>) (Object) this;
+        EmoteReflection.attachBendMutator(model.body);
+        EmoteReflection.attachBendMutator(model.leftArm);
+        EmoteReflection.attachBendMutator(model.rightArm);
+        EmoteReflection.attachBendMutator(model.leftLeg);
+        EmoteReflection.attachBendMutator(model.rightLeg);
+    }
+
     //? if neoforge {
     @Inject(method = "setupAnim", remap = false, at = @At("TAIL"))
     //?} else {

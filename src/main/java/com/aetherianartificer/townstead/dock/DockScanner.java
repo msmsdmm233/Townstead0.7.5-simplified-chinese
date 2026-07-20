@@ -62,7 +62,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *     - 12+ railing blocks
  *
  * Tier thresholds mirror the dock_l2 / dock_l3 JSON block recipes exactly so
- * the Add / Refresh / Upgrade paths (which consult DockScanner and the JSON
+ * the Add / Refresh paths (which consult DockScanner and the JSON
  * separately) agree on the tier a given structure qualifies for.
  *
  * Bounds used for scanning are the plank component's axis-aligned box expanded
@@ -122,8 +122,8 @@ public final class DockScanner {
 
     // Tier thresholds — deliberately mirror the dock_l2 / dock_l3 JSON recipes
     // block-for-block. Keeping DockScanner and the JSON requirements in lockstep
-    // means Add Building, Refresh, and Upgrade Building all reach the same
-    // conclusion about which tier the dock qualifies for.
+    // means Add Building and Refresh both reach the same conclusion about
+    // which tier the dock qualifies for.
     private static final int T2_MIN_PLANKS = 24;
     private static final int T2_MIN_LIGHTS = 3;
     private static final int T2_MIN_RAILING = 6;
