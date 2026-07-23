@@ -1,0 +1,26 @@
+{
+  "gui.townstead_calendar.title": "日历",
+  "gui.townstead_calendar.no_data": "正在加载日历……",
+  "gui.townstead_calendar.header.year_with_suffix": "%s %s",
+  "gui.townstead_calendar.button.today": "今天",
+  "gui.townstead_calendar.button.stamp": "图章",
+  "gui.townstead_calendar.stamp.title": "图章",
+  "gui.townstead_calendar.stamp.visibility": "可见性",
+  "gui.townstead_calendar.stamp.visibility.tooltip": "私人图章仅您可见。公共图章所有人可见。",
+  "gui.townstead_calendar.stamp.public": "公共",
+  "gui.townstead_calendar.stamp.private": "私人",
+  "gui.townstead_calendar.stamp.caption": "说明文字",
+  "gui.townstead_calendar.stamp.delete": "删除图章",
+  "gui.townstead_calendar.stamp.placing": "选择一个图章，然后点击某天",
+  "gui.townstead_calendar.stamp.editing": "拖动移动；编辑说明文字，按 Enter 保存",
+  "gui.townstead_calendar.stamp.no_packs": "未安装图章包",
+  "gui.townstead_calendar.stamp.no_caption": "（无说明）",
+  "gui.townstead_calendar.stamp.selected": "已选：%s",
+  "gui.townstead_calendar.stamp.missing_art": "缺少图章图案",
+  "gui.townstead_calendar.stamp.missing_art_from": "缺少来自“%s”的图案",
+
+  "townstead.calendar.format.long":         "%2$s %1$s，%3$s",
+  "townstead.calendar.format.medium":       "%2$s %1$s，%3$s",
+  "townstead.calendar.format.short":        "%6$s/%1$s/%3$s",
+  "townstead.calendar.format.with_weekday": "%4$s，%2$s %1$s，%3$s"
+}
